@@ -87,18 +87,17 @@ def solver_solve(solver : Glucose4, timeout : float):
         timer = Timer(timeout, interrupt, [solver])
         timer.start()
     
-    res = solver.solve_limited(expect_interrupt=True)
+    res = solver.solve()
 
     if timeout != -1:
         timer.cancel()
 
     return res
 
-def bisim(A : Structure, sigma : Signature, P : list[int], N: list[int], max_k) -> tuple[Structure, list[int], list[int]]:
+def bisim(A : Structure, sigma : Signature, P : list[int], N: list[int], max_k: int) -> tuple[Structure, list[int], list[int]]:
 
-    color_register = {}
-
-    base_color: dict[int, int] = {}
+    color_register: dict[Any, int] = {}
+    color: dict[int, int] = {}
 
     for i in range(A.max_ind):
         tp: list[str] = []
@@ -108,15 +107,14 @@ def bisim(A : Structure, sigma : Signature, P : list[int], N: list[int], max_k) 
         tpf = frozenset(tp)
         if tpf not in color_register:
             color_register[tpf] = len(color_register)
-        base_color[i] = color_register[tpf] 
+        color[i] = color_register[tpf] 
 
-    color: dict[int, int] = base_color
     for i in range(max_k):
         ncolor = {}
         for a in range(A.max_ind):
-            tp2 : set[tuple[str, int]] = { ("_here", base_color[a]) }
+            tp2 : list[tuple[int, str]] = [ (color[a], "") ]
             for (b, r) in A.rn_ext[a]:
-                tp2.add((r, color[b]))
+                tp2.append((color[b], r))
             tpf2 = frozenset(tp2)
 
             if tpf2 not in color_register:
@@ -125,34 +123,39 @@ def bisim(A : Structure, sigma : Signature, P : list[int], N: list[int], max_k) 
 
         color = ncolor
 
-    inv_color_register = {}
-    for (p, c) in color_register.items():
-        inv_color_register[c] = p
-
-    active_colors: set[int] = set()
+    color2class: dict[int, int] = {}
     for a in range(A.max_ind):
-        active_colors.add(color[a])
-    active_colors_ls = list(active_colors)
+        if color[a] not in color2class:
+            color2class[color[a]] = len(color2class)
 
-    B = Structure(len(active_colors), {}, {}, {}, A.nsmap)
+    B = Structure(len(color2class), {}, {}, {}, A.nsmap)
 
     for cn in sigma[0]:
         B.cn_ext[cn] = set()
         for a in A.cn_ext[cn]:
-            B.cn_ext[cn].add(active_colors_ls.index(color[a]))
+            B.cn_ext[cn].add(color2class[color[a]])
 
     for a in range(A.max_ind):
-        ca = active_colors_ls.index(color[a])
+        ca = color2class[color[a]]
         if ca not in B.rn_ext:
             B.rn_ext[ca] = set()
         for (b, r) in A.rn_ext[a]:
-            cb = active_colors_ls.index(color[b])
+            cb = color2class[color[b]]
             B.rn_ext[ca].add((cb, r))
 
     print("== Bisimulation reduction reduced from size {} to size {}".format(A.max_ind, B.max_ind))
 
-    return B, list( active_colors_ls.index(color[p]) for p in P), list(active_colors_ls.index(color[n]) for n in N)
+    return B, list( color2class[color[p]] for p in P), list(color2class[color[n]] for n in N)
 
+def cn_types(A : Structure, sigma : Signature) -> set[frozenset[str]]:
+    res: set[frozenset[str]] = set()
+    for i in range(A.max_ind):
+        tp: list[str] = []
+        for cn in sigma[0]:
+            if i in A.cn_ext[cn]:
+                tp.append(cn)
+        res.add(frozenset(tp))
+    return res
 
 class STreeNode():
     def __init__(self, node, children):
@@ -213,8 +216,8 @@ class FittingALC:
         self.op_b = ALC_OP_B.intersection(op)
         self.op_r = op.difference(ALC_OP_B)
         self.tree_node_symbols = dict()
-        self.types = self.cn_types()
-        self.vars = self._vars()
+        self.types = cn_types(self.A, self.sigma)
+        self.vars : dict[Any, int] = self._vars()
         self.n_op = len(op)        
         self.cov_p = len(P) if cov_p == -1 else cov_p
         self.cov_n = len(N) if cov_n == -1 else cov_n
@@ -534,15 +537,6 @@ class FittingALC:
     def solve_incr(self,max_k :int, start_k : int =1, return_string = False, timeout : float = -1):
         return self.solve_incr_approx(max_k, start_k, len(self.P) + len(self.N), timeout=timeout)
 
-    def cn_types(self) -> set[frozenset[str]]:
-        res: set[frozenset[str]] = set()
-        for i in range(self.A.max_ind):
-            tp: list[str] = []
-            for cn in self.sigma[0]:
-                if i in self.A.cn_ext[cn]:
-                    tp.append(cn)
-            res.add(frozenset(tp))
-        return res
 
     def solve_approx(self, k: int, min_n: int, timeout : float = -1):
         time_start = time.perf_counter()
