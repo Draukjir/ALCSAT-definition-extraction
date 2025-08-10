@@ -94,6 +94,64 @@ def solver_solve(solver : Glucose4, timeout : float):
 
     return res
 
+def bisim(A : Structure, sigma : Signature, P : list[int], N: list[int], max_k) -> tuple[Structure, list[int], list[int]]:
+
+    color_register = {}
+
+    base_color: dict[int, int] = {}
+
+    for i in range(A.max_ind):
+        tp: list[str] = []
+        for cn in sigma[0]:
+            if i in A.cn_ext[cn]:
+                tp.append(cn)
+        tpf = frozenset(tp)
+        if tpf not in color_register:
+            color_register[tpf] = len(color_register)
+        base_color[i] = color_register[tpf] 
+
+    color: dict[int, int] = base_color
+    for i in range(max_k):
+        ncolor = {}
+        for a in range(A.max_ind):
+            tp2 : set[tuple[str, int]] = { ("_here", base_color[a]) }
+            for (b, r) in A.rn_ext[a]:
+                tp2.add((r, color[b]))
+            tpf2 = frozenset(tp2)
+
+            if tpf2 not in color_register:
+                color_register[tpf2] = len(color_register)
+            ncolor[a] = color_register[tpf2] 
+
+        color = ncolor
+
+    inv_color_register = {}
+    for (p, c) in color_register.items():
+        inv_color_register[c] = p
+
+    active_colors: set[int] = set()
+    for a in range(A.max_ind):
+        active_colors.add(color[a])
+    active_colors_ls = list(active_colors)
+
+    B = Structure(len(active_colors), {}, {}, {}, A.nsmap)
+
+    for cn in sigma[0]:
+        B.cn_ext[cn] = set()
+        for a in A.cn_ext[cn]:
+            B.cn_ext[cn].add(active_colors_ls.index(color[a]))
+
+    for a in range(A.max_ind):
+        ca = active_colors_ls.index(color[a])
+        if ca not in B.rn_ext:
+            B.rn_ext[ca] = set()
+        for (b, r) in A.rn_ext[a]:
+            cb = active_colors_ls.index(color[b])
+            B.rn_ext[ca].add((cb, r))
+
+    print("== Bisimulation reduction reduced from size {} to size {}".format(A.max_ind, B.max_ind))
+
+    return B, list( active_colors_ls.index(color[p]) for p in P), list(active_colors_ls.index(color[n]) for n in N)
 
 
 class STreeNode():
@@ -582,6 +640,8 @@ class FittingALC:
         best_sol: STreeNode = STreeNode.FromDict({ (0, d_op[TOP]) : []}, (0, d_op[TOP]))
         best_acc = 0
         dt = time.perf_counter() - time_start
+
+        # self.A, self.P, self.N = bisim(self.A, self.sigma, self.P, self.N, max_k)
 
         while self.k <= max_k and (dt < timeout or timeout == -1) and best_acc < 1.0:
             remaining_time = -1
