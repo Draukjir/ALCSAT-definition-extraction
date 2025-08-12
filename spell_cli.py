@@ -20,35 +20,35 @@ L_OP = {
 def main():
     parser = argparse.ArgumentParser(prog="SPELL")
 
-    parser.add_argument(
+    _ = parser.add_argument(
         "kb_owl_file", help="path to a OWL knowledge base in RDF/XML format"
     )
-    parser.add_argument(
+    _ = parser.add_argument(
         "pos_example_list", help="path to a textfile containing positive examples"
     )
-    parser.add_argument(
+    _ = parser.add_argument(
         "neg_example_list", help="path to a textfile containing negative examples"
     )
 
-    parser.add_argument("--language", type=str, default="el",choices=LANGUAGES, help = "language to learn in, el: {exists,and}, el_alcsat: {exists,and}, fl0: {forall,and}, ex-or: {exists,or}, all-or: {forall,or}, elu: {exists,and,or}, alc: {forall,exists,and,or,neg} (default=el)")
+    _ = parser.add_argument("--language", type=str, default="el",choices=LANGUAGES, help = "language to learn in, el: {exists,and}, el_alcsat: {exists,and}, fl0: {forall,and}, ex-or: {exists,or}, all-or: {forall,or}, elu: {exists,and,or}, alc: {forall,exists,and,or,neg} (default=el)")
 
-    parser.add_argument("--max_size", type=int, default=12, help="(default=12)")
-    parser.add_argument(
+    _ = parser.add_argument("--max_size", type=int, default=12, help="(default=12)")
+    _ = parser.add_argument(
         "--mode",
         choices=["exact", "neg_approx", "full_approx"],
         default=mode.exact,
         help="(default=exact)",
     )
 
-    parser.add_argument(
+    _ = parser.add_argument(
         "--output", type=str, help="write best fitting SPARQL query to a file"
     )
-    parser.add_argument(
+    _ = parser.add_argument(
         "--timeout", type=float, default=-1, help="in seconds (default=-1)"
     )
 
-    parser.add_argument("--disable_tree_templates", action='store_true', help ='(alcsat only) disables optimization that precomputes tree templates')
-    parser.add_argument("--disable_type_encoding", action='store_true', help = '(alcsat only) disables optimization that replaces concept names with types (internally)')
+    _ = parser.add_argument("--disable_tree_templates", action='store_true', help ='(alcsat only) disables optimization that precomputes tree templates')
+    _ = parser.add_argument("--disable_type_encoding", action='store_true', help = '(alcsat only) disables optimization that replaces concept names with types (internally)')
 
     args = parser.parse_args()
 
