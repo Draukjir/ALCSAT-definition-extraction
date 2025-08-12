@@ -1,10 +1,7 @@
-from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
-import math
+from dataclasses import dataclass
 from threading import Timer
-import time, os
-from asciitree import LeftAligned
-from asciitree.drawing import BoxStyle
-from collections import OrderedDict as OD
+import time
+from typing import Any
 
 
 from pysat.card import CardEnc, EncType, ITotalizer
@@ -21,23 +18,10 @@ from .fitting import (
     determine_relevant_symbols,
 )
 
-TYPE_ENCODING: bool = True
-TREE_TEMPLATES: bool = True
 # There should be 2079 trees with 13 nodes. Seems like a sensible limit
 # BUT: experiments suggest that when finding a single path of size k, there is a slowdown for 11 and above
 # Indeed, 10 seems to be a local minimum
 TREE_TEMPLATE_LIMIT = 10
-
-class bcolors:
-    HEADER = '\033[95m'
-    OKBLUE = '\033[94m'
-    OKCYAN = '\033[96m'
-    OKGREEN = '\033[92m'
-    WARNING = '\033[93m'
-    FAIL = '\033[91m'
-    ENDC = '\033[0m'
-    BOLD = '\033[1m'
-    UNDERLINE = '\033[4m'
 
 d_op = {
      0 : "TOP",
@@ -47,14 +31,6 @@ d_op = {
      4: "OR",
      5: "EX",
      6: "ALL"
-}
-d_var_names = {
-    0:"X",
-    1:"Y",
-    2:"Z",
-    4:"V",
-    5:"L",
-    6:"T"
 }
 TOP = 0
 BOT = 1
@@ -157,47 +133,38 @@ def cn_types(A : Structure, sigma : Signature) -> set[frozenset[str]]:
         res.add(frozenset(tp))
     return res
 
-class STreeNode():
-    def __init__(self, node, children):
-        self.node = node
-        self.children = children
-    
-    def _to_OD_c(self):
-            if not self.children:
-                return OD()
-            else:
-                return OD(list(map(lambda x : (x.node,x._to_OD_c()),self.children)))
-            
-    def _to_OD(self):                
-        return OD([(self.node,self._to_OD_c())])
+@dataclass
+class STree():
+    label : str
+    children : list["STree"]
 
-    def to_asciitree(self):
-        tr = LeftAligned()
-        tr.draw = BoxStyle(node_label = lambda x : x[1])
-        return tr(self._to_OD())
-    
+    def to_tree_int(self) -> list[str]:
+        res = [self.label]
+        for c in self.children:
+            cs = c.to_tree_int()
+            res.append(" +-- " + cs[0])
+            res.extend([ "    " + s for s in cs[1:]])
+        return res
+
+    def to_tree(self) -> str:
+        return "\n".join(self.to_tree_int())
+
     def to_string(self):                
-        ns = str(self.node[1])
+        ns = str(self.label)
         if len(self.children) == 0:
             return ns
         elif len(self.children) == 1:
-            if self.node[1].startswith("all"):
+            if self.label.startswith("all"):
                 nss = f"∀.{ns[4:]}"
-            elif self.node[1].startswith("ex"):
+            elif self.label.startswith("ex"):
                 nss = f"∃.{ns[3:]}"
             else:
                 nss = ns
             return f"{nss} {self.children[0].to_string()}"
         elif len(self.children) == 2:
-            return f"({self.children[0].to_string()} {self.node[1]} {self.children[1].to_string()})" 
+            return f"({self.children[0].to_string()} {self.label} {self.children[1].to_string()})" 
         else:
             return ""
-    
-    @classmethod
-    def FromDict(cls,dict,root) -> "STreeNode" :
-        return cls(root, list(map(lambda x : cls.FromDict(dict, x), dict[root])))
-
-
 
 
 
@@ -215,7 +182,6 @@ class FittingALC:
         self.op = op
         self.op_b = ALC_OP_B.intersection(op)
         self.op_r = op.difference(ALC_OP_B)
-        self.tree_node_symbols = dict()
         self.types = cn_types(self.A, self.sigma)
         self.vars : dict[Any, int] = self._vars()
         self.n_op = len(op)        
@@ -229,27 +195,21 @@ class FittingALC:
         d = dict()
         i = 1
         d[X,TOP] = i
-        self.tree_node_symbols[i] = d_op[TOP]
         d[X,BOT] = i * self.k + 1
-        self.tree_node_symbols[i * self.k+1] = d_op[BOT]
         i+=1
         for cn in self.sigma[0]:
             d[X,cn] = i * self.k+1
-            self.tree_node_symbols[i * self.k+1] = cn
             i += 1
         for op in self.op_b:
             d[X,op]=i * self.k+1
-            self.tree_node_symbols[i * self.k+1] = d_op[op]
             i+=1
         if EX in self.op:
             for c in self.sigma[1]:
                 d[X,EX,c] = i * self.k+1
-                self.tree_node_symbols[i * self.k+1] = f"ex.{c}"
                 i += 1
         if ALL in self.op:
             for c in self.sigma[1]:
                 d[X,ALL,c] = i * self.k+1
-                self.tree_node_symbols[i * self.k+1] = f"all.{c}"
                 i+=1
         for a in range(self.A.max_ind):
             d[Z,a] = i * self.k+1
@@ -567,71 +527,24 @@ class FittingALC:
                 print(f"Not satisfiable for k={self.k}, n={n}")
                 return best_accuracy, best_n, self.k, best_sol
 
-            best_sol = self._modelToTree()
-
+            best_sol = self.modelToTree()
             model_n = self._model_n()
 
             best_accuracy = model_n / (len(self.P) + len(self.N))
             best_n = model_n
             print(f"Satisfiable for k={self.k}, n={model_n}, acc={best_accuracy}")
-            print(best_sol.to_asciitree())
+            print(best_sol.to_tree())
             n = model_n + 1
             dt = time.perf_counter() - time_start
         
         return best_accuracy, best_n, self.k, best_sol
-
-    def solve_approx2(self, k: int, min_n: int, timeout : float = -1):
-            time_start = time.perf_counter()
-            self.k = k
-            n = max(len(self.P), len(self.N), min_n)
-            
-            dt = time.perf_counter() - time_start
-
-            best_sol = None
-            best_accuracy = 0
-            best_n = 0
-            
-            self.solver = Glucose4(incr=True)
-            self.vars = self._vars()
-            self._syn_tree_encoding()
-            self._evaluation_constraints()
-            self._symmetry_breaking()
-
-            self._fitting_constraints_approximate_incr_initial(len(self.P) + len(self.N))
-
-            while n <= len(self.P) + len(self.N) and (dt < timeout or timeout == -1):                
-                self._fitting_constraints_approximate_incr_increase(len(self.P) + len(self.N) - n)
-                
-                dt = time.perf_counter() - time_start
-                remaining_time = -1
-                if timeout != -1:
-                    remaining_time = timeout - dt
-
-                if not solver_solve(self.solver, remaining_time):
-                    print(f"Not satisfiable for k={self.k}, n={n}")
-                    self.totalizer.delete()
-                    return best_accuracy, best_n, self.k, best_sol
-
-                best_sol = self._modelToTree()
-
-                model_n = self._model_n()
-
-                best_accuracy = model_n / (len(self.P) + len(self.N))
-                best_n = model_n
-                print(f"Satisfiable for k={self.k}, n={model_n}, acc={best_accuracy}")
-                print(best_sol.to_asciitree())                
-                n = model_n+1
-                dt = time.perf_counter() - time_start
-            self.totalizer.delete()
-            return best_accuracy, best_n, self.k, best_sol
-    
 
 
     def solve_incr_approx(self, max_k : int , start_k : int =1, min_n: int = 1, timeout : float = -1):
         time_start = time.perf_counter()
         self.k = start_k
         n = max(len(self.P), len(self.N), min_n)
-        best_sol: STreeNode = STreeNode.FromDict({ (0, d_op[TOP]) : []}, (0, d_op[TOP]))
+        best_sol: STree = STree(d_op[TOP], [])
         best_acc = 0
         dt = time.perf_counter() - time_start
 
@@ -655,29 +568,10 @@ class FittingALC:
 
         return best_acc, self.k, best_sol
 
-    def printVariables(self):
-        if self.solver.get_model():
-            l = self.solver.get_model()                
-            for k,v in self.vars.items():
-                for i in range(self.k):
-                    s = f"{bcolors.FAIL}False{bcolors.ENDC}"
-                    if v+i in l:
-                        s = f"{bcolors.OKGREEN}True{bcolors.ENDC}" 
-                    if k[0] == X:
-                        try:
-                            print((d_var_names[k[0]],d_op[k[1]],v+i), f"Tree Node: {(v+i-1)%self.k }",s)
-                        except KeyError:
-                            print((d_var_names[k[0]],k[1],v+i), f"Tree Node: {(v+i-1)%self.k }",s)
-                    elif k[0] == V:
-                        print((d_var_names[k[0]],k[1:],f"edge: ({k[2]},{i})",v+i),s)
-                    else:
-                        print((d_var_names[k[0]],k[1:],v+i),s)
-                    if k[0] == Y:
-                        print((d_var_names[k[0]],k[1:],v+i),s)
-
     def _model_n(self)-> int:
         # Return the number of positive/negative examples that is claimed to be covered by a model
         m = self.solver.get_model()
+        assert isinstance(m, list)
 
         res: int = 0
         for p in self.P:
@@ -689,29 +583,44 @@ class FittingALC:
                 res += 1
         return res
 
+    def nodelabel(self, i : int) -> str:
+        m = self.solver.get_model()
+        assert isinstance(m, list)
+        if (self.vars[X, TOP] + i) in m:
+            return d_op[TOP]
+        if (self.vars[X, BOT] + i) in m:
+            return d_op[BOT]
+        for cn in self.sigma[0]:
+            if (self.vars[X, cn] + i) in m:
+                return cn
+        for op in self.op_b:
+            if (self.vars[X, op] + i) in m:
+                return d_op[op]
+        if EX in self.op:
+            for r in self.sigma[1]:
+                if (self.vars[X, EX, r] + i) in m:
+                    return f"ex.{r}"
+        if ALL in self.op:
+            for r in self.sigma[1]:
+                if (self.vars[X, ALL, r] + i) in m:
+                    return f"all.{r}"
+        assert False
 
-    def _modelToTree(self) -> STreeNode:
-            m = self.solver.get_model()
-            edges = {i : [] for i in range(self.k)}
-            x_symbols = [None] * self.k
+    def modelToTree(self, i = 0) -> STree:
+        m = self.solver.get_model()
+        assert isinstance(m, list)
 
-            for x in m[:self.vars[Z,0]-1]:
-                if x>0:
-                    i = (x-1)%(self.k)                
-                    x_symbols[i] = self.tree_node_symbols[x - i]
+        label = self.nodelabel(i)
 
-            for i in range(self.k):
-                for j in range(i + 1, self.k):
-                    if (self.vars[V, 1, i] + j) in m:
-                        edges[i].append(j)
-                    elif j < self.k - 1 and (self.vars[V, 2, i] + j) in m:
-                        edges[i].append(j)
-                        edges[i].append(j + 1)
 
-            edges_labeled = { (k,x_symbols[k]) : list(map(lambda x : (x,x_symbols[x]), v)) for k,v in edges.items() }        
-            t = STreeNode.FromDict(edges_labeled,(0,x_symbols[0]))        
-            return t
-
+        children: list[STree] = []
+        for j in range(i + 1, self.k):
+            if (self.vars[V, 1, i] + j) in m:
+                children.append(self.modelToTree(j))
+            if j < self.k - 1 and (self.vars[V, 2, i] + j) in m:
+                children.append(self.modelToTree(j))
+                children.append(self.modelToTree(j + 1))
+        return STree(label, children)
 
 
 
