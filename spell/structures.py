@@ -23,8 +23,10 @@ namespaces = {
     "rdfs": "http://www.w3.org/2000/01/rdf-schema#",
 }
 
-Signature = tuple[list[str], list[str]]
-
+@dataclass(slots=True)
+class Signature:
+    conceptnames : list[str]
+    rolenames : list[str]
 
 @dataclass(slots=True)
 class Structure:
@@ -37,14 +39,6 @@ class Structure:
 
 def ind(A: Structure) -> range:
     return range(A.max_ind)
-
-
-def conceptnames(sigma: Signature) -> list[str]:
-    return sigma[0]
-
-
-def rolenames(sigma: Signature) -> list[str]:
-    return sigma[1]
 
 
 def conceptname_ext(A: Structure, cn: str) -> set[int]:

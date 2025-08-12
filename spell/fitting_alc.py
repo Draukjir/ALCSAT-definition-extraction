@@ -77,7 +77,7 @@ def bisim(A : Structure, sigma : Signature, P : list[int], N: list[int], max_k: 
 
     for i in range(A.max_ind):
         tp: list[str] = []
-        for cn in sigma[0]:
+        for cn in sigma.conceptnames:
             if i in A.cn_ext[cn]:
                 tp.append(cn)
         tpf = frozenset(tp)
@@ -106,7 +106,7 @@ def bisim(A : Structure, sigma : Signature, P : list[int], N: list[int], max_k: 
 
     B = Structure(len(color2class), {}, {}, {}, A.nsmap)
 
-    for cn in sigma[0]:
+    for cn in sigma.conceptnames:
         B.cn_ext[cn] = set()
         for a in A.cn_ext[cn]:
             B.cn_ext[cn].add(color2class[color[a]])
@@ -127,7 +127,7 @@ def cn_types(A : Structure, sigma : Signature) -> set[frozenset[str]]:
     res: set[frozenset[str]] = set()
     for i in range(A.max_ind):
         tp: list[str] = []
-        for cn in sigma[0]:
+        for cn in sigma.conceptnames:
             if i in A.cn_ext[cn]:
                 tp.append(cn)
         res.add(frozenset(tp))
@@ -197,18 +197,18 @@ class FittingALC:
         d[X,TOP] = i
         d[X,BOT] = i * self.k + 1
         i+=1
-        for cn in self.sigma[0]:
+        for cn in self.sigma.conceptnames:
             d[X,cn] = i * self.k+1
             i += 1
         for op in self.op_b:
             d[X,op]=i * self.k+1
             i+=1
         if EX in self.op:
-            for c in self.sigma[1]:
+            for c in self.sigma.rolenames:
                 d[X,EX,c] = i * self.k+1
                 i += 1
         if ALL in self.op:
-            for c in self.sigma[1]:
+            for c in self.sigma.rolenames:
                 d[X,ALL,c] = i * self.k+1
                 i+=1
         for a in range(self.A.max_ind):
@@ -243,7 +243,7 @@ class FittingALC:
 
     def _syn_tree_encoding(self):
         for i in range(self.k):            
-            x_vars = [self.vars[X,o]+i for o in self.op_b] + [self.vars[X,o,r]+i for o in self.op_r for r in self.sigma[1]] + [self.vars[X,cn] +i for cn in self.sigma[0]] + [self.vars[X,TOP]+i,self.vars[X,BOT]+i]
+            x_vars = [self.vars[X,o]+i for o in self.op_b] + [self.vars[X,o,r]+i for o in self.op_r for r in self.sigma.rolenames] + [self.vars[X,cn] +i for cn in self.sigma.conceptnames] + [self.vars[X,TOP]+i,self.vars[X,BOT]+i]
 
             for clause in CardEnc.equals(lits = x_vars, encoding = EncType.pairwise):
                 self.solver.add_clause(clause)
@@ -255,7 +255,7 @@ class FittingALC:
             for clause in CardEnc.atmost(lits = v_vars, encoding = EncType.pairwise):
                 self.solver.add_clause(clause)
 
-            for r in self.sigma[1]:
+            for r in self.sigma.rolenames:
                 for op in self.op_r:
                     self.solver.add_clause([-(self.vars[X,op,r]+i)] + [self.vars[V,1,i]+j for j in range(i+1,self.k)])
                     for j in range(i + 1, self.k - 1):
@@ -272,14 +272,14 @@ class FittingALC:
                 for j in range(i + 1, self.k):
                     self.solver.add_clause([-(self.vars[X,op]+i), -(self.vars[V,1,i]+j)])
 
-            for cn in self.sigma[0]:
+            for cn in self.sigma.conceptnames:
 
                 if self.type_encoding:
                     # Is a leaf
                     self.solver.add_clause((-(self.vars[X,cn]+i),(self.vars[L] + i)))
 
             for j in range(i + 1, self.k):
-                for cn in self.sigma[0]:
+                for cn in self.sigma.conceptnames:
                     self.solver.add_clause((-(self.vars[X,cn]+i),-(self.vars[V,1, i]+j)))
                     self.solver.add_clause((-(self.vars[X,cn]+i),-(self.vars[V,2, i]+j)))
 
@@ -407,7 +407,7 @@ class FittingALC:
                         self.solver.add_clause((-(self.vars[X,OR]+i), -(self.vars[Z,a]+i), -(self.vars[V,2,i]+j), (self.vars[Z, a] + j + 1), (self.vars[Z, a] + j)))
                 
                 if ALL in self.op_r:
-                    for r in self.sigma[1]:
+                    for r in self.sigma.rolenames:
                         successors = [ b for (b, p) in self.A.rn_ext[a] if p == r]
                         if len(successors) == 0:
                             # Optimization: most individuals don't have successors
@@ -419,7 +419,7 @@ class FittingALC:
                                     self.solver.add_clause((-(self.vars[X,ALL,r]+i), -(self.vars[Z,a]+i), -(self.vars[V, 1, i] + j), self.vars[Z, b] + j))
 
                 if EX in self.op_r:
-                    for r in self.sigma[1]:
+                    for r in self.sigma.rolenames:
                         successors = [ b for (b, p) in self.A.rn_ext[a] if p == r]
                         if len(successors) == 0:
                             # Optimization: most individuals don't have successors
@@ -435,7 +435,7 @@ class FittingALC:
 
 
         if not self.type_encoding:
-            for cn in self.sigma[0]:
+            for cn in self.sigma.conceptnames:
                 for i in range(self.k):
                     for a in range(self.A.max_ind):                    
                         if a in self.A.cn_ext[cn]:                                            
@@ -446,7 +446,7 @@ class FittingALC:
         if self.type_encoding:
             for i in range(self.k):
                 for tp in self.types:
-                    for cn in self.sigma[0]:
+                    for cn in self.sigma.conceptnames:
                         if cn in tp:
                             self.solver.add_clause((-(self.vars[X, cn] + i), self.vars[X, tp] + i))
                         if cn not in tp: 
@@ -454,7 +454,7 @@ class FittingALC:
 
 
             for a in range(self.A.max_ind):
-                tp = frozenset({ cn for cn in self.sigma[0] if a in self.A.cn_ext[cn]})
+                tp = frozenset({ cn for cn in self.sigma.conceptnames if a in self.A.cn_ext[cn]})
                 assert tp in self.types
                 for i in range(self.k):
                     self.solver.add_clause( ( - (self.vars[X, tp] + i),   self.vars[Z, a] + i))
@@ -590,18 +590,18 @@ class FittingALC:
             return d_op[TOP]
         if (self.vars[X, BOT] + i) in m:
             return d_op[BOT]
-        for cn in self.sigma[0]:
+        for cn in self.sigma.conceptnames:
             if (self.vars[X, cn] + i) in m:
                 return cn
         for op in self.op_b:
             if (self.vars[X, op] + i) in m:
                 return d_op[op]
         if EX in self.op:
-            for r in self.sigma[1]:
+            for r in self.sigma.rolenames:
                 if (self.vars[X, EX, r] + i) in m:
                     return f"ex.{r}"
         if ALL in self.op:
-            for r in self.sigma[1]:
+            for r in self.sigma.rolenames:
                 if (self.vars[X, ALL, r] + i) in m:
                     return f"all.{r}"
         assert False

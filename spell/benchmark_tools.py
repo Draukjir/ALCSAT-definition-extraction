@@ -2,7 +2,7 @@ import functools
 import os
 import random
 import time
-from typing import FrozenSet, Generator, Union
+from typing import Generator, Union
 
 from .fitting import non_empty_symbols, solve_incr, mode
 from .structures import (
@@ -10,12 +10,10 @@ from .structures import (
     Signature,
     Structure,
     conceptname_ext,
-    conceptnames,
     copy_structure,
     generate_all_trees,
     ind,
     map_ind_name,
-    rolenames,
     solution2sparql,
     structure_from_owl,
 )
@@ -23,7 +21,7 @@ from .structures import (
 ROBOT_PATH = "{}/../robot/robot".format(os.path.dirname(os.path.realpath(__file__)))
 ROBOT_JAVA_ARGS = "-Xmx40G"
 
-Concept = FrozenSet[tuple[str, Union[None, "Concept"]]]
+Concept = frozenset[tuple[str, Union[None, "Concept"]]]
 
 
 def drop_leave_atom(c: Concept) -> list[Concept]:
@@ -53,12 +51,12 @@ def weaken_concept(concept: Concept, steps: int) -> set[Concept]:
 
 def add_random_cn(A: Structure, sigma: Signature) -> Structure:
     a = random.randrange(A.max_ind)
-    cn = random.choice(conceptnames(sigma))
+    cn = random.choice(sigma.conceptnames)
 
     attempts = 0
     while a in conceptname_ext(A, cn) and attempts < 100:
         a = random.randrange(A.max_ind)
-        cn = random.choice(conceptnames(sigma))
+        cn = random.choice(sigma.conceptnames)
         attempts += 1
 
     A2 = copy_structure(A)
@@ -73,7 +71,7 @@ def random_concept(size: int, sigma: Signature) -> Structure:
 
     # Make sure that we don't have more concept assertions than ways to apply concept assertions
     while (
-        concept_assertions > (edges + 1) * len(conceptnames(sigma))
+        concept_assertions > (edges + 1) * len(sigma.conceptnames)
         or concept_assertions < edges + 1
     ):
         edges = random.randrange(int(size * 0.80))  # 40% edges, 60% concept assertions
@@ -88,17 +86,17 @@ def random_concept(size: int, sigma: Signature) -> Structure:
         rasserts[i] = set()
 
     for edge in range(edges):
-        rolename = random.choice(rolenames(sigma))
+        rolename = random.choice(sigma.rolenames)
         rasserts[tree[edge]].add((edge + 1, rolename))
 
     casserts = {}
-    for cn in conceptnames(sigma):
+    for cn in sigma.conceptnames:
         casserts[cn] = set()
 
     # Generate distinct concept assertions
     no_casserts = 0
     while no_casserts < concept_assertions:
-        cn = random.choice(conceptnames(sigma))
+        cn = random.choice(sigma.conceptnames)
         ind = random.randrange(edges + 1)
         if ind not in casserts[cn]:
             casserts[cn].add(ind)
@@ -195,7 +193,7 @@ def sparql2struct(sparql: str) -> Structure:
     return b.A
 
 
-def conj2string(rn: str, d: Union[None, Concept]) -> str:
+def conj2string(rn: str, d: None|Concept) -> str:
     if d is None:
         return "{}".format(rn)
     if len(d) > 1:
@@ -213,13 +211,13 @@ def concept2string(concept: Concept) -> str:
 
 
 @functools.cache
-def number_of_vars(c: Union[None, Concept]) -> int:
+def number_of_vars(c: None|Concept) -> int:
     if c is None:
         return 0
     return 1 + sum([number_of_vars(d) for (rn, d) in c])
 
 
-def concept_depth(c: Union[None, Concept]) -> int:
+def concept_depth(c: None|Concept) -> int:
     if c is None:
         return 0
     if len(c) == 0:
@@ -706,7 +704,7 @@ def construct_owl_from_structure(filename, A: Structure):
     reverse_nsmap = {ns: key for (key, ns) in A.nsmap.items() if key != None}
 
     rev_cns = {a: set() for a in ind(A)}
-    for cn in conceptnames(sigma):
+    for cn in sigma.conceptnames:
         for a in conceptname_ext(A, cn):
             rev_cns[a].add(cn)
 
@@ -722,10 +720,10 @@ def construct_owl_from_structure(filename, A: Structure):
             '<owl:Ontology rdf:about="{}"/>\n'.format(A.nsmap[None].replace("#", ""))
         )
 
-        for cn in conceptnames(sigma):
+        for cn in sigma.conceptnames:
             file.write('<owl:Class rdf:about="{}"/>\n'.format(encode(cn)))
 
-        for rn in rolenames(sigma):
+        for rn in sigma.rolenames:
             file.write('<owl:ObjectProperty rdf:about="{}"/>\n'.format(encode(rn)))
 
         for a in ind(A):
@@ -760,23 +758,23 @@ def construct_owl_from_concepts(
     pos_inds: list[str] = []
     neg_inds: list[str] = []
 
-    sigma: Signature = ([], [])
+    sigma: Signature = Signature([], [])
     for p in ps:
         sign = non_empty_symbols(concept2structure(p))
 
-        sigma = (list(set(sigma[0]) | set(sign[0])), list(set(sigma[1]) | set(sign[1])))
+        sigma = Signature(list(set(sigma.conceptnames) | set(sign.conceptnames)), list(set(sigma.rolenames) | set(sign.rolenames)))
 
     with open(filename, "w") as file:
         file.write(
             '<?xml version="1.0"?> \n <rdf:RDF xmlns="urn:absolute:test#" xml:base="urn:absolute:test" xmlns:owl="http://www.w3.org/2002/07/owl#" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:xml="http://www.w3.org/XML/1998/namespace" xmlns:xsd="http://www.w3.org/2001/XMLSchema#" xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#" xmlns:test="http://example.com/test#"> <owl:Ontology rdf:about="urn:absolute:test"/> \n'
         )
 
-        for cn in conceptnames(sigma):
+        for cn in sigma.conceptnames:
             file.write(
                 '<owl:Class rdf:about="http://example.com/test#{}"/>\n'.format(cn)
             )
 
-        for rn in rolenames(sigma):
+        for rn in sigma.rolenames:
             file.write(
                 '<owl:ObjectProperty rdf:about="http://example.com/test#{}"/>\n'.format(
                     rn

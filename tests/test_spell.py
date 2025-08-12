@@ -6,8 +6,6 @@ from spell.structures import (
     compact_canonical_model,
     map_ind_name,
     structure_from_owl,
-    Structure,
-    structure_to_dot,
 )
 from spell.benchmark_tools import execute_sml_bench
 
