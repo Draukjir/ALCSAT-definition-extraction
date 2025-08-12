@@ -1,11 +1,12 @@
+from concurrent.futures import ProcessPoolExecutor
 from dataclasses import dataclass
 from threading import Timer
 import time
 from typing import Any
 
 
-from pysat.card import CardEnc, EncType, ITotalizer
-from pysat.solvers import Glucose4, Solver
+from pysat.card import CardEnc, EncType 
+from pysat.solvers import Solver
 
 
 from .structures import (
@@ -41,17 +42,14 @@ EX = 5
 ALL = 6
 ALC_OP = {NEG,AND,OR,EX,ALL}
 ALC_OP_B = {NEG,AND,OR}
+
 X = 0
 Z = 2
 V = 4
 L = 5
 T = 6
 
-
-NNF: bool = False
-
-
-def interrupt(s):
+def interrupt(s : Solver):
     s.interrupt()
 
 
@@ -174,7 +172,6 @@ class Instance:
     sigma : Signature
     op : set [int]
 
-
     def op_b(self):
         return self.op.intersection(ALC_OP_B)
 
@@ -296,18 +293,7 @@ class ALCSATEncoding:
                 for clause in CardEnc.equals( lits = possible_preds, encoding= EncType.pairwise):
                     self.solver.add_clause(clause)
     
-    def symmetry_breaking(self):
-
-        #TODO: reformulate this to work with the tree templates
-        # Symmetry breaking: crossing free syntax tree
-        # for i in range(self.k):
-        #     for j in range(i + 1, self.k):
-        #         for i2 in range(i + 1, j):
-        #             for j2 in range(j + 1, self.k):
-        #                 self.solver.add_clause((-(self.vars[V,1,i]+j),-(self.vars[V,1,i2]+j2)))
-        #                 self.solver.add_clause((-(self.vars[V,1,i]+j),-(self.vars[V,2,i2]+j2)))
-        #                 self.solver.add_clause((-(self.vars[V,2,i]+j),-(self.vars[V,1,i2]+j2)))
-        #                 self.solver.add_clause((-(self.vars[V,2,i]+j),-(self.vars[V,2,i2]+j2)))
+    def symmetry_breaking(self, tt = -1):
 
         # Symmetry breaking: associativity of sqcap and sqcup
         # There is always a syntax tree where one of the successors of AND is not an AND
@@ -319,7 +305,7 @@ class ALCSATEncoding:
                     self.solver.add_clause( (- (self.vars[X, OR] + i), - (self.vars[V, 2, i] + j), - (self.vars[X, OR] + j), - (self.vars[X, OR] + j + 1)))
 
         # Symmetry breaking: there is always a syntax tree where NEG is not nested directly under ALL or EX or NEG
-        if not NNF and EX in self.inst.op_r() and ALL in self.inst.op_r() and NEG in self.inst.op_b():
+        if EX in self.inst.op_r() and ALL in self.inst.op_r() and NEG in self.inst.op_b():
             for i in range(self.k):
                 for j in range(i + 1, self.k):
                         self.solver.add_clause( (- (self.vars[V, 1, i] + j), - (self.vars[X, NEG] + j)))
@@ -338,28 +324,6 @@ class ALCSATEncoding:
                     self.solver.add_clause( (- (self.vars[X, OR] + i), - (self.vars[V, 2, i] + j), - (self.vars[X, BOT] + j)))
                     self.solver.add_clause( (- (self.vars[X, OR] + i), - (self.vars[V, 2, i] + j), - (self.vars[X, BOT] + j + 1)))
 
-        # Symmetry breaking: limited commutativity
-        # Not advantageous right now
-        # for i in range(self.k):
-        #     for j in range(i + 1, self.k):
-        #         # This orders the node types. Binary operators are smallest, the unary operators, then conceptnames, then top and bot
-        #         x_varsj = [self.vars[X,cn] +j for cn in self.sigma[0]] + [self.vars[X,TOP]+j,self.vars[X,BOT]+j]
-        #         x_varsj1 = [self.vars[X,cn] +j + 1 for cn in self.sigma[0]] + [self.vars[X,TOP]+j + 1,self.vars[X,BOT]+j + 1]
-        #         assert(len(x_varsj) == len(x_varsj1))
-        #         for k1 in range(len(x_varsj)):
-        #             for k2 in range(k1 + 1, len(x_varsj1)):
-        #                 # left must be "bigger" than right
-        #                 self.solver.add_clause( ( - (self.vars[V, 2, i] + j), - x_varsj[k1], -x_varsj1[k2]))
-
-
-        # NNF    
-        if NNF:
-            for i in range(self.k):
-                for j in range(i + 1, self.k):
-                    for j2 in range(j + 1, self.k):
-                        self.solver.add_clause (( - (self.vars[X, NEG] + i),   - (self.vars[V, 1, i] + j), - (self.vars[V, 1, j] + j2)))
-                        self.solver.add_clause (( - (self.vars[X, NEG] + i),   - (self.vars[V, 1, i] + j), - (self.vars[V, 2, j] + j2)))
-
         if self.tree_templates:
 
             tree_k = min(self.k, TREE_TEMPLATE_LIMIT)
@@ -368,8 +332,11 @@ class ALCSATEncoding:
             for idx, t in enumerate(all_trees(tree_k)):
                 tree_vars.append(self.vars[T, idx])
 
-            for clause in CardEnc.equals(lits = tree_vars, encoding=EncType.pairwise):
-                self.solver.add_clause(clause)
+            # for clause in CardEnc.equals(lits = tree_vars, encoding=EncType.pairwise):
+            #     self.solver.add_clause(clause)
+
+            if tt != -1:
+                self.solver.add_clause([self.vars[T, tt]])
 
             for idx, t in enumerate(all_trees(tree_k)):
                 for i in range(tree_k):
@@ -530,7 +497,52 @@ class ALCSATEncoding:
                 children.append(self.modelToTree(j + 1))
         return STree(label, children)
 
+def solve_approx(inst : Instance, k: int, min_n: int, timeout : float = -1, tt = -1):
+    time_start = time.perf_counter()
+    n = max(len(inst.P), len(inst.N), min_n)
+    
+    dt = time.perf_counter() - time_start
 
+    best_sol = None
+    best_accuracy = 0
+    best_n = 0
+
+    enc = ALCSATEncoding(inst, True, True)
+    enc.k = k
+    enc.solver = Solver(name = "g4", incr = True)
+    enc.types = cn_types(inst.A, inst.sigma)
+    enc.create_vars()
+    enc.syn_tree_encoding()
+    enc.evaluation_constraints()
+    enc.symmetry_breaking(tt)
+
+    while n <= len(inst.P) + len(inst.N) and (dt < timeout or timeout == -1):
+        enc.fitting_constraints_approximate(n)
+        
+        dt = time.perf_counter() - time_start
+        remaining_time = -1
+        if timeout != -1:
+            remaining_time = timeout - dt
+
+        if not solver_solve(enc.solver, remaining_time):
+            print(f"Not satisfiable for k={k}, n={n}, tt = {tt}")
+            return best_accuracy, best_n, k, best_sol
+
+        best_sol = enc.modelToTree()
+        model_n = enc.model_n()
+
+        best_accuracy = model_n / (len(inst.P) + len(inst.N))
+        best_n = model_n
+        print(f"Satisfiable for k={k}, n={model_n}, acc={best_accuracy}")
+        print(best_sol.to_tree())
+        n = model_n + 1
+        dt = time.perf_counter() - time_start
+    
+    return best_accuracy, best_n, k, best_sol
+
+def fn(args):
+    (inst, k, n, remaining_time, tt2) = args
+    return solve_approx(inst, k, n, remaining_time, tt2)
 
 
 class FittingALC:
@@ -556,48 +568,6 @@ class FittingALC:
         return self.solve_incr_approx(max_k, start_k, len(self.inst.P) + len(self.inst.N), timeout=timeout)
 
 
-    def solve_approx(self, k: int, min_n: int, timeout : float = -1):
-        time_start = time.perf_counter()
-        n = max(len(self.inst.P), len(self.inst.N), min_n)
-        
-        dt = time.perf_counter() - time_start
-
-        best_sol = None
-        best_accuracy = 0
-        best_n = 0
-
-        enc = ALCSATEncoding(self.inst, self.tree_templates, self.type_encoding)
-        enc.k = k
-        enc.solver = Solver(name = "g4", incr = True)
-        enc.types = cn_types(self.inst.A, self.inst.sigma)
-        enc.create_vars()
-        enc.syn_tree_encoding()
-        enc.evaluation_constraints()
-        enc.symmetry_breaking()
-
-        while n <= len(self.inst.P) + len(self.inst.N) and (dt < timeout or timeout == -1):
-            enc.fitting_constraints_approximate(n)
-            
-            dt = time.perf_counter() - time_start
-            remaining_time = -1
-            if timeout != -1:
-                remaining_time = timeout - dt
-
-            if not solver_solve(enc.solver, remaining_time):
-                print(f"Not satisfiable for k={k}, n={n}")
-                return best_accuracy, best_n, k, best_sol
-
-            best_sol = enc.modelToTree()
-            model_n = enc.model_n()
-
-            best_accuracy = model_n / (len(self.inst.P) + len(self.inst.N))
-            best_n = model_n
-            print(f"Satisfiable for k={k}, n={model_n}, acc={best_accuracy}")
-            print(best_sol.to_tree())
-            n = model_n + 1
-            dt = time.perf_counter() - time_start
-        
-        return best_accuracy, best_n, k, best_sol
 
 
     def solve_incr_approx(self, max_k : int , start_k : int =1, min_n: int = 1, timeout : float = -1):
@@ -608,20 +578,28 @@ class FittingALC:
         best_acc = 0
         dt = time.perf_counter() - time_start
 
-        # self.A, self.P, self.N = bisim(self.A, self.sigma, self.P, self.N, max_k)
+        self.inst.A, self.inst.P, self.inst.N = bisim(self.inst.A, self.inst.sigma, self.inst.P, self.inst.N, max_k)
 
         while k <= max_k and (dt < timeout or timeout == -1) and best_acc < 1.0:
             remaining_time = -1
             if timeout != -1:
                 remaining_time = timeout - dt
 
-            k_acc, k_n, _, k_sol = self.solve_approx(k, n, remaining_time)
 
-            if k_acc > best_acc:
-                assert k_sol
-                best_sol = k_sol
-                best_acc = k_acc
-                n = k_n + 1
+            with ProcessPoolExecutor(16) as p:
+                
+                tasks = [ (self.inst, k, n, remaining_time, tt) for tt in range(len(all_trees(k)))]
+
+                for k_acc, k_n,_, k_sol in p.map(fn, tasks):
+                # for tt, _ in enumerate(all_trees(k)):
+
+                #     k_acc, k_n, _, k_sol = self.solve_approx(k, n, remaining_time, tt)
+
+                    if k_acc > best_acc:
+                        assert k_sol
+                        best_sol = k_sol
+                        best_acc = k_acc
+                        n = k_n + 1
 
             k += 1
             dt = time.perf_counter() - time_start
