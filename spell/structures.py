@@ -645,7 +645,7 @@ def solution2sparql(q: Structure):
 
 # Returns A restricted to individuals that can be reached in k steps from a
 # Renames individuals
-def restrict_to_neighborhood(k: int, A: Structure, starts: list[int]):
+def restrict_to_neighborhood(k: int, A: Structure, starts: list[int]) -> tuple[Structure, dict[int, int]]:
     cns = [cn for cn in A.cn_ext.keys() if A.cn_ext[cn]]
 
     # This has its own distance calculation to avoid computing the distance

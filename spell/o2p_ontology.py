@@ -110,7 +110,7 @@ class SubProperty(object):
         self.object = object_
 
     def __str__(self):
-        return "%s %s %s" % (self.subject, SPECIAL_CHARS["\sqsubseteq"], self.object)
+        return "%s %s %s" % (self.subject, SPECIAL_CHARS["\\sqsubseteq"], self.object)
 
 
 class Property(object):
@@ -194,7 +194,7 @@ class Expression(OntologyObject):
 
 
 class Rule(OntologyObject):
-    """A ontology expression of the form A \sqsubseteq B."""
+    """A ontology expression of the form A \\sqsubseteq B."""
 
     def __init__(self, subject, object_):
         """
@@ -257,7 +257,7 @@ class SubClassOf(Rule):
         return rules
 
     def __str__(self):
-        return "%s %s %s" % (self.subject, SPECIAL_CHARS["\sqsubseteq"], self.object)
+        return "%s %s %s" % (self.subject, SPECIAL_CHARS["\\sqsubseteq"], self.object)
         # return '%s %s %s' % (self.subject, '->', self.object)
 
     def to_latex(self):
@@ -272,7 +272,7 @@ class EquivalentClass(Rule):
         )
 
     def __str__(self):
-        return "%s %s %s" % (self.subject, SPECIAL_CHARS["\equiv"], self.object)
+        return "%s %s %s" % (self.subject, SPECIAL_CHARS["\\equiv"], self.object)
 
 
 class DisjointWith(Rule):
@@ -386,7 +386,7 @@ class Intersection(Expression):
         return children, rules
 
     def __str__(self):
-        sep = " %s " % SPECIAL_CHARS["\sqcap"]
+        sep = " %s " % SPECIAL_CHARS["\\sqcap"]
         return "(%s)" % sep.join(map(str, self.children))
 
     def to_latex(self):
@@ -462,7 +462,7 @@ class SomeValues(Quantifier):
         self.from_class = from_class
 
     def to_string(self, prop):
-        return "%s %s.%s" % (SPECIAL_CHARS["\exists"], prop, self.from_class)
+        return "%s %s.%s" % (SPECIAL_CHARS["\\exists"], prop, self.from_class)
 
     def to_latex(self, prop):
         if self.from_class.identifier is not None:

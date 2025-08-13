@@ -2,7 +2,6 @@ from collections.abc import Iterable
 import concurrent.futures
 from concurrent.futures import ProcessPoolExecutor
 from dataclasses import dataclass
-from threading import Timer
 import time
 from typing import Any
 
@@ -34,7 +33,7 @@ AND = 3
 OR = 4
 EX = 5
 ALL = 6
-ALC_OP = {NEG, AND, OR, EX, ALL}
+ALC_OP = frozenset({NEG, AND, OR, EX, ALL})
 ALC_OP_B = {NEG, AND, OR}
 
 X = 0
@@ -42,27 +41,6 @@ Z = 2
 V = 4
 L = 5
 T = 6
-
-
-def interrupt(s: Solver):
-    s.interrupt()
-
-
-def solver_solve(solver: Solver, timeout: float):
-    if timeout != -1 and timeout < 0:
-        return False
-
-    if timeout != -1:
-        timer = Timer(timeout, interrupt, [solver])
-        timer.start()
-
-    res = solver.solve()
-
-    if timeout != -1:
-        timer.cancel()
-
-    return res
-
 
 def bisim(
     A: Structure, sigma: Signature, P: list[int], N: list[int], max_k: int
@@ -72,16 +50,12 @@ def bisim(
     color: dict[int, int] = {}
 
     for i in range(A.max_ind):
-        tp: list[str] = []
-        for cn in sigma.conceptnames:
-            if i in A.cn_ext[cn]:
-                tp.append(cn)
-        tpf = frozenset(tp)
-        if tpf not in color_register:
-            color_register[tpf] = len(color_register)
-        color[i] = color_register[tpf]
+        tp = frozenset(cn for cn in sigma.conceptnames if i in A.cn_ext[cn])
+        if tp not in color_register:
+            color_register[tp] = len(color_register)
+        color[i] = color_register[tp]
 
-    for i in range(max_k):
+    for _ in range(max_k):
         ncolor = {}
         for a in range(A.max_ind):
             tp2: list[tuple[int, str]] = [(color[a], "")]
@@ -123,19 +97,16 @@ def bisim(
 
     return (
         B,
-        list(color2class[color[p]] for p in P),
-        list(color2class[color[n]] for n in N),
+        [color2class[color[p]] for p in P],
+        [color2class[color[n]] for n in N],
     )
 
 
 def cn_types(A: Structure, sigma: Signature) -> set[frozenset[str]]:
     res: set[frozenset[str]] = set()
     for i in range(A.max_ind):
-        tp: list[str] = []
-        for cn in sigma.conceptnames:
-            if i in A.cn_ext[cn]:
-                tp.append(cn)
-        res.add(frozenset(tp))
+        tp = frozenset(cn for cn in sigma.conceptnames if i in A.cn_ext[cn])
+        res.add(tp)
     return res
 
 
@@ -179,7 +150,7 @@ class Instance:
     P: list[int]
     N: list[int]
     sigma: Signature
-    op: set[int]
+    op: frozenset[int]
 
     def op_b(self):
         return self.op.intersection(ALC_OP_B)
@@ -205,7 +176,7 @@ class ALCSATEncoding:
         self.clauses.append(c)
 
     def create_vars(self):
-        d: dict[Any, int] = dict()
+        d: dict[Any, int] = {}
         i = 1
         d[X, TOP] = i
         d[X, BOT] = i * self.k + 1
@@ -247,7 +218,7 @@ class ALCSATEncoding:
 
         if self.tree_templates:
             tree_k = min(self.k, TREE_TEMPLATE_LIMIT)
-            for idx, t in enumerate(all_trees(tree_k, 0)):
+            for idx, _ in enumerate(all_trees(tree_k, 0)):
                 d[T, idx] = self.max_var
                 self.max_var += 1
 
@@ -444,7 +415,7 @@ class ALCSATEncoding:
             tree_k = min(self.k, TREE_TEMPLATE_LIMIT)
 
             tree_vars = []
-            for idx, t in enumerate(all_trees(tree_k)):
+            for idx, _ in enumerate(all_trees(tree_k)):
                 tree_vars.append(self.vars[T, idx])
 
             for clause in CardEnc.equals(lits=tree_vars, encoding=EncType.pairwise):
@@ -657,6 +628,7 @@ class ALCSATEncoding:
                     )
 
     def fitting_constraints_approximate(self, n: int):
+        assert self.solver
         lits = [self.vars[Z, a] for a in self.inst.P] + [
             -self.vars[Z, b] for b in self.inst.N
         ]
@@ -668,7 +640,7 @@ class ALCSATEncoding:
             self.solver.add_clause(clause)
 
     def model_n(self) -> int:
-        assert self.solver.get_status() == True
+        assert self.solver and self.solver.get_status()
         # Return the number of positive/negative examples that is claimed to be covered by a model
         m = self.solver.get_model()
         assert isinstance(m, list)
@@ -684,7 +656,7 @@ class ALCSATEncoding:
         return res
 
     def nodelabel(self, i: int) -> str:
-        assert self.solver.get_status() == True
+        assert self.solver and self.solver.get_status()
         m = self.solver.get_model()
         assert isinstance(m, list)
         if (self.vars[X, TOP] + i) in m:
@@ -708,7 +680,7 @@ class ALCSATEncoding:
         assert False
 
     def modelToTree(self, i: int = 0) -> STree:
-        assert self.solver.get_status() == True
+        assert self.solver and self.solver.get_status()
         m = self.solver.get_model()
         assert isinstance(m, list)
 
@@ -753,7 +725,7 @@ def solve_approx(task: ApproxTask):
         if timeout != -1:
             remaining_time = timeout - dt
 
-        if not solver_solve(enc.solver, remaining_time):
+        if not enc.solver.solve():
             print(f"Not satisfiable for k={k}, n={n}, tt = {tt}")
             return best_accuracy, best_n, k, best_sol
 
@@ -791,11 +763,8 @@ class FittingALC:
         self.type_encoding: bool = type_encoding
 
     def solve(self):
-        acc, n, sol = self.solve_incr(self.max_k, self.max_k)
-        if acc == 1.0:
-            return True
-        else:
-            return False
+        acc, _, _ = self.solve_incr(self.max_k, self.max_k)
+        return acc == 1.0
 
     def solve_incr(self, max_k: int, start_k: int = 1, timeout: float = -1):
         return self.solve_incr_approx(
@@ -831,8 +800,6 @@ class FittingALC:
                 enc.syn_tree_encoding()
                 enc.evaluation_constraints()
                 enc.symmetry_breaking()
-
-                print(enc.clauses)
 
                 if PAR > 1:
                     tree_k = min(k, TREE_TEMPLATE_LIMIT)

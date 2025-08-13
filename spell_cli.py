@@ -95,7 +95,7 @@ def main():
     time_start_solve = time.perf_counter()
 
     if args.language != "el":
-        f = FittingALC(A, args.max_size, P, N, op = set(L_OP[args.language]), type_encoding=not args.disable_type_encoding, tree_templates=not args.disable_tree_templates)
+        f = FittingALC(A, args.max_size, P, N, op = frozenset(L_OP[args.language]), type_encoding=not args.disable_type_encoding, tree_templates=not args.disable_tree_templates)
         remaining_time = -1
         if args.timeout != -1:
             remaining_time = args.timeout - (time.perf_counter() - time_start)
