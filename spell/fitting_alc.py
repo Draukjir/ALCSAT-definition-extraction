@@ -43,12 +43,28 @@ L = 5
 T = 6
 
 
-def bisim(
-    A: Structure, sigma: Signature, P: list[int], N: list[int], max_k: int
-) -> tuple[Structure, list[int], list[int]]:
+@dataclass(slots=True)
+class Instance:
+    A: Structure
+    P: list[int]
+    N: list[int]
+    sigma: Signature
+    op: frozenset[int]
+
+    def op_b(self):
+        return self.op.intersection(ALC_OP_B)
+
+    def op_r(self):
+        return self.op.difference(ALC_OP_B)
+
+
+def bisim(inst: Instance, max_k: int) -> Instance:
 
     color_register: dict[Any, int] = {}
     color: dict[int, int] = {}
+
+    A = inst.A
+    sigma = inst.sigma
 
     for i in range(A.max_ind):
         tp = frozenset(cn for cn in sigma.conceptnames if i in A.cn_ext[cn])
@@ -96,10 +112,12 @@ def bisim(
         )
     )
 
-    return (
+    return Instance(
         B,
-        [color2class[color[p]] for p in P],
-        [color2class[color[n]] for n in N],
+        [color2class[color[p]] for p in inst.P],
+        [color2class[color[n]] for n in inst.N],
+        sigma,
+        inst.op,
     )
 
 
@@ -143,21 +161,6 @@ class STree:
             return f"({self.children[0].to_string()} {self.label} {self.children[1].to_string()})"
         else:
             return ""
-
-
-@dataclass(slots=True)
-class Instance:
-    A: Structure
-    P: list[int]
-    N: list[int]
-    sigma: Signature
-    op: frozenset[int]
-
-    def op_b(self):
-        return self.op.intersection(ALC_OP_B)
-
-    def op_r(self):
-        return self.op.difference(ALC_OP_B)
 
 
 class ALCSATEncoding:
@@ -698,17 +701,14 @@ class ALCSATEncoding:
         return STree(label, children)
 
 
-ApproxTask = tuple[ALCSATEncoding, int, int, float, list[int]]
+ApproxTask = tuple[ALCSATEncoding, int, int, list[int]]
 
 
 def solve_approx(task: ApproxTask):
 
-    enc, k, min_n, timeout, tt = task
+    enc, k, min_n, tt = task
 
-    time_start = time.perf_counter()
     n = max(len(enc.inst.P), len(enc.inst.N), min_n)
-
-    dt = time.perf_counter() - time_start
 
     best_sol = None
     best_accuracy = 0
@@ -719,13 +719,8 @@ def solve_approx(task: ApproxTask):
 
     enc.solver = Solver(name="g4", incr=True, bootstrap_with=enc.clauses)
 
-    while n <= len(enc.inst.P) + len(enc.inst.N) and (dt < timeout or timeout == -1):
+    while n <= len(enc.inst.P) + len(enc.inst.N):
         enc.fitting_constraints_approximate(n)
-
-        dt = time.perf_counter() - time_start
-        remaining_time = -1
-        if timeout != -1:
-            remaining_time = timeout - dt
 
         if not enc.solver.solve():
             # print(f"Not satisfiable for k={k}, n={n}, tt = {tt}")
@@ -739,7 +734,6 @@ def solve_approx(task: ApproxTask):
         print(f"Satisfiable for k={k}, n={model_n}, acc={best_accuracy}")
         print(best_sol.to_tree())
         n = model_n + 1
-        dt = time.perf_counter() - time_start
 
     return best_accuracy, best_n, k, best_sol
 
@@ -778,16 +772,14 @@ class FittingALC:
     def solve_incr_approx(
         self, max_k: int, start_k: int = 1, min_n: int = 1, timeout: float = -1
     ):
-        time_start = time.perf_counter()
+        time_start = time.time()
         k: int = start_k
         n: int = max(len(self.inst.P), len(self.inst.N), min_n)
         best_sol: STree = STree(d_op[TOP], [])
         best_acc = 0
-        dt = time.perf_counter() - time_start
+        dt = time.time() - time_start
 
-        self.inst.A, self.inst.P, self.inst.N = bisim(
-            self.inst.A, self.inst.sigma, self.inst.P, self.inst.N, max_k
-        )
+        self.inst = bisim(self.inst, max_k)
 
         with ProcessPoolExecutor(self.workers) as p:
 
@@ -807,34 +799,45 @@ class FittingALC:
                 if self.workers > 1:
                     tree_k = min(k, TREE_TEMPLATE_LIMIT)
                     tasks: list[ApproxTask] = [
-                        (enc, k, n, remaining_time, [tt])
-                        for tt in range(len(all_trees(tree_k)))
+                        (enc, k, n, [tt]) for tt in range(len(all_trees(tree_k)))
                     ]
                 else:
-                    tasks = [(enc, k, n, remaining_time, [])]
+                    tasks = [(enc, k, n, [])]
 
                 fts = [p.submit(solve_approx, task) for task in tasks]
 
+                dt = time.time() - time_start
+                remaining_time = timeout - dt
+
                 progress = 0
-                for ft in concurrent.futures.as_completed(fts):
-                    k_acc, k_n, _, k_sol = ft.result()
-                    progress += 1
+                try:
+                    for ft in concurrent.futures.as_completed(
+                        fts, timeout=remaining_time
+                    ):
+                        k_acc, k_n, _, k_sol = ft.result()
+                        progress += 1
 
-                    print(
-                        "Searching with k = {}, progress {}/{}".format(
-                            k, progress, len(tasks)
+                        print(
+                            "Searching with k = {}, progress {}/{}".format(
+                                k, progress, len(tasks)
+                            )
                         )
-                    )
 
-                    if k_acc > best_acc:
-                        assert k_sol
-                        best_sol = k_sol
-                        best_acc = k_acc
-                        n = k_n + 1
+                        if k_acc > best_acc:
+                            assert k_sol
+                            best_sol = k_sol
+                            best_acc = k_acc
+                            n = k_n + 1
+                except TimeoutError:
+                    pass
 
                 k += 1
-                dt = time.perf_counter() - time_start
+                dt = time.time() - time_start
 
+            # Really kill the SAT solver processes
+            for pid, proc in p._processes.items():
+                proc.terminate()
+            p.shutdown(wait=False, cancel_futures=True)
         return best_acc, k, best_sol
 
 
