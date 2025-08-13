@@ -14,7 +14,7 @@ L_OP = {
     "ex-or" : [EX, OR],
     "all-or" : [ALL,OR],
     "elu" : [EX,OR,AND],
-    "alc" : [EX,OR,AND,OR,NEG]
+    "alc" : [ALL, EX,OR,AND,NEG]
 }
 
 def main():
