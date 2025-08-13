@@ -47,6 +47,10 @@ def main():
         "--timeout", type=float, default=-1, help="in seconds (default=-1)"
     )
 
+    _ = parser.add_argument(
+        "--workers", type=int, default=1, help="number of worker processes (default = 1)"
+    )
+
     _ = parser.add_argument("--disable_tree_templates", action='store_true', help ='(alcsat only) disables optimization that precomputes tree templates')
     _ = parser.add_argument("--disable_type_encoding", action='store_true', help = '(alcsat only) disables optimization that replaces concept names with types (internally)')
 
@@ -94,15 +98,16 @@ def main():
     print("== Starting incremental search search for fitting query")
     time_start_solve = time.perf_counter()
 
+    acc = 0
     if args.language != "el":
-        f = FittingALC(A, args.max_size, P, N, op = frozenset(L_OP[args.language]), type_encoding=not args.disable_type_encoding, tree_templates=not args.disable_tree_templates)
+        f = FittingALC(A, args.max_size, P, N, op = frozenset(L_OP[args.language]), type_encoding=not args.disable_type_encoding, tree_templates=not args.disable_tree_templates, workers=args.workers)
         remaining_time = -1
         if args.timeout != -1:
             remaining_time = args.timeout - (time.perf_counter() - time_start)
         if args.mode == mode.exact:
-            f.solve_incr(args.max_size, timeout=remaining_time)
+            acc, _, _ = f.solve_incr(args.max_size, timeout=remaining_time)
         elif args.mode == "full_approx":
-            f.solve_incr_approx(args.max_size, timeout=remaining_time)
+            acc, _, _ = f.solve_incr_approx(args.max_size, timeout=remaining_time)
         else:
             print(f"Mode {args.mode} is only supported for SPELL.")
     else:
@@ -114,6 +119,9 @@ def main():
         "== Took {:.2f}s for reading input and {:.3f}s for solving".format(
             time_parsed - time_start, time_solved - time_start_solve
         )
+    )
+    print(
+        "== Reached accurary {:.4f}".format(acc)
     )
 
     if args.output != None:

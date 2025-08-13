@@ -727,7 +727,7 @@ def solve_approx(task: ApproxTask):
             remaining_time = timeout - dt
 
         if not enc.solver.solve():
-            print(f"Not satisfiable for k={k}, n={n}, tt = {tt}")
+            # print(f"Not satisfiable for k={k}, n={n}, tt = {tt}")
             return best_accuracy, best_n, k, best_sol
 
         best_sol = enc.modelToTree()
@@ -753,6 +753,7 @@ class FittingALC:
         op=ALC_OP,
         tree_templates=True,
         type_encoding=True,
+        workers: int=1
     ):
         A2, m = restrict_to_neighborhood(max_k - 1, A, P + N)
         P2: list[int] = [m[a] for a in P]
@@ -762,6 +763,7 @@ class FittingALC:
         self.inst: Instance = Instance(A2, P2, N2, sigma, op)
         self.tree_templates: bool = tree_templates
         self.type_encoding: bool = type_encoding
+        self.workers: int = workers
 
     def solve(self):
         acc, _, _ = self.solve_incr(self.max_k, self.max_k)
@@ -786,8 +788,7 @@ class FittingALC:
             self.inst.A, self.inst.sigma, self.inst.P, self.inst.N, max_k
         )
 
-        PAR = 1
-        with ProcessPoolExecutor(PAR) as p:
+        with ProcessPoolExecutor(self.workers) as p:
 
             while k <= max_k and (dt < timeout or timeout == -1) and best_acc < 1.0:
                 remaining_time = -1
@@ -802,7 +803,7 @@ class FittingALC:
                 enc.evaluation_constraints()
                 enc.symmetry_breaking()
 
-                if PAR > 1:
+                if self.workers > 1:
                     tree_k = min(k, TREE_TEMPLATE_LIMIT)
                     tasks: list[ApproxTask] = [
                         (enc, k, n, remaining_time, [tt])
@@ -813,8 +814,12 @@ class FittingALC:
 
                 fts = [p.submit(solve_approx, task) for task in tasks]
 
+                progress = 0
                 for ft in concurrent.futures.as_completed(fts):
                     k_acc, k_n, _, k_sol = ft.result()
+                    progress += 1
+
+                    print("Searching with k = {}, progress {}/{}".format(k, progress, len(tasks)))
 
                     if k_acc > best_acc:
                         assert k_sol
