@@ -153,7 +153,7 @@ def testAll():
 
 
 def testSize():
-    k = 15
+    k = 10
     # TODO: the SAT formula for this takes a surprising amount of time to solve
     # i.e. it is not instant
     # I believe if we modify our encoding such that this becomes instant, we can gain

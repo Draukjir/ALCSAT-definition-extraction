@@ -229,8 +229,6 @@ class ALCSATEncoding:
         self.vars = d
 
     def syn_tree_encoding2(self, tt : int):
-        assert self.k <= TREE_TEMPLATE_LIMIT
-
         tree = all_trees(self.k)[tt]
 
         for i in range(self.k):
@@ -246,18 +244,30 @@ class ALCSATEncoding:
                 for v in v_vars:
                     self.add_clause([-v])
                 x_vars = [self.vars[X, TOP] + i, self.vars[X, BOT] + i] + [self.vars[X, cn] + i for cn in self.inst.sigma.conceptnames]
-                for clause in CardEnc.equals(lits=x_vars, encoding=EncType.pairwise):
-                    self.add_clause(clause)
+                if len(x_vars) > 0:
+                    for clause in CardEnc.equals(lits=x_vars, encoding=EncType.pairwise):
+                        self.add_clause(clause)
+                else:
+                    self.add_clause([1])
+                    self.add_clause([-1])
             elif len(tree[i]) == 1:
                 self.add_clause( [self.vars[V, 1, i] + tree[i][0]])
-                x_vars = [self.vars[X, NEG] + i] + [self.vars[X, op, r] + i for op in self.inst.op_r() for r in self.inst.sigma.rolenames] 
-                for clause in CardEnc.equals(lits=x_vars, encoding=EncType.pairwise):
-                    self.add_clause(clause)
+                x_vars = [self.vars[X, op] + i for op in {NEG} if op in self.inst.op] + [self.vars[X, op, r] + i for op in self.inst.op_r() for r in self.inst.sigma.rolenames] 
+                if len(x_vars) > 0:
+                    for clause in CardEnc.equals(lits=x_vars, encoding=EncType.pairwise):
+                        self.add_clause(clause)
+                else:
+                    self.add_clause([1])
+                    self.add_clause([-1])
             elif len(tree[i]) == 2:
                 self.add_clause( [self.vars[V, 2, i] + tree[i][0]])
-                x_vars = (self.vars[X, AND] + i, self.vars[X, OR] + i)
-                for clause in CardEnc.equals(lits=x_vars, encoding=EncType.pairwise):
-                    self.add_clause(clause)
+                x_vars = [self.vars[X, op] + i for op in {AND, OR}.intersection(self.inst.op)]
+                if len(x_vars) > 0:
+                    for clause in CardEnc.equals(lits=x_vars, encoding=EncType.pairwise):
+                        self.add_clause(clause)
+                else:
+                    self.add_clause([1])
+                    self.add_clause([-1])
             else:
                 assert False
 
@@ -481,8 +491,6 @@ class ALCSATEncoding:
                         )
 
     def evaluation_constraints2(self, tt:int):
-        assert self.k <= TREE_TEMPLATE_LIMIT
-
         tree = all_trees(self.k)[tt]
 
         for a in range(self.inst.A.max_ind):
@@ -1001,13 +1009,13 @@ class FittingALC:
                 enc = ALCSATEncoding(self.inst, True, True)
                 enc.k = k
 
-                if self.workers > 1:
-                    tree_k = min(k, TREE_TEMPLATE_LIMIT)
-                    tasks: list[ApproxTask] = [
-                        (enc, k, n, [tt]) for tt in range(len(all_trees(tree_k)))
-                    ]
-                else:
-                    tasks = [(enc, k, n, [])]
+                # if self.workers > 1:
+                # tree_k = min(k, TREE_TEMPLATE_LIMIT)
+                tasks: list[ApproxTask] = [
+                    (enc, k, n, [tt]) for tt in range(len(all_trees(k)))
+                ]
+                # else:
+                #     tasks = [(enc, k, n, [])]
 
                 fts = [p.submit(solve_approx, task) for task in tasks]
 
