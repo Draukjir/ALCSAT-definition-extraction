@@ -3,7 +3,7 @@ SPECIAL_CHARS = {
     r"\exists": "\u2203",
     r"\sqcap": "\u2293",
     r"\equiv": "\u2261",
-    r"\top": "\u22A4",
+    r"\top": "\u22a4",
 }
 
 

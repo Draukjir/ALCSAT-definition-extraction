@@ -193,7 +193,7 @@ def sparql2struct(sparql: str) -> Structure:
     return b.A
 
 
-def conj2string(rn: str, d: None|Concept) -> str:
+def conj2string(rn: str, d: None | Concept) -> str:
     if d is None:
         return "{}".format(rn)
     if len(d) > 1:
@@ -211,13 +211,13 @@ def concept2string(concept: Concept) -> str:
 
 
 @functools.cache
-def number_of_vars(c: None|Concept) -> int:
+def number_of_vars(c: None | Concept) -> int:
     if c is None:
         return 0
     return 1 + sum([number_of_vars(d) for (rn, d) in c])
 
 
-def concept_depth(c: None|Concept) -> int:
+def concept_depth(c: None | Concept) -> int:
     if c is None:
         return 0
     if len(c) == 0:
@@ -762,7 +762,10 @@ def construct_owl_from_concepts(
     for p in ps:
         sign = non_empty_symbols(concept2structure(p))
 
-        sigma = Signature(list(set(sigma.conceptnames) | set(sign.conceptnames)), list(set(sigma.rolenames) | set(sign.rolenames)))
+        sigma = Signature(
+            list(set(sigma.conceptnames) | set(sign.conceptnames)),
+            list(set(sigma.rolenames) | set(sign.rolenames)),
+        )
 
     with open(filename, "w") as file:
         file.write(

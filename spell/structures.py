@@ -23,10 +23,12 @@ namespaces = {
     "rdfs": "http://www.w3.org/2000/01/rdf-schema#",
 }
 
+
 @dataclass(slots=True)
 class Signature:
-    conceptnames : list[str]
-    rolenames : list[str]
+    conceptnames: list[str]
+    rolenames: list[str]
+
 
 @dataclass(slots=True)
 class Structure:
@@ -137,6 +139,7 @@ tag_annotation_prop = expand_namespace("owl", "AnnotationProperty")
 attr_resource = expand_namespace("rdf", "resource")
 attr_about = expand_namespace("rdf", "about")
 attr_datatype = expand_namespace("rdf", "datatype")
+
 
 def make_res_absolute(nsmap: dict[Any, str], res: str) -> str:
     if res[0] == "#":

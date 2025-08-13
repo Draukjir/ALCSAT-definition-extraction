@@ -18,11 +18,13 @@ def print_element(element):
 
     print(lxml.etree.tostring(element, pretty_print=True).decode(), file=sys.stderr)
 
+
 def make_res_absolute(elem, res):
     if res[0] == "#":
         return elem.nsmap[None] + res[1:]
     else:
         return res
+
 
 class OWLReader(object):
     namespaces = {
@@ -123,8 +125,6 @@ class OWLReader(object):
             raise RuntimeError(message)
         elif self.verbose >= severity:
             print("WARNING:", message, file=sys.stderr)
-
-
 
     def read(self):
         ontology = Ontology()
@@ -343,7 +343,11 @@ class OWLReader(object):
 
         results = []
         try:
-            results.append(ClassIdentifier(make_res_absolute(element, element.attrib[rdf_resource])))
+            results.append(
+                ClassIdentifier(
+                    make_res_absolute(element, element.attrib[rdf_resource])
+                )
+            )
         except KeyError:
             pass
 
@@ -368,7 +372,11 @@ class OWLReader(object):
 
         results = []
         try:
-            results.append(PropertyReference(make_res_absolute(element, element.attrib[rdf_resource])))
+            results.append(
+                PropertyReference(
+                    make_res_absolute(element, element.attrib[rdf_resource])
+                )
+            )
         except KeyError:
             pass
 
@@ -459,7 +467,11 @@ class OWLReader(object):
         rdf_resource = self.expand_namespace("rdf", "resource")
         results = []
         try:
-            results.append(PropertyReference(make_res_absolute(element, element.attrib[rdf_resource])))
+            results.append(
+                PropertyReference(
+                    make_res_absolute(element, element.attrib[rdf_resource])
+                )
+            )
         except KeyError:
             pass
         for child in element:
@@ -567,7 +579,6 @@ class OWLReader(object):
 
     def parse_quantifier_has_value(self, element):
         return self._parse_quantifier_from(element, HasValue)
-    
 
     def _one_of(self, element, *attrs):
         """

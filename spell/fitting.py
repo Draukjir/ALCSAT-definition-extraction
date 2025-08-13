@@ -375,7 +375,6 @@ def determine_relevant_symbols(
     A: Structure, P: list[int], minP: int, dist: int
 ) -> Signature:
 
-    
     sigma = non_empty_symbols(A)
     cns = sigma.conceptnames
     rns = sigma.rolenames
@@ -434,7 +433,7 @@ def solve(
     coverage_lb: int,
     all_pos: bool,
     timeout: float = -1,
-) -> tuple[int, Structure]|None:
+) -> tuple[int, Structure] | None:
 
     time_start = time.process_time()
     A, P, N = restrict_nb(size, A, P, N)
