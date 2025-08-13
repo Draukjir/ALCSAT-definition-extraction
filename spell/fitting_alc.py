@@ -228,6 +228,39 @@ class ALCSATEncoding:
 
         self.vars = d
 
+    def syn_tree_encoding2(self, tt : int):
+        assert self.k <= TREE_TEMPLATE_LIMIT
+
+        tree = all_trees(self.k)[tt]
+
+        for i in range(self.k):
+            v_vars = [self.vars[V, 1, i] + j for j in range(i + 1, self.k)] + [
+                self.vars[V, 2, i] + j for j in range(i + 1, self.k - 1)
+            ]
+
+            # At most one of the y-vars
+            for clause in CardEnc.atmost(lits=v_vars, encoding=EncType.pairwise):
+                self.add_clause(clause)
+
+            if len(tree[i]) == 0:
+                for v in v_vars:
+                    self.add_clause([-v])
+                x_vars = [self.vars[X, TOP] + i, self.vars[X, BOT] + i] + [self.vars[X, cn] + i for cn in self.inst.sigma.conceptnames]
+                for clause in CardEnc.equals(lits=x_vars, encoding=EncType.pairwise):
+                    self.add_clause(clause)
+            elif len(tree[i]) == 1:
+                self.add_clause( [self.vars[V, 1, i] + tree[i][0]])
+                x_vars = [self.vars[X, NEG] + i] + [self.vars[X, op, r] + i for op in self.inst.op_r() for r in self.inst.sigma.rolenames] 
+                for clause in CardEnc.equals(lits=x_vars, encoding=EncType.pairwise):
+                    self.add_clause(clause)
+            elif len(tree[i]) == 2:
+                self.add_clause( [self.vars[V, 2, i] + tree[i][0]])
+                x_vars = (self.vars[X, AND] + i, self.vars[X, OR] + i)
+                for clause in CardEnc.equals(lits=x_vars, encoding=EncType.pairwise):
+                    self.add_clause(clause)
+            else:
+                assert False
+
     def syn_tree_encoding(self):
         for i in range(self.k):
             x_vars = (
@@ -414,7 +447,7 @@ class ALCSATEncoding:
                         )
                     )
 
-        if self.tree_templates:
+        if self.tree_templates and False:
 
             tree_k = min(self.k, TREE_TEMPLATE_LIMIT)
 
@@ -447,6 +480,178 @@ class ALCSATEncoding:
                             (-tree_vars[idx], (self.vars[V, 2, i] + t[i][0]))
                         )
 
+    def evaluation_constraints2(self, tt:int):
+        assert self.k <= TREE_TEMPLATE_LIMIT
+
+        tree = all_trees(self.k)[tt]
+
+        for a in range(self.inst.A.max_ind):
+            for i in range(self.k):
+                if NEG in self.inst.op_b() and len(tree[i]) == 1:
+                    self.add_clause(
+                        (
+                            -(self.vars[X, NEG] + i),
+                            -(self.vars[Z, a] + i),
+                            -(self.vars[Z, a] + tree[i][0]),
+                        )
+                    )
+                    self.add_clause(
+                        (
+                            -(self.vars[X, NEG] + i),
+                            (self.vars[Z, a] + i),
+                            (self.vars[Z, a] + tree[i][0]),
+                        )
+                    )
+
+                if AND in self.inst.op_b() and len(tree[i]) == 2:
+                    self.add_clause(
+                        (
+                            -(self.vars[X, AND] + i),
+                            -(self.vars[Z, a] + i),
+                            self.vars[Z, a] + tree[i][0],
+                        )
+                    )
+                    self.add_clause(
+                        (
+                            -(self.vars[X, AND] + i),
+                            -(self.vars[Z, a] + i),
+                            self.vars[Z, a] + tree[i][0] + 1,
+                        )
+                    )
+                    self.add_clause(
+                        (
+                            -(self.vars[X, AND] + i),
+                            (self.vars[Z, a] + i),
+                            -(self.vars[Z, a] + tree[i][0] + 1),
+                            -(self.vars[Z, a] + tree[i][0]),
+                        )
+                    )
+
+                if OR in self.inst.op_b() and len(tree[i]) == 2:
+                    self.add_clause(
+                        (
+                            -(self.vars[X, OR] + i),
+                            (self.vars[Z, a] + i),
+                            -(self.vars[Z, a] + tree[i][0]),
+                        )
+                    )
+                    self.add_clause(
+                        (
+                            -(self.vars[X, OR] + i),
+                            (self.vars[Z, a] + i),
+                            -(self.vars[Z, a] + tree[i][0] + 1),
+                        )
+                    )
+                    self.add_clause(
+                        (
+                            -(self.vars[X, OR] + i),
+                            -(self.vars[Z, a] + i),
+                            (self.vars[Z, a] + tree[i][0] + 1),
+                            (self.vars[Z, a] + tree[i][0]),
+                        )
+                    )
+
+                if ALL in self.inst.op_r() and len(tree[i]) == 1:
+                    for r in self.inst.sigma.rolenames:
+                        successors = [b for (b, p) in self.inst.A.rn_ext[a] if p == r]
+                        if len(successors) == 0:
+                            # Optimization: most individuals don't have successors
+                            self.add_clause(
+                                (-(self.vars[X, ALL, r] + i), (self.vars[Z, a] + i))
+                            )
+                        else:
+                            self.add_clause(
+                                [
+                                    -(self.vars[X, ALL, r] + i),
+                                    (self.vars[Z, a] + i),
+                                ]
+                                + [-(self.vars[Z, b] + tree[i][0]) for b in successors]
+                            )
+                            for b in successors:
+                                self.add_clause(
+                                    (
+                                        -(self.vars[X, ALL, r] + i),
+                                        -(self.vars[Z, a] + i),
+                                        self.vars[Z, b] + tree[i][0],
+                                    )
+                                )
+
+                if EX in self.inst.op_r() and len(tree[i]) == 1:
+                    for r in self.inst.sigma.rolenames:
+                        successors = [b for (b, p) in self.inst.A.rn_ext[a] if p == r]
+                        if len(successors) == 0:
+                            # Optimization: most individuals don't have successors
+                            self.add_clause(
+                                (-(self.vars[X, EX, r] + i), -(self.vars[Z, a] + i))
+                            )
+                        else:
+                            self.add_clause(
+                                [
+                                    -(self.vars[X, EX, r] + i),
+                                    -(self.vars[Z, a] + i),
+                                ]
+                                + [(self.vars[Z, b] + tree[i][0]) for b in successors]
+                            )
+                            for b in successors:
+                                self.add_clause(
+                                    (
+                                        -(self.vars[X, EX, r] + i),
+                                        (self.vars[Z, a] + i),
+                                        -(self.vars[Z, b] + tree[i][0]),
+                                    )
+                                )
+
+                if len(tree[i]) == 0:
+                    self.add_clause((-(self.vars[X, TOP] + i), (self.vars[Z, a] + i)))
+                    self.add_clause((-(self.vars[X, BOT] + i), -(self.vars[Z, a] + i)))
+
+        if not self.type_encoding:
+            for cn in self.inst.sigma.conceptnames:
+                for i in range(self.k):
+                    for a in range(self.inst.A.max_ind):
+                        if a in self.inst.A.cn_ext[cn]:
+                            self.add_clause(
+                                (-(self.vars[X, cn] + i), self.vars[Z, a] + i)
+                            )
+                        else:
+                            self.add_clause(
+                                (-(self.vars[X, cn] + i), -(self.vars[Z, a] + i))
+                            )
+
+        if self.type_encoding:
+            for i in range(self.k):
+                if len(tree[i]) != 0:
+                    continue
+                for tp in self.types:
+                    for cn in self.inst.sigma.conceptnames:
+                        if cn in tp:
+                            self.add_clause(
+                                (-(self.vars[X, cn] + i), self.vars[X, tp] + i)
+                            )
+                        if cn not in tp:
+                            self.add_clause(
+                                (-(self.vars[X, cn] + i), -(self.vars[X, tp] + i))
+                            )
+
+            for a in range(self.inst.A.max_ind):
+                tp = frozenset(
+                    {
+                        cn
+                        for cn in self.inst.sigma.conceptnames
+                        if a in self.inst.A.cn_ext[cn]
+                    }
+                )
+                assert tp in self.types
+                for i in range(self.k):
+                    if len(tree[i]) != 0:
+                        continue
+                    self.add_clause((-(self.vars[X, tp] + i), self.vars[Z, a] + i))
+                    self.add_clause(
+                        (
+                            (self.vars[X, tp] + i),
+                            -(self.vars[Z, a] + i),
+                        )
+                    )
     def evaluation_constraints(self):
 
         for a in range(self.inst.A.max_ind):
@@ -713,10 +918,18 @@ def solve_approx(task: ApproxTask):
     best_sol = None
     best_accuracy = 0
     best_n = 0
+    enc.types = cn_types(enc.inst.A, enc.inst.sigma)
+    enc.create_vars()
+    enc.syn_tree_encoding2(tt[0])
+    # enc.syn_tree_encoding()
+    enc.evaluation_constraints2(tt[0])
+    # enc.evaluation_constraints()
+    enc.symmetry_breaking()
 
     if len(tt) > 0:
         enc.add_clause([enc.vars[T, t] for t in tt])
 
+    print("{} clauses".format(len(enc.clauses)))
     enc.solver = Solver(name="g4", incr=True, bootstrap_with=enc.clauses)
 
     while n <= len(enc.inst.P) + len(enc.inst.N):
@@ -784,17 +997,9 @@ class FittingALC:
         with ProcessPoolExecutor(self.workers) as p:
 
             while k <= max_k and (dt < timeout or timeout == -1) and best_acc < 1.0:
-                remaining_time = -1
-                if timeout != -1:
-                    remaining_time = timeout - dt
 
                 enc = ALCSATEncoding(self.inst, True, True)
                 enc.k = k
-                enc.types = cn_types(enc.inst.A, enc.inst.sigma)
-                enc.create_vars()
-                enc.syn_tree_encoding()
-                enc.evaluation_constraints()
-                enc.symmetry_breaking()
 
                 if self.workers > 1:
                     tree_k = min(k, TREE_TEMPLATE_LIMIT)
