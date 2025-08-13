@@ -807,7 +807,10 @@ class FittingALC:
                 fts = [p.submit(solve_approx, task) for task in tasks]
 
                 dt = time.time() - time_start
-                remaining_time = timeout - dt
+                if timeout != -1:
+                    remaining_time = timeout - dt
+                else:
+                    remaining_time = None
 
                 progress = 0
                 try:
