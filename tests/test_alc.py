@@ -1,10 +1,8 @@
-import sys
-import time
-import argparse
 from spell.fitting_alc import *
 
-from spell.structures import solution2sparql, structure_from_owl
-from spell.fitting import solve_incr, solve, mode
+def test_trees():
+    # See https://en.wikipedia.org/wiki/Wedderburn%E2%80%93Etherington_number
+    assert len(all_trees(10)) == 207
 
 
 def test1():

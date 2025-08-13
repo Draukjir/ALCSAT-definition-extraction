@@ -42,6 +42,7 @@ V = 4
 L = 5
 T = 6
 
+
 def bisim(
     A: Structure, sigma: Signature, P: list[int], N: list[int], max_k: int
 ) -> tuple[Structure, list[int], list[int]]:
@@ -753,7 +754,7 @@ class FittingALC:
         op=ALC_OP,
         tree_templates=True,
         type_encoding=True,
-        workers: int=1
+        workers: int = 1,
     ):
         A2, m = restrict_to_neighborhood(max_k - 1, A, P + N)
         P2: list[int] = [m[a] for a in P]
@@ -819,7 +820,11 @@ class FittingALC:
                     k_acc, k_n, _, k_sol = ft.result()
                     progress += 1
 
-                    print("Searching with k = {}, progress {}/{}".format(k, progress, len(tasks)))
+                    print(
+                        "Searching with k = {}, progress {}/{}".format(
+                            k, progress, len(tasks)
+                        )
+                    )
 
                     if k_acc > best_acc:
                         assert k_sol
@@ -833,9 +838,7 @@ class FittingALC:
         return best_acc, k, best_sol
 
 
-# Generate (almost) non-isomorphic trees of size n
-# Why almost? The case there the left and right subtree are of the same size is
-# currently not handled correctly and from size 7 on, some isomorphic trees are generated
+# Generate non-isomorphic trees of size n with at most binary outdegree
 def all_trees(
     k: int, start: int = 0
 ) -> list[list[tuple[int] | tuple[int, int] | tuple[()]]]:
@@ -844,8 +847,11 @@ def all_trees(
 
     res = []
     for i in range(1, (k - 1) // 2 + 1):
-        for a in all_trees(i, start + 2):
-            for b in all_trees((k - 1) - i, start + i + 1):
+        for idx_a, a in enumerate(all_trees(i, start + 2)):
+            for idx_b, b in enumerate(all_trees((k - 1) - i, start + i + 1)):
+                # If a, b have the same size, skip pairs that already occured
+                if i == (k - 1) - i and idx_b < idx_a:
+                    continue
                 # Whacky tree composition to ensure that children of binary nodes are always adjacent
                 # (the start + 2 for the a trees is for the same purpose)
                 res.append([(start + 1, start + 2)] + [a[0]] + [b[0]] + a[1:] + b[1:])
