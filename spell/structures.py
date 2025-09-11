@@ -364,7 +364,6 @@ class TBox:
             self.rBlhs[B] |= toAdd
 
     def saturate(self):
-
         self.saturate_role_incs()
         # Extra rule to handle range restrictions
         # From
@@ -420,7 +419,6 @@ class TBox:
 
 
 def construct_normalized_tbox(onto: Ontology):
-
     ignored_rules = 0
     ignored_domain = 0
     ignored_range = 0
@@ -490,7 +488,6 @@ def construct_normalized_tbox(onto: Ontology):
 
     for a, b in onto.property_domains:
         if type(b) != ClassIdentifier:
-
             ignored_domain += 1
             # print("Ignoring domain restriction with concept {}".format(b))
             continue

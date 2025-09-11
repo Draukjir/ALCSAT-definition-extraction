@@ -609,7 +609,6 @@ def load_sml_tasks(path: str, task: str):
 
     res: dict[str, tuple[str, Structure, list[int], list[int]]] = {}
     for lp in os.listdir("{}/owl/lp".format(basepath)):
-
         pospath = "{}/owl/lp/{}/pos.txt".format(basepath, lp)
         negpath = "{}/owl/lp/{}/neg.txt".format(basepath, lp)
 
@@ -754,7 +753,6 @@ def construct_owl_from_structure(filename, A: Structure):
 def construct_owl_from_concepts(
     filename, ps: list[Concept], ns: list[Concept]
 ) -> tuple[list[str], list[str]]:
-
     pos_inds: list[str] = []
     neg_inds: list[str] = []
 
@@ -844,7 +842,6 @@ def parse_eltl_simple_concept(parts: list[str]) -> tuple[Concept, list[str]]:
         rn = parts[0]
 
         if parts[2] == "(":
-
             C, parts = parse_eltl_conj(parts[3:])
 
             assert parts[0] == ")"

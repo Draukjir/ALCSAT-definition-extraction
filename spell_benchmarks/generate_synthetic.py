@@ -1,9 +1,13 @@
 import sys
 
-from spell.benchmark_tools import (Concept, concept2string,
-                                   construct_owl_from_concepts,
-                                   emit_sml_benchmark, frontier,
-                                   remove_random_atom)
+from spell.benchmark_tools import (
+    Concept,
+    concept2string,
+    construct_owl_from_concepts,
+    emit_sml_benchmark,
+    frontier,
+    remove_random_atom,
+)
 
 
 def construct_hard_conjunction_benchmark(size) -> tuple[list[Concept], list[Concept]]:
@@ -17,7 +21,6 @@ def construct_hard_conjunction_benchmark(size) -> tuple[list[Concept], list[Conc
 def construct_hard_deep_conjunction_benchmark(
     size,
 ) -> tuple[list[Concept], list[Concept]]:
-
     C: Concept = frozenset(
         {
             (

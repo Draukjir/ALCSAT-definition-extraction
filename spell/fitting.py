@@ -61,7 +61,6 @@ def constraint_conceptname(
     type_var: list[dict[int, int]],
     simul: Simul,
 ):
-
     for pInd in range(size):
         for a in ind(A):
             yield (-simul[pInd][a], type_var[pInd][ind_tp_idx[a]])
@@ -374,7 +373,6 @@ def non_empty_symbols(A: Structure) -> Signature:
 def determine_relevant_symbols(
     A: Structure, P: list[int], minP: int, dist: int
 ) -> Signature:
-
     sigma = non_empty_symbols(A)
     cns = sigma.conceptnames
     rns = sigma.rolenames
@@ -434,7 +432,6 @@ def solve(
     all_pos: bool,
     timeout: float = -1,
 ) -> tuple[int, Structure] | None:
-
     time_start = time.process_time()
     A, P, N = restrict_nb(size, A, P, N)
 
@@ -460,7 +457,6 @@ def solve(
     best_sol = None
     coverage_ub = len(P) + len(N)
     while coverage_lb <= coverage_ub and (dt < timeout or timeout < 0):
-
         for c in create_coverage_formula(P, N, coverage_lb, mapping, all_pos):
             pysolvers.glucose41_add_cl(g.glucose, c)
 

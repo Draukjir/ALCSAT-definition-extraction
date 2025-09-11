@@ -595,7 +595,7 @@ def test_el_path5():
 
 
 def test_el_path4_rel():
-    #This tests that ontologies that use relative resources can be parsed
+    # This tests that ontologies that use relative resources can be parsed
     A = structure_from_owl("tests/test-el-path-4-rel.owl")
 
     P = [

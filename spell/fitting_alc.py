@@ -59,7 +59,6 @@ class Instance:
 
 
 def bisim(inst: Instance, max_k: int) -> Instance:
-
     color_register: dict[Any, int] = {}
     color: dict[int, int] = {}
 
@@ -164,7 +163,6 @@ class STree:
 
 
 class ALCSATEncoding:
-
     def __init__(self, instance: Instance, tree_templates: bool, type_encoding: bool):
         self.inst: Instance = instance
         self.tree_templates: bool = tree_templates
@@ -228,7 +226,7 @@ class ALCSATEncoding:
 
         self.vars = d
 
-    def syn_tree_encoding2(self, tt : int):
+    def syn_tree_encoding2(self, tt: int):
         tree = all_trees(self.k)[tt]
 
         for i in range(self.k):
@@ -243,27 +241,43 @@ class ALCSATEncoding:
             if len(tree[i]) == 0:
                 for v in v_vars:
                     self.add_clause([-v])
-                x_vars = [self.vars[X, TOP] + i, self.vars[X, BOT] + i] + [self.vars[X, cn] + i for cn in self.inst.sigma.conceptnames]
+                x_vars = [self.vars[X, TOP] + i, self.vars[X, BOT] + i] + [
+                    self.vars[X, cn] + i for cn in self.inst.sigma.conceptnames
+                ]
                 if len(x_vars) > 0:
-                    for clause in CardEnc.equals(lits=x_vars, encoding=EncType.pairwise):
+                    for clause in CardEnc.equals(
+                        lits=x_vars, encoding=EncType.pairwise
+                    ):
                         self.add_clause(clause)
                 else:
                     self.add_clause([1])
                     self.add_clause([-1])
             elif len(tree[i]) == 1:
-                self.add_clause( [self.vars[V, 1, i] + tree[i][0]])
-                x_vars = [self.vars[X, op] + i for op in {NEG} if op in self.inst.op] + [self.vars[X, op, r] + i for op in self.inst.op_r() for r in self.inst.sigma.rolenames] 
+                self.add_clause([self.vars[V, 1, i] + tree[i][0]])
+                x_vars = [
+                    self.vars[X, op] + i for op in {NEG} if op in self.inst.op
+                ] + [
+                    self.vars[X, op, r] + i
+                    for op in self.inst.op_r()
+                    for r in self.inst.sigma.rolenames
+                ]
                 if len(x_vars) > 0:
-                    for clause in CardEnc.equals(lits=x_vars, encoding=EncType.pairwise):
+                    for clause in CardEnc.equals(
+                        lits=x_vars, encoding=EncType.pairwise
+                    ):
                         self.add_clause(clause)
                 else:
                     self.add_clause([1])
                     self.add_clause([-1])
             elif len(tree[i]) == 2:
-                self.add_clause( [self.vars[V, 2, i] + tree[i][0]])
-                x_vars = [self.vars[X, op] + i for op in {AND, OR}.intersection(self.inst.op)]
+                self.add_clause([self.vars[V, 2, i] + tree[i][0]])
+                x_vars = [
+                    self.vars[X, op] + i for op in {AND, OR}.intersection(self.inst.op)
+                ]
                 if len(x_vars) > 0:
-                    for clause in CardEnc.equals(lits=x_vars, encoding=EncType.pairwise):
+                    for clause in CardEnc.equals(
+                        lits=x_vars, encoding=EncType.pairwise
+                    ):
                         self.add_clause(clause)
                 else:
                     self.add_clause([1])
@@ -328,7 +342,6 @@ class ALCSATEncoding:
                     )
 
             for cn in self.inst.sigma.conceptnames:
-
                 if self.type_encoding:
                     # Is a leaf
                     self.add_clause((-(self.vars[X, cn] + i), (self.vars[L] + i)))
@@ -359,7 +372,6 @@ class ALCSATEncoding:
                     self.add_clause(clause)
 
     def symmetry_breaking(self):
-
         # Symmetry breaking: associativity of sqcap and sqcup
         # There is always a syntax tree where one of the successors of AND is not an AND
         for i in range(self.k):
@@ -458,7 +470,6 @@ class ALCSATEncoding:
                     )
 
         if self.tree_templates and False:
-
             tree_k = min(self.k, TREE_TEMPLATE_LIMIT)
 
             tree_vars = []
@@ -470,7 +481,6 @@ class ALCSATEncoding:
 
             for idx, t in enumerate(all_trees(tree_k)):
                 for i in range(tree_k):
-
                     # Only restrict leaves if the tree template is not a prefix
                     if len(t[i]) == 0 and tree_k == self.k:
                         for j in range(i + 1, tree_k):
@@ -490,7 +500,7 @@ class ALCSATEncoding:
                             (-tree_vars[idx], (self.vars[V, 2, i] + t[i][0]))
                         )
 
-    def evaluation_constraints2(self, tt:int):
+    def evaluation_constraints2(self, tt: int):
         tree = all_trees(self.k)[tt]
 
         for a in range(self.inst.A.max_ind):
@@ -660,8 +670,8 @@ class ALCSATEncoding:
                             -(self.vars[Z, a] + i),
                         )
                     )
-    def evaluation_constraints(self):
 
+    def evaluation_constraints(self):
         for a in range(self.inst.A.max_ind):
             for i in range(self.k):
                 if NEG in self.inst.op_b():
@@ -918,7 +928,6 @@ ApproxTask = tuple[ALCSATEncoding, int, int, list[int]]
 
 
 def solve_approx(task: ApproxTask):
-
     enc, k, min_n, tt = task
 
     n = max(len(enc.inst.P), len(enc.inst.N), min_n)
@@ -981,7 +990,6 @@ class FittingALC:
         self.type_encoding: bool = type_encoding
         self.workers: int = workers
 
-
     def accuracy(self, st: frozenset[int]) -> float:
         tp = 0
         tn = 0
@@ -990,34 +998,40 @@ class FittingALC:
             if a in st:
                 tp += 1
 
-        for a in self.inst.N :
+        for a in self.inst.N:
             if not a in st:
                 tn += 1
 
         return (tp + tn) / (len(self.inst.P) + len(self.inst.N))
 
     def naive(self):
-
         self.inst = bisim(self.inst, 10)
 
-        sts : dict[frozenset[int], tuple[int, str, float]] = {}
+        sts: dict[frozenset[int], tuple[int, str, float]] = {}
 
         for cn in self.inst.sigma.conceptnames:
-            sts[frozenset(self.inst.A.cn_ext[cn])] = (1, cn, self.accuracy(frozenset(self.inst.A.cn_ext[cn])))
-        
-        sts[frozenset()] = (1, "bot", self.accuracy(frozenset())) # BOT
-        sts[frozenset(range(self.inst.A.max_ind))] = (1, "top", self.accuracy(frozenset(range(self.inst.A.max_ind)))) # max_ind
+            sts[frozenset(self.inst.A.cn_ext[cn])] = (
+                1,
+                cn,
+                self.accuracy(frozenset(self.inst.A.cn_ext[cn])),
+            )
+
+        sts[frozenset()] = (1, "bot", self.accuracy(frozenset()))  # BOT
+        sts[frozenset(range(self.inst.A.max_ind))] = (
+            1,
+            "top",
+            self.accuracy(frozenset(range(self.inst.A.max_ind))),
+        )  # max_ind
 
         new_sets = list(sts.keys())
         max_acc = 0
         while len(new_sets) > 0:
-            
             for st in new_sets:
                 acc = sts[st][2]
                 if acc > max_acc:
                     print(sts[st])
                     max_acc = acc
-           
+
             all_sets = list(sts.keys())
             new_new_sets: list[frozenset[int]] = list()
 
@@ -1025,34 +1039,42 @@ class FittingALC:
                 # negation
                 nst = frozenset(range(self.inst.A.max_ind)) - st
                 if nst not in sts.keys():
-                    sts[nst] = (sts[st][0] + 1, f"not ({sts[st][1]})", self.accuracy(nst))
+                    sts[nst] = (
+                        sts[st][0] + 1,
+                        f"not ({sts[st][1]})",
+                        self.accuracy(nst),
+                    )
                     new_new_sets.append(nst)
-
 
                 # conjunction
                 for st2 in all_sets:
                     nst = st.intersection(st2)
                     if nst not in sts.keys():
-                        sts[nst] = (sts[st][0] + 1 + sts[st2][0], f"({sts[st][1]} and {sts[st2][1]})", self.accuracy(nst))
+                        sts[nst] = (
+                            sts[st][0] + 1 + sts[st2][0],
+                            f"({sts[st][1]} and {sts[st2][1]})",
+                            self.accuracy(nst),
+                        )
                         new_new_sets.append(nst)
 
-                
                 # existential
-                st3:set[int] = set()
+                st3: set[int] = set()
                 for a in range(self.inst.A.max_ind):
-                    for (b, r) in self.inst.A.rn_ext[a]:
+                    for b, r in self.inst.A.rn_ext[a]:
                         if b in st:
                             st3.add(a)
                 st3f = frozenset(st3)
                 if st3f not in sts.keys():
-                    sts[st3f] = (sts[st][0] + 1, f"exists ({sts[st][1]})", self.accuracy(st3f))
+                    sts[st3f] = (
+                        sts[st][0] + 1,
+                        f"exists ({sts[st][1]})",
+                        self.accuracy(st3f),
+                    )
                     new_new_sets.append(st3f)
-            
+
             new_sets = new_new_sets
 
             print(f"Searched {len(sts.keys())} sets")
-
-        
 
     def solve(self):
         acc, _, _ = self.solve_incr(self.max_k, self.max_k)
@@ -1076,9 +1098,7 @@ class FittingALC:
         self.inst = bisim(self.inst, max_k)
 
         with ProcessPoolExecutor(self.workers) as p:
-
             while k <= max_k and (dt < timeout or timeout == -1) and best_acc < 1.0:
-
                 enc = ALCSATEncoding(self.inst, True, True)
                 enc.k = k
 

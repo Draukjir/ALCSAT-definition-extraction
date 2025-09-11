@@ -1,21 +1,22 @@
 import sys
 import time
 import argparse
-from spell.fitting import solve_incr, mode 
+from spell.fitting import solve_incr, mode
 from spell.fitting_alc import *
 
 from spell.structures import solution2sparql, structure_from_owl
 
 LANGUAGES = ["el", "el_alcsat", "fl0", "ex-or", "all-or", "elu", "alc"]
 L_OP = {
-    "el" : [EX,AND],
-    "el_alcsat" : [EX,AND],
-    "fl0" : [ALL, AND],
-    "ex-or" : [EX, OR],
-    "all-or" : [ALL,OR],
-    "elu" : [EX,OR,AND],
-    "alc" : [ALL, EX,OR,AND,NEG]
+    "el": [EX, AND],
+    "el_alcsat": [EX, AND],
+    "fl0": [ALL, AND],
+    "ex-or": [EX, OR],
+    "all-or": [ALL, OR],
+    "elu": [EX, OR, AND],
+    "alc": [ALL, EX, OR, AND, NEG],
 }
+
 
 def main():
     parser = argparse.ArgumentParser(prog="SPELL")
@@ -30,7 +31,13 @@ def main():
         "neg_example_list", help="path to a textfile containing negative examples"
     )
 
-    _ = parser.add_argument("--language", type=str, default="el",choices=LANGUAGES, help = "language to learn in, el: {exists,and}, el_alcsat: {exists,and}, fl0: {forall,and}, ex-or: {exists,or}, all-or: {forall,or}, elu: {exists,and,or}, alc: {forall,exists,and,or,neg} (default=el)")
+    _ = parser.add_argument(
+        "--language",
+        type=str,
+        default="el",
+        choices=LANGUAGES,
+        help="language to learn in, el: {exists,and}, el_alcsat: {exists,and}, fl0: {forall,and}, ex-or: {exists,or}, all-or: {forall,or}, elu: {exists,and,or}, alc: {forall,exists,and,or,neg} (default=el)",
+    )
 
     _ = parser.add_argument("--max_size", type=int, default=12, help="(default=12)")
     _ = parser.add_argument(
@@ -48,11 +55,22 @@ def main():
     )
 
     _ = parser.add_argument(
-        "--workers", type=int, default=1, help="number of worker processes (default = 1)"
+        "--workers",
+        type=int,
+        default=1,
+        help="number of worker processes (default = 1)",
     )
 
-    _ = parser.add_argument("--disable_tree_templates", action='store_true', help ='(alcsat only) disables optimization that precomputes tree templates')
-    _ = parser.add_argument("--disable_type_encoding", action='store_true', help = '(alcsat only) disables optimization that replaces concept names with types (internally)')
+    _ = parser.add_argument(
+        "--disable_tree_templates",
+        action="store_true",
+        help="(alcsat only) disables optimization that precomputes tree templates",
+    )
+    _ = parser.add_argument(
+        "--disable_type_encoding",
+        action="store_true",
+        help="(alcsat only) disables optimization that replaces concept names with types (internally)",
+    )
 
     args = parser.parse_args()
 
@@ -100,7 +118,16 @@ def main():
 
     acc = 0
     if args.language != "el":
-        f = FittingALC(A, args.max_size, P, N, op = frozenset(L_OP[args.language]), type_encoding=not args.disable_type_encoding, tree_templates=not args.disable_tree_templates, workers=args.workers)
+        f = FittingALC(
+            A,
+            args.max_size,
+            P,
+            N,
+            op=frozenset(L_OP[args.language]),
+            type_encoding=not args.disable_type_encoding,
+            tree_templates=not args.disable_tree_templates,
+            workers=args.workers,
+        )
         remaining_time = -1
         if args.timeout != -1:
             remaining_time = args.timeout - (time.perf_counter() - time_start)
@@ -120,9 +147,7 @@ def main():
             time_parsed - time_start, time_solved - time_start_solve
         )
     )
-    print(
-        "== Reached accurary {:.4f}".format(acc)
-    )
+    print("== Reached accurary {:.4f}".format(acc))
 
     if args.output != None:
         print("== Writing result to {}".format(args.output))

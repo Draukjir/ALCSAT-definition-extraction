@@ -1,15 +1,20 @@
 import random
 import sys
 
-from spell.benchmark_tools import (concept2sparql, concept2string,
-                                   create_materialized_tdb_dir,
-                                   create_restricted_owl, emit_sml_benchmark,
-                                   get_reachable_inds, owlname2tdbname,
-                                   parse_concept, query_tdbdir)
+from spell.benchmark_tools import (
+    concept2sparql,
+    concept2string,
+    create_materialized_tdb_dir,
+    create_restricted_owl,
+    emit_sml_benchmark,
+    get_reachable_inds,
+    owlname2tdbname,
+    parse_concept,
+    query_tdbdir,
+)
 
 
 def generate_yago_generalization_bench(sml_bench_dir, owlfile):
-
     c4 = parse_concept(
         "\\exists <http://schema.org/actor> ( \\exists <http://schema.org/alumniOf> \\top \\sqcap \\exists <http://schema.org/award> \\top \\sqcap \\exists <http://schema.org/children> \\top \\sqcap \\exists <http://schema.org/deathPlace> \\top )"
     )

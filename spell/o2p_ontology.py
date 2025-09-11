@@ -78,7 +78,6 @@ class Ontology(object):
 
 
 class NameFactory(object):
-
     __i = 0
     created_names = set()
 
@@ -159,7 +158,6 @@ class ObjectProperty(Property):
 
 
 class Expression(OntologyObject):
-
     varcount = 0
 
     @classmethod

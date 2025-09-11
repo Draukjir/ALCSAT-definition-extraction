@@ -1,7 +1,10 @@
 import sys
 
-from spell.benchmark_tools import (generate_benchmark_collection,
-                                   parse_concept, weaken_drop_root_subtrees)
+from spell.benchmark_tools import (
+    generate_benchmark_collection,
+    parse_concept,
+    weaken_drop_root_subtrees,
+)
 
 
 def generate_yago_perf(sml_bench_dir, owlfile):

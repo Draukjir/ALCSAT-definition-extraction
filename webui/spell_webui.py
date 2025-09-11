@@ -29,7 +29,6 @@ def solve_incr_generator(
     timeout: float = -1,
     max_size: int = 19,
 ):
-
     # Create a StringIO object to capture stdout
     f = io.StringIO()
 
@@ -81,11 +80,11 @@ def search():
     return result
 
 
-def to_readable_name(name : str) -> str:
-    for (a, b) in A.nsmap.items():
+def to_readable_name(name: str) -> str:
+    for a, b in A.nsmap.items():
         if a:
             if name.startswith(b):
-                return "{}:{}".format(a, name[len(b):])
+                return "{}:{}".format(a, name[len(b) :])
     return name
 
 
