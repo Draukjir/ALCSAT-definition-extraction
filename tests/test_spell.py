@@ -1,13 +1,13 @@
 import time
 
-from spell.fitting import solve_incr, solve, mode
+from spell.benchmark_tools import execute_sml_bench
+from spell.fitting import mode, solve, solve_incr
 from spell.structures import (
     ABoxBuilder,
     compact_canonical_model,
     map_ind_name,
     structure_from_owl,
 )
-from spell.benchmark_tools import execute_sml_bench
 
 
 def fitting_of_size_exists(size, A, P, N):

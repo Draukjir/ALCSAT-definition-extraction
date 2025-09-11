@@ -1,23 +1,20 @@
-from collections.abc import Iterable
 import concurrent.futures
+import time
+from collections.abc import Iterable
 from concurrent.futures import ProcessPoolExecutor
 from dataclasses import dataclass
-import time
 from typing import Any
-
 
 from pysat.card import CardEnc, EncType
 from pysat.solvers import Solver
 
-
+from .fitting import (
+    determine_relevant_symbols,
+)
 from .structures import (
     Signature,
     Structure,
     restrict_to_neighborhood,
-)
-
-from .fitting import (
-    determine_relevant_symbols,
 )
 
 # There should be 2079 trees with 13 nodes. Seems like a sensible limit

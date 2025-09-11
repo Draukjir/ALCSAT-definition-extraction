@@ -1,15 +1,21 @@
-import sys, random, json, os, time
-import pandas as pd
-import owlapy as ow
-from pathlib import Path
-from rdflib import Graph
-from spell.benchmark_tools import construct_owl_from_structure
-from spell.fitting_alc import ALL, AND, EX, OR, NEG, FittingALC
-from spell.structures import map_ind_name, restrict_to_neighborhood, structure_from_owl
-from owlready2 import default_world, get_ontology, owl
-from .ontolearn_benchmark import run_evo
+import json
+import os
+import random
 import subprocess
+import sys
+import time
+from pathlib import Path
 
+import owlapy as ow
+import pandas as pd
+from owlready2 import default_world, get_ontology, owl
+from rdflib import Graph
+
+from spell.benchmark_tools import construct_owl_from_structure
+from spell.fitting_alc import ALL, AND, EX, NEG, OR, FittingALC
+from spell.structures import map_ind_name, restrict_to_neighborhood, structure_from_owl
+
+from .ontolearn_benchmark import run_evo
 
 CELOE_PATH = ""
 SPARCEL_PATH = ""

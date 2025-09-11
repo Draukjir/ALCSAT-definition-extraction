@@ -1,14 +1,18 @@
-import sys, time, json, os
+import json
+import os
+import sys
+import time
+
+from ontolearn.concept_learner import EvoLearner
+from ontolearn.heuristics import CELOEHeuristic
 from ontolearn.knowledge_base import KnowledgeBase
 from ontolearn.learners import CELOE
-from ontolearn.heuristics import CELOEHeuristic
 from ontolearn.learning_problem import PosNegLPStandard
 from ontolearn.metrics import Accuracy, Precision
-from owlapy.owl_individual import OWLNamedIndividual, IRI
-from owlapy.class_expression import OWLClass
 from ontolearn.refinement_operators import ModifiedCELOERefinement
+from owlapy.class_expression import OWLClass
+from owlapy.owl_individual import IRI, OWLNamedIndividual
 from owlapy.render import DLSyntaxObjectRenderer
-from ontolearn.concept_learner import EvoLearner
 
 # from alc_benchmark import instance_to_dllearner
 

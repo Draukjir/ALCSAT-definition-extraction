@@ -1,9 +1,9 @@
+import argparse
 import sys
 import time
-import argparse
-from spell.fitting import solve_incr, mode
-from spell.fitting_alc import *
 
+from spell.fitting import mode, solve_incr
+from spell.fitting_alc import *
 from spell.structures import solution2sparql, structure_from_owl
 
 LANGUAGES = ["el", "el_alcsat", "fl0", "ex-or", "all-or", "elu", "alc"]

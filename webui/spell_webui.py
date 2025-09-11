@@ -1,8 +1,8 @@
 from dataclasses import dataclass
+
 from flask import Flask, render_template, request
 
-from spell.fitting import solve_incr, mode
-
+from spell.fitting import mode, solve_incr
 from spell.structures import Structure, structure_from_owl
 
 
@@ -12,10 +12,9 @@ class Example:
     name: str = ""
 
 
-import io
 import contextlib
-
 import functools
+import io
 
 print = functools.partial(print, flush=True)
 

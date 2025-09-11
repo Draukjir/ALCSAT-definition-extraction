@@ -4,7 +4,7 @@ import random
 import time
 from typing import Generator, Union
 
-from .fitting import non_empty_symbols, solve_incr, mode
+from .fitting import mode, non_empty_symbols, solve_incr
 from .structures import (
     ABoxBuilder,
     Signature,
