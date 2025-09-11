@@ -205,7 +205,7 @@ class OWLReader(object):
             factory = self.get_factory(element.tag)
             return factory(element)
         except KeyError:
-            if not element.tag in self.ignore:
+            if element.tag not in self.ignore:
                 self.parse_error(1, element, "Unknown element: %s" % element.tag)
             return None
 

@@ -6,9 +6,8 @@ import sys
 import time
 from pathlib import Path
 
-import owlapy as ow
 import pandas as pd
-from owlready2 import default_world, get_ontology, owl
+from owlready2 import default_world, get_ontology
 from rdflib import Graph
 
 from spell.benchmark_tools import construct_owl_from_structure
@@ -283,7 +282,7 @@ def examples_by_queries(
     n_res = []
     if q_neg is None or exclude_pos_from_neg:
         for e in n_res_r:
-            if not e in p_res:
+            if e not in p_res:
                 n_res.append(e)
     else:
         n_res = n_res_r

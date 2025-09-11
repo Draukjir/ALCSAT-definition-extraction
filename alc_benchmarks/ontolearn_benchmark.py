@@ -8,9 +8,8 @@ from ontolearn.heuristics import CELOEHeuristic
 from ontolearn.knowledge_base import KnowledgeBase
 from ontolearn.learners import CELOE
 from ontolearn.learning_problem import PosNegLPStandard
-from ontolearn.metrics import Accuracy, Precision
+from ontolearn.metrics import Accuracy
 from ontolearn.refinement_operators import ModifiedCELOERefinement
-from owlapy.class_expression import OWLClass
 from owlapy.owl_individual import IRI, OWLNamedIndividual
 from owlapy.render import DLSyntaxObjectRenderer
 

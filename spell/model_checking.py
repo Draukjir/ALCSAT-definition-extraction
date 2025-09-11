@@ -1,5 +1,4 @@
 from spell.fitting_alc import *
-from spell.structures import Structure
 
 CN = 7
 

@@ -996,7 +996,7 @@ class FittingALC:
                 tp += 1
 
         for a in self.inst.N:
-            if not a in st:
+            if a not in st:
                 tn += 1
 
         return (tp + tn) / (len(self.inst.P) + len(self.inst.N))

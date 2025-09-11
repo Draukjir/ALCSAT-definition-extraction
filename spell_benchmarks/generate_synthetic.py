@@ -6,7 +6,6 @@ from spell.benchmark_tools import (
     construct_owl_from_concepts,
     emit_sml_benchmark,
     frontier,
-    remove_random_atom,
 )
 
 

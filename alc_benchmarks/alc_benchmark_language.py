@@ -1,22 +1,13 @@
-import json
 import os
-import random
-import subprocess
 import sys
 import time
-from pathlib import Path
 
-import owlapy as ow
 import pandas as pd
-from owlready2 import default_world, get_ontology, owl
-from rdflib import Graph
 
-from spell.benchmark_tools import construct_owl_from_structure
 from spell.fitting_alc import ALL, AND, EX, NEG, OR, FittingALC
-from spell.structures import map_ind_name, restrict_to_neighborhood, structure_from_owl
+from spell.structures import map_ind_name, structure_from_owl
 
 from .alc_benchmark import read_examples_from_json
-from .ontolearn_benchmark import run_evo
 
 
 def benchmark_run(dir):
