@@ -1,13 +1,13 @@
 import sys, random, json, os, time
-import pandas as pd, owlapy as ow
+import pandas as pd
+import owlapy as ow
 from pathlib import Path
 from rdflib import Graph
 from spell.benchmark_tools import construct_owl_from_structure
 from spell.fitting_alc import ALL, AND, EX, OR, NEG, FittingALC
 from spell.structures import map_ind_name, restrict_to_neighborhood, structure_from_owl
 from owlready2 import default_world, get_ontology, owl
-from ontolearn_benchmark import run_evo
-import spell.fitting_alc1 as fitting_alc1
+from .ontolearn_benchmark import run_evo
 import subprocess
 
 
@@ -137,13 +137,13 @@ def solve(path, ex_path, k):
     f = FittingALC(A,k,P,N, op = {EX,ALL,OR,AND,NEG})
     return f.solve_incr(k, return_string= True)
 
-def solve_old(path, ex_path, k):
-    A = structure_from_owl(path)
-    P,N = read_examples_from_json(ex_path)
-    P = list(map(lambda n: map_ind_name(A, n), P))
-    N = list(map(lambda n: map_ind_name(A, n), N))
-    f = fitting_alc1.FittingALC(A,k,P,N, op = {EX,ALL,OR,AND, NEG})
-    return f.solve()
+# def solve_old(path, ex_path, k):
+#     A = structure_from_owl(path)
+#     P,N = read_examples_from_json(ex_path)
+#     P = list(map(lambda n: map_ind_name(A, n), P))
+#     N = list(map(lambda n: map_ind_name(A, n), N))
+#     f = fitting_alc1.FittingALC(A,k,P,N, op = {EX,ALL,OR,AND, NEG})
+#     return f.solve()
     
 def test(path,P,N):
     A = structure_from_owl(path)

@@ -6,8 +6,8 @@ from spell.benchmark_tools import construct_owl_from_structure
 from spell.fitting_alc import ALL, AND, EX, OR, NEG, FittingALC
 from spell.structures import map_ind_name, restrict_to_neighborhood, structure_from_owl
 from owlready2 import default_world, get_ontology, owl
-from ontolearn_benchmark import run_evo
-from alc_benchmark import read_examples_from_json
+from .ontolearn_benchmark import run_evo
+from .alc_benchmark import read_examples_from_json
 import subprocess
 
 def benchmark_run(dir):
