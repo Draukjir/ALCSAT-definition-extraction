@@ -216,7 +216,7 @@ class ALCSATEncoding:
         self.max_var = i * self.k + 1
 
         if self.tree_templates:
-            tree_k = min(self.k, TREE_TEMPLATE_LIMIT)
+            tree_k = self.k
             for idx, _ in enumerate(all_trees(tree_k, 0)):
                 d[T, idx] = self.max_var
                 self.max_var += 1
