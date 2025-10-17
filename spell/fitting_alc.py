@@ -55,32 +55,43 @@ class Instance:
         return self.op.difference(ALC_OP_B)
 
 
-def bisim(inst: Instance, max_k: int) -> Instance:
-    color_register: dict[Any, int] = {}
+def color_refinement_alc(
+    A: Structure, sigma: Signature, alc_q: bool, iterations: int
+) -> dict[int, int]:
+    color_register: dict[tuple[tuple[int, str], ...], int] = {}
     color: dict[int, int] = {}
 
-    A = inst.A
-    sigma = inst.sigma
-
-    for i in range(A.max_ind):
-        tp = frozenset(cn for cn in sigma.conceptnames if i in A.cn_ext[cn])
+    for a in range(A.max_ind):
+        tp = tuple([(0, cn) for cn in sigma.conceptnames if a in A.cn_ext[cn]])
         if tp not in color_register:
             color_register[tp] = len(color_register)
-        color[i] = color_register[tp]
+        color[a] = color_register[tp]
 
-    for _ in range(max_k):
-        ncolor = {}
+    for _ in range(iterations):
+        ncolor: dict[int, int] = {}
         for a in range(A.max_ind):
-            tp2: list[tuple[int, str]] = [(color[a], "")]
+            tp2 = list((0, cn) for cn in sigma.conceptnames if a in A.cn_ext[cn])
             for b, r in A.rn_ext[a]:
                 tp2.append((color[b], r))
-            tpf2 = frozenset(tp2)
+            if not alc_q:
+                tp2 = list(set(tp2))
+            tp2.sort()
+            tpf2 = tuple(tp2)
 
             if tpf2 not in color_register:
                 color_register[tpf2] = len(color_register)
             ncolor[a] = color_register[tpf2]
 
         color = ncolor
+
+    return color
+
+
+def bisimulation_reduction(inst: Instance, max_k: int) -> Instance:
+    color = color_refinement_alc(inst.A, inst.sigma, True, max_k)
+
+    A = inst.A
+    sigma = inst.sigma
 
     color2class: dict[int, int] = {}
     for a in range(A.max_ind):
@@ -1002,7 +1013,7 @@ class FittingALC:
         return (tp + tn) / (len(self.inst.P) + len(self.inst.N))
 
     def naive(self):
-        self.inst = bisim(self.inst, 10)
+        self.inst = bisimulation_reduction(self.inst, 10)
 
         sts: dict[frozenset[int], tuple[int, str, float]] = {}
 
@@ -1092,7 +1103,7 @@ class FittingALC:
         best_acc = 0
         dt = time.time() - time_start
 
-        self.inst = bisim(self.inst, max_k)
+        self.inst = bisimulation_reduction(self.inst, max_k)
 
         with ProcessPoolExecutor(self.workers) as p:
             while k <= max_k and (dt < timeout or timeout == -1) and best_acc < 1.0:

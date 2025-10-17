@@ -6,6 +6,27 @@ def test_trees():
     assert len(all_trees(10)) == 207
 
 
+def test_color_refinement():
+    rn2 = {i: {} for i in range(7)}
+    rn2[0] = {(1, "r")}
+    rn2[2] = {(3, "r"), (4, "r")}
+    rn2[5] = {(6, "r")}
+    cn2 = {"A": {6}}
+    A2 = Structure(7, cn2, rn2, {}, {})
+
+    colors_alcq = color_refinement_alc(A2, Signature(["A"], ["r"]), True, 10)
+
+    assert colors_alcq[0] != colors_alcq[2]
+    assert colors_alcq[0] != colors_alcq[5]
+    assert colors_alcq[2] != colors_alcq[5]
+    assert colors_alcq[1] == colors_alcq[3]
+
+    colors_alc = color_refinement_alc(A2, Signature(["A"], ["r"]), False, 10)
+    assert colors_alc[0] == colors_alc[2]
+    assert colors_alc[0] != colors_alc[5]
+    assert colors_alc[1] == colors_alc[3]
+
+
 def test1():
     A1 = Structure(3, {"A": {0, 1}, "B": {0, 2}}, {i: {} for i in range(3)}, {}, {})
     P1 = [0]
