@@ -6,7 +6,7 @@ from spell.fitting import mode, solve_incr
 from spell.fitting_alc import *
 from spell.structures import solution2sparql, structure_from_owl
 
-LANGUAGES = ["el", "el_alcsat", "fl0", "ex-or", "all-or", "elu", "alc"]
+LANGUAGES = ["el", "el_alcsat", "fl0", "ex-or", "all-or", "elu", "alc", "alcq"]
 L_OP = {
     "el": [EX, AND],
     "el_alcsat": [EX, AND],
@@ -15,6 +15,7 @@ L_OP = {
     "all-or": [ALL, OR],
     "elu": [EX, OR, AND],
     "alc": [ALL, EX, OR, AND, NEG],
+    "alcq": [ALL, EX, OR, AND, NEG, LE, GE],
 }
 
 
@@ -36,7 +37,7 @@ def main():
         type=str,
         default="el",
         choices=LANGUAGES,
-        help="language to learn in, el: {exists,and}, el_alcsat: {exists,and}, fl0: {forall,and}, ex-or: {exists,or}, all-or: {forall,or}, elu: {exists,and,or}, alc: {forall,exists,and,or,neg} (default=el)",
+        help="language to learn in, el: {exists,and}, el_alcsat: {exists,and}, fl0: {forall,and}, ex-or: {exists,or}, all-or: {forall,or}, elu: {exists,and,or}, alc: {forall,exists,and,or,neg}, alc: {forall,exists,and,or,neg, le, ge} (default=el)",
     )
 
     _ = parser.add_argument("--max_size", type=int, default=12, help="(default=12)")

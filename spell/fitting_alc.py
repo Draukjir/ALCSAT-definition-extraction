@@ -22,7 +22,7 @@ from .structures import (
 # Indeed, 10 seems to be a local minimum
 TREE_TEMPLATE_LIMIT = 10
 
-d_op = {0: "TOP", 1: "BOT", 2: "NEG", 3: "AND", 4: "OR", 5: "EX", 6: "ALL"}
+d_op = {0: "TOP", 1: "BOT", 2: "NEG", 3: "AND", 4: "OR", 5: "EX", 6: "ALL", 7 : "LE", 8 : "GE"}
 TOP = 0
 BOT = 1
 NEG = 2
@@ -30,15 +30,19 @@ AND = 3
 OR = 4
 EX = 5
 ALL = 6
+LE = 7
+GE = 8
+
 ALC_OP = frozenset({NEG, AND, OR, EX, ALL})
-ALC_OP_B = {NEG, AND, OR}
+ALC_OP_B = frozenset({NEG, AND, OR})
+ALC_OP_R = frozenset({EX,ALL})
+ALC_OP_Q = frozenset({LE,GE})
 
 X = 0
 Z = 2
 V = 4
 L = 5
 T = 6
-
 
 @dataclass(slots=True)
 class Instance:
@@ -47,13 +51,16 @@ class Instance:
     N: list[int]
     sigma: Signature
     op: frozenset[int]
+    max_q : int = 2
 
     def op_b(self):
         return self.op.intersection(ALC_OP_B)
 
     def op_r(self):
-        return self.op.difference(ALC_OP_B)
-
+        return self.op.intersection(ALC_OP_R)
+    
+    def op_q(self):
+        return self.op.intersection(ALC_OP_Q)
 
 def color_refinement_alc(
     A: Structure, sigma: Signature, alc_q: bool, iterations: int
@@ -85,7 +92,6 @@ def color_refinement_alc(
         color = ncolor
 
     return color
-
 
 def bisimulation_reduction(inst: Instance, max_k: int) -> Instance:
     color = color_refinement_alc(inst.A, inst.sigma, True, max_k)
@@ -127,14 +133,12 @@ def bisimulation_reduction(inst: Instance, max_k: int) -> Instance:
         inst.op,
     )
 
-
 def cn_types(A: Structure, sigma: Signature) -> set[frozenset[str]]:
     res: set[frozenset[str]] = set()
     for i in range(A.max_ind):
         tp = frozenset(cn for cn in sigma.conceptnames if i in A.cn_ext[cn])
         res.add(tp)
     return res
-
 
 @dataclass
 class STree:
@@ -168,7 +172,6 @@ class STree:
             return f"({self.children[0].to_string()} {self.label} {self.children[1].to_string()})"
         else:
             return ""
-
 
 class ALCSATEncoding:
     def __init__(self, instance: Instance, tree_templates: bool, type_encoding: bool):
@@ -205,6 +208,11 @@ class ALCSATEncoding:
             for c in self.inst.sigma.rolenames:
                 d[X, ALL, c] = i * self.k + 1
                 i += 1
+        for op in self.inst.op_q():
+            for q in range(1,self.inst.max_q+1):
+                for r in self.inst.sigma.rolenames:
+                    d[X,op,r,q] = i * self.k + 1
+                    i += 1
         for a in range(self.inst.A.max_ind):
             d[Z, a] = i * self.k + 1
             i += 1
@@ -245,7 +253,7 @@ class ALCSATEncoding:
             # At most one of the y-vars
             for clause in CardEnc.atmost(lits=v_vars, encoding=EncType.pairwise):
                 self.add_clause(clause)
-
+ 
             if len(tree[i]) == 0:
                 for v in v_vars:
                     self.add_clause([-v])
@@ -267,7 +275,12 @@ class ALCSATEncoding:
                 ] + [
                     self.vars[X, op, r] + i
                     for op in self.inst.op_r()
+                    for r in self.inst.sigma.rolenames                    
+                ] + [
+                    self.vars[X, op, r, q]
+                    for op in self.inst.op_q()
                     for r in self.inst.sigma.rolenames
+                    for q in range(1,self.inst.max_q+1)
                 ]
                 if len(x_vars) > 0:
                     for clause in CardEnc.equals(
@@ -626,6 +639,46 @@ class ALCSATEncoding:
                                         -(self.vars[Z, b] + tree[i][0]),
                                     )
                                 )
+                
+                if LE in self.inst.op_q() and len(tree[i]) == 1:
+                        for r in self.inst.sigma.rolenames:
+                            for q in range(1,self.inst.max_q+1):
+                                successors = [b for (b, p) in self.inst.A.rn_ext[a] if p == r]
+                                if len(successors) == 0 or len(successors) <= q:
+                                    # Optimization: most individuals don't have successors
+                                    self.add_clause(
+                                        (-(self.vars[X, LE, r, q] + i), -(self.vars[Z, a] + i))
+                                    )                             
+                                else:
+                                    enc = CardEnc.atmost([self.vars[Z,b] + tree[i][0] for b in successors], bound = q, top_id=self.max_var)
+                                    self.max_var = max(enc.nv, self.max_var)
+                                    for cl in enc.clauses:
+                                        self.add_clause(
+                                            [
+                                                -(self.vars[X,LE,r,q] + i),
+                                                -(self.vars[Z,a] + i)                                             
+                                            ] + cl
+                                        )
+                
+                if GE in self.inst.op_q() and len(tree[i]) == 1:
+                        for r in self.inst.sigma.rolenames:
+                            for q in range(1,self.inst.max_q+1):
+                                successors = [b for (b, p) in self.inst.A.rn_ext[a] if p == r]
+                                if len(successors) == 0 or len(successors) <= q:
+                                    # Optimization: most individuals don't have successors
+                                    self.add_clause(
+                                        (-(self.vars[X, GE, r, q] + i), -(self.vars[Z, a] + i))
+                                    )                             
+                                else:
+                                    enc = CardEnc.atleast([self.vars[Z,b] + tree[i][0] for b in successors], bound = q, top_id=self.max_var)
+                                    self.max_var = max(enc.nv, self.max_var)
+                                    for cl in enc.clauses:
+                                        self.add_clause(
+                                            [
+                                                -(self.vars[X,GE,r,q] + i),
+                                                -(self.vars[Z,a] + i)
+                                            ] + cl
+                                        )
 
                 if len(tree[i]) == 0:
                     self.add_clause((-(self.vars[X, TOP] + i), (self.vars[Z, a] + i)))
@@ -913,6 +966,16 @@ class ALCSATEncoding:
             for r in self.inst.sigma.rolenames:
                 if (self.vars[X, ALL, r] + i) in m:
                     return f"all.{r}"
+        if LE in self.inst.op:
+            for r in self.inst.sigma.rolenames:
+                for q in range(1,self.inst.max_q+1):
+                    if (self.vars[X,LE,r,q]+i) in m:
+                        return f"<={q} {r}."
+        if GE in self.inst.op:
+            for r in self.inst.sigma.rolenames:
+                for q in range(1,self.inst.max_q+1):
+                    if (self.vars[X,GE,r,q]+i) in m:
+                        return f">={q} {r}."
         assert False
 
     def modelToTree(self, i: int = 0) -> STree:
@@ -931,9 +994,7 @@ class ALCSATEncoding:
                 children.append(self.modelToTree(j + 1))
         return STree(label, children)
 
-
 ApproxTask = tuple[ALCSATEncoding, int, int, list[int]]
-
 
 def solve_approx(task: ApproxTask):
     enc, k, min_n, tt = task
@@ -974,7 +1035,6 @@ def solve_approx(task: ApproxTask):
         n = model_n + 1
 
     return best_accuracy, best_n, k, best_sol
-
 
 class FittingALC:
     def __init__(
@@ -1156,7 +1216,6 @@ class FittingALC:
                 proc.terminate()
             p.shutdown(wait=False, cancel_futures=True)
         return best_acc, k, best_sol
-
 
 # Generate non-isomorphic trees of size n with at most binary outdegree
 def all_trees(
