@@ -43,6 +43,7 @@ Z = 2
 V = 4
 L = 5
 T = 6
+H = 7
 
 @dataclass(slots=True)
 class Instance:
@@ -213,6 +214,12 @@ class ALCSATEncoding:
                 for r in self.inst.sigma.rolenames:
                     d[X,op,r,q] = i * self.k + 1
                     i += 1
+        for op in self.inst.op_q():
+            for q in range(1,self.inst.max_q+1):
+                for r in self.inst.sigma.rolenames:
+                    for a in range(self.inst.A.max_ind):
+                        d[H,op,r,q,a] = i * self.k + 1
+                        i += 1
         for a in range(self.inst.A.max_ind):
             d[Z, a] = i * self.k + 1
             i += 1
@@ -663,6 +670,16 @@ class ALCSATEncoding:
                                                 -(self.vars[Z,a] + i)                                             
                                             ] + cl
                                         )
+                                    enc = CardEnc.atleast([self.vars[Z,b] + tree[i][0] for b in successors], bound = q+1, top_id=self.max_var)
+                                    self.max_var = max(enc.nv, self.max_var)
+                                    for cl in enc.clauses:
+                                        self.add_clause(
+                                            [
+                                                -(self.vars[X,LE,r,q] + i),
+                                                (self.vars[Z,a] + i)
+                                            ] + cl
+                                        )
+
                 
                 if GE in self.inst.op_q() and len(tree[i]) == 1:
                         for r in self.inst.sigma.rolenames:
@@ -681,6 +698,15 @@ class ALCSATEncoding:
                                             [
                                                 -(self.vars[X,GE,r,q] + i),
                                                 -(self.vars[Z,a] + i)
+                                            ] + cl
+                                        )
+                                    enc = CardEnc.atmost([self.vars[Z,b] + tree[i][0] for b in successors], bound = q-1, top_id=self.max_var)
+                                    self.max_var = max(enc.nv, self.max_var)
+                                    for cl in enc.clauses:
+                                        self.add_clause(
+                                            [
+                                                -(self.vars[X,GE,r,q] + i),
+                                                (self.vars[Z,a] + i)
                                             ] + cl
                                         )
 
@@ -1051,13 +1077,14 @@ class FittingALC:
         tree_templates=True,
         type_encoding=True,
         workers: int = 1,
+        max_q = 2
     ):
         A2, m = restrict_to_neighborhood(max_k - 1, A, P + N)
         P2: list[int] = [m[a] for a in P]
         N2: list[int] = [m[b] for b in N]
         sigma: Signature = determine_relevant_symbols(A, P + N, 1, max_k - 1)
         self.max_k: int = max_k
-        self.inst: Instance = Instance(A2, P2, N2, sigma, op)
+        self.inst: Instance = Instance(A2, P2, N2, sigma, op, max_q = max_q)
         self.tree_templates: bool = tree_templates
         self.type_encoding: bool = type_encoding
         self.workers: int = workers

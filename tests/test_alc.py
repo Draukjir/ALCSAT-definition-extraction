@@ -1,6 +1,5 @@
 from spell.fitting_alc import *
 
-
 def test_trees():
     # See https://en.wikipedia.org/wiki/Wedderburn%E2%80%93Etherington_number
     assert len(all_trees(10)) == 207
@@ -87,6 +86,23 @@ def test6():
     N6 = [1]
     i = (A6, 2, P6, N6)
     f = FittingALC(*i, op={EX, ALL, OR, AND, NEG})
+    assert f.solve()
+
+def test_alcq():
+    d = { 1 : {(2,"r"),(2,"r")}, 4 : {(5,"r"),(6,"r")},  7 : {(8,"r"),(9,"r"),(10,"r"),(11,"r")}}
+    for i in [0,2,3,5,6,8,9,10,11]:
+        d[i] = {}
+    A = Structure(
+        11,
+        {"A" : {2,8}, "B" : {3,9}, "C" : {5,10}, "D" : {6,11}},
+        d,
+        {},
+        {}
+        )
+    P = [1,4]
+    N = [7]
+    i = (A,3, P, N)
+    f = FittingALC(*i, op={EX, ALL, OR, AND, NEG, LE,GE})
     assert f.solve()
 
 

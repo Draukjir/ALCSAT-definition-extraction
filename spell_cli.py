@@ -41,6 +41,7 @@ def main():
     )
 
     _ = parser.add_argument("--max_size", type=int, default=12, help="(default=12)")
+    _ = parser.add_argument("--max_q", type=int, default=2, help="(default=2)")
     _ = parser.add_argument(
         "--mode",
         choices=["exact", "neg_approx", "full_approx"],
@@ -128,6 +129,7 @@ def main():
             type_encoding=not args.disable_type_encoding,
             tree_templates=not args.disable_tree_templates,
             workers=args.workers,
+            max_q=args.max_q
         )
         remaining_time = -1
         if args.timeout != -1:
