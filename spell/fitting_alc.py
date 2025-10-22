@@ -277,7 +277,7 @@ class ALCSATEncoding:
                     for op in self.inst.op_r()
                     for r in self.inst.sigma.rolenames                    
                 ] + [
-                    self.vars[X, op, r, q]
+                    self.vars[X, op, r, q] + i
                     for op in self.inst.op_q()
                     for r in self.inst.sigma.rolenames
                     for q in range(1,self.inst.max_q+1)
@@ -644,11 +644,15 @@ class ALCSATEncoding:
                         for r in self.inst.sigma.rolenames:
                             for q in range(1,self.inst.max_q+1):
                                 successors = [b for (b, p) in self.inst.A.rn_ext[a] if p == r]
-                                if len(successors) == 0 or len(successors) <= q:
+                                if len(successors) == 0:
                                     # Optimization: most individuals don't have successors
                                     self.add_clause(
                                         (-(self.vars[X, LE, r, q] + i), -(self.vars[Z, a] + i))
-                                    )                             
+                                    )                  
+                                elif len(successors) <= q:
+                                    self.add_clause(
+                                        (-(self.vars[X, LE, r, q] + i), (self.vars[Z, a] + i))
+                                    )
                                 else:
                                     enc = CardEnc.atmost([self.vars[Z,b] + tree[i][0] for b in successors], bound = q, top_id=self.max_var)
                                     self.max_var = max(enc.nv, self.max_var)
