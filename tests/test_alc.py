@@ -101,7 +101,7 @@ def test_alcq():
         )
     P = [1,4]
     N = [7]
-    i = (A,3, P, N)
+    i = (A,2, P, N)
     f = FittingALC(*i, op={EX, ALL, OR, AND, NEG, LE,GE})
     assert f.solve()
 
