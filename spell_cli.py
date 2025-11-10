@@ -129,7 +129,7 @@ def main():
             type_encoding=not args.disable_type_encoding,
             tree_templates=not args.disable_tree_templates,
             workers=args.workers,
-            max_q=args.max_q
+            max_q=args.max_q,
         )
         remaining_time = -1
         if args.timeout != -1:

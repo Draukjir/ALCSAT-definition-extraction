@@ -255,7 +255,11 @@ def load_owl(file: str):
 
     num = len(abox.indmap)
     abox.A.nsmap = nsmap
-    print("\rLoaded {} individuals, {} object properties, and {} data properties".format(num, facts, datavs))
+    print(
+        "\rLoaded {} individuals, {} object properties, and {} data properties".format(
+            num, facts, datavs
+        )
+    )
     return onto, abox
 
 
@@ -776,5 +780,10 @@ def copy_structure(A: Structure) -> Structure:
         rns[a] = set(A.rn_ext[a])
     # TODO not a deep copy
     return Structure(
-        max_ind=A.max_ind, cn_ext=cns, rn_ext=rns, dp_ext=A.dp_ext, indmap=A.indmap, nsmap=A.nsmap
+        max_ind=A.max_ind,
+        cn_ext=cns,
+        rn_ext=rns,
+        dp_ext=A.dp_ext,
+        indmap=A.indmap,
+        nsmap=A.nsmap,
     )
