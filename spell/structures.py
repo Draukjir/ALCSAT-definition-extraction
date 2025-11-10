@@ -35,7 +35,7 @@ class Structure:
     max_ind: int
     cn_ext: dict[str, set[int]]
     rn_ext: dict[int, set[tuple[int, str]]]
-    dp_ext: dict[int, set[tuple[Any, str, str]]]
+    dp_ext: dict[int, list[tuple[Any, str, str]]]
     indmap: dict[str, int]
     nsmap: dict[str | None, str]
 
@@ -106,22 +106,22 @@ class ABoxBuilder:
             self.indmap[a] = n
             self.A.max_ind += 1
             self.A.rn_ext[n] = set()
-            self.A.dp_ext[n] = set()
+            self.A.dp_ext[n] = []
             self.A.indmap[a] = n
 
         return self.indmap[a]
 
-    def declare_cn(self, cn):
+    def declare_cn(self, cn: str):
         assert "{" not in cn
         if cn not in self.A.cn_ext:
             self.A.cn_ext[cn] = set()
         return
 
-    def declare_rn(self, rn):
+    def declare_rn(self, rn: str):
         self.role_names.add(rn)
         return
 
-    def declare_dp(self, dp):
+    def declare_dp(self, dp: str):
         self.data_types[dp] = ""
         return
 
@@ -140,11 +140,22 @@ class ABoxBuilder:
 
     def data_assertion(self, idx1: int, text: str, type: str, property: str):
         if type == "http://www.w3.org/2001/XMLSchema#double":
-            self.A.dp_ext[idx1].add((float(text), type, property))
+            self.A.dp_ext[idx1].append((float(text), type, property))
         elif type == "http://www.w3.org/2001/XMLSchema#boolean":
-            self.A.dp_ext[idx1].add((text == "true", type, property))
+            self.A.dp_ext[idx1].append((text == "true", type, property))
+        elif type == "http://www.w3.org/2001/XMLSchema#int":
+            self.A.dp_ext[idx1].append((int(text), type, property))
+        elif type == "http://www.w3.org/2001/XMLSchema#integer":
+            self.A.dp_ext[idx1].append((int(text), type, property))
+        elif type == "http://www.w3.org/2001/XMLSchema#nonNegativeInteger":
+            self.A.dp_ext[idx1].append((int(text), type, property))
+        elif type == "http://www.w3.org/2001/XMLSchema#string":
+            self.A.dp_ext[idx1].append((text, type, property))
+        elif type == "http://www.w3.org/2001/XMLSchema#date":
+            # As an approximation, compare dates as strings
+            self.A.dp_ext[idx1].append((text, type, property))
         else:
-            print("Unknown datatype")
+            print(f"Unknown datatype: {type}")
 
         pass
 
@@ -175,6 +186,7 @@ def load_owl(file: str):
     onto = o2p_ontology.Ontology()
 
     facts = 0
+    datavs = 0
     nsmap = {}
     abox = ABoxBuilder()
     num = len(abox.indmap)
@@ -228,6 +240,7 @@ def load_owl(file: str):
                     abox.concept_assertion(ind_idx, conceptname)
                 elif attr_datatype in child.attrib:
                     role = tag2name(child.tag)
+                    datavs += 1
                     abox.data_assertion(
                         ind_idx, child.text, child.attrib[attr_datatype], role
                     )
@@ -242,7 +255,7 @@ def load_owl(file: str):
 
     num = len(abox.indmap)
     abox.A.nsmap = nsmap
-    print("\rLoaded {} individuals and {} facts".format(num, facts))
+    print("\rLoaded {} individuals, {} object properties, and {} data properties".format(num, facts, datavs))
     return onto, abox
 
 
@@ -708,7 +721,7 @@ def restrict_to_neighborhood(
 
     for i1 in inds:
         B.rn_ext[mapping[i1]] = set()
-        B.dp_ext[mapping[i1]] = A.rn_ext[i1]
+        B.dp_ext[mapping[i1]] = A.dp_ext[i1]
         for i2, rn in A.rn_ext[i1]:
             if i2 in inds and dist[i1] < k:
                 B.rn_ext[mapping[i1]].add((mapping[i2], rn))
@@ -763,5 +776,5 @@ def copy_structure(A: Structure) -> Structure:
         rns[a] = set(A.rn_ext[a])
     # TODO not a deep copy
     return Structure(
-        max_ind=A.max_ind, cn_ext=cns, rn_ext=rns, indmap=A.indmap, nsmap=A.nsmap
+        max_ind=A.max_ind, cn_ext=cns, rn_ext=rns, dp_ext=A.dp_ext, indmap=A.indmap, nsmap=A.nsmap
     )
