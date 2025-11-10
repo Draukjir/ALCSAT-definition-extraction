@@ -35,6 +35,7 @@ class Structure:
     max_ind: int
     cn_ext: dict[str, set[int]]
     rn_ext: dict[int, set[tuple[int, str]]]
+    dp_ext: dict[int, set[tuple[Any, str, str]]]
     indmap: dict[str, int]
     nsmap: dict[str | None, str]
 
@@ -88,11 +89,16 @@ def add_ns(n: str):
 class ABoxBuilder:
     A: Structure
     indmap: dict[str, int]
-    role_names = set()
+    role_names: set[str]
+    data_types: dict[str, str]
 
     def __init__(self):
         self.indmap = {}
-        self.A = Structure(max_ind=0, cn_ext={}, rn_ext={}, indmap={}, nsmap={})
+        self.A = Structure(
+            max_ind=0, cn_ext={}, rn_ext={}, dp_ext={}, indmap={}, nsmap={}
+        )
+        self.role_names = set()
+        self.data_types = {}
 
     def map_ind(self, a: str):
         if a not in self.indmap:
@@ -100,6 +106,7 @@ class ABoxBuilder:
             self.indmap[a] = n
             self.A.max_ind += 1
             self.A.rn_ext[n] = set()
+            self.A.dp_ext[n] = set()
             self.A.indmap[a] = n
 
         return self.indmap[a]
@@ -114,6 +121,10 @@ class ABoxBuilder:
         self.role_names.add(rn)
         return
 
+    def declare_dp(self, dp):
+        self.data_types[dp] = ""
+        return
+
     def concept_assertion(self, a: int, concept: str):
         self.declare_cn(concept)
         self.A.cn_ext[concept].add(a)
@@ -126,6 +137,16 @@ class ABoxBuilder:
             idx2 = self.map_ind(ind2)
 
         self.A.rn_ext[idx1].add((idx2, role))
+
+    def data_assertion(self, idx1: int, text: str, type: str, property: str):
+        if type == "http://www.w3.org/2001/XMLSchema#double":
+            self.A.dp_ext[idx1].add((float(text), type, property))
+        elif type == "http://www.w3.org/2001/XMLSchema#boolean":
+            self.A.dp_ext[idx1].add((text == "true", type, property))
+        else:
+            print("Unknown datatype")
+
+        pass
 
 
 tag_onto = expand_namespace("owl", "Ontology")
@@ -177,7 +198,7 @@ def load_owl(file: str):
             onto.add_property(reader.parse_property(elem))
             elem.clear()
         elif elem.tag == tag_data_prop:
-            # TODO: handle dataproperties here
+            abox.declare_dp(make_res_absolute(nsmap, elem.attrib[attr_about]))
             elem.clear()
         elif elem.tag == tag_annotation_prop:
             elem.clear()
@@ -206,8 +227,10 @@ def load_owl(file: str):
                     facts += 1
                     abox.concept_assertion(ind_idx, conceptname)
                 elif attr_datatype in child.attrib:
-                    # TODO: handle dataproperties here
-                    continue
+                    role = tag2name(child.tag)
+                    abox.data_assertion(
+                        ind_idx, child.text, child.attrib[attr_datatype], role
+                    )
                 elif attr_resource in child.attrib:
                     role = tag2name(child.tag)
                     other = make_res_absolute(nsmap, child.attrib[attr_resource])
@@ -224,7 +247,7 @@ def load_owl(file: str):
 
 
 @functools.cache
-def structure_from_owl(file) -> Structure:
+def structure_from_owl(file: str) -> Structure:
     onto, abox = load_owl(file)
     tbox = construct_normalized_tbox(onto)
     tbox.saturate()
@@ -675,6 +698,7 @@ def restrict_to_neighborhood(
         max_ind=len(inds),
         cn_ext={cn: set() for cn in cns},
         rn_ext={a: set() for a in range(len(inds))},
+        dp_ext={a: set() for a in range(len(inds))},
         indmap=n_indmap,
         nsmap=A.nsmap,
     )
@@ -684,6 +708,7 @@ def restrict_to_neighborhood(
 
     for i1 in inds:
         B.rn_ext[mapping[i1]] = set()
+        B.dp_ext[mapping[i1]] = A.rn_ext[i1]
         for i2, rn in A.rn_ext[i1]:
             if i2 in inds and dist[i1] < k:
                 B.rn_ext[mapping[i1]].add((mapping[i2], rn))

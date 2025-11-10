@@ -94,7 +94,9 @@ def color_refinement_alc(
 
     return color
 
+
 def bisimulation_reduction(inst: Instance, max_k: int) -> Instance:
+    # TODO: this ignores datatypes for now
     color = color_refinement_alc(inst.A, inst.sigma, True, max_k)
 
     A = inst.A
@@ -105,7 +107,7 @@ def bisimulation_reduction(inst: Instance, max_k: int) -> Instance:
         if color[a] not in color2class:
             color2class[color[a]] = len(color2class)
 
-    B = Structure(len(color2class), {}, {}, {}, A.nsmap)
+    B = Structure(len(color2class), {}, {}, {}, {}, A.nsmap)
 
     for cn in sigma.conceptnames:
         B.cn_ext[cn] = set()

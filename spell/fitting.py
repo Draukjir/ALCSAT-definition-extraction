@@ -240,6 +240,7 @@ def model2fitting_query(
         max_ind=size,
         cn_ext={cn: set() for cn in sigma.conceptnames},
         rn_ext={a: set() for a in range(size)},
+        dp_ext={a: set() for a in range(size)},
         indmap={},
         nsmap={},
     )
@@ -503,7 +504,9 @@ def solve_incr(
     time_start = time.process_time()
     i = 1
     best_coverage = len(P)
-    best_q = Structure(max_ind=1, cn_ext={}, rn_ext={0: set()}, indmap={}, nsmap={})
+    best_q = Structure(
+        max_ind=1, cn_ext={}, rn_ext={0: set()}, dp_ext={}, indmap={}, nsmap={}
+    )
     dt = time.process_time() - time_start
     while (
         best_coverage < len(P) + len(N)
