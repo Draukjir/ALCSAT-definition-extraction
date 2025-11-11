@@ -1319,10 +1319,8 @@ class FittingALC:
         best_acc = 0
         dt = time.time() - time_start
 
-        # self.inst.sigma.conceptnames = [ cn for cn in self.inst.sigma.conceptnames if cn == "http://dl-learner.org/carcinogenesis#Carbon"]
-        # print(len(self.inst.sigma.conceptnames))
         self.inst = encode_dataproperties(self.inst)
-        # print(len(self.inst.sigma.conceptnames))
+
         self.inst = bisimulation_reduction(self.inst, max_k)
 
         self.inst = prune_conceptnames(self.inst)
