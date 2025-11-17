@@ -181,7 +181,7 @@ def make_res_absolute(nsmap: dict[Any, str], res: str) -> str:
         return res
 
 
-def load_owl(file: str):
+def load_owl(file: str) -> tuple[Ontology, ABoxBuilder]:
     reader = o2p_owl_parser.OWLReader("")
     onto = o2p_ontology.Ontology()
 
@@ -275,7 +275,7 @@ def structure_from_owl(file: str) -> Structure:
 
 
 # ELTBox
-class TBox:
+class EL_TBox:
     fresh_names: set[str]
     implic: dict[str, set[str]]
     conjs: dict[str, set[frozenset[str]]]
@@ -458,7 +458,7 @@ class TBox:
                                     change = True
 
 
-def construct_normalized_tbox(onto: Ontology):
+def construct_normalized_tbox(onto: Ontology) -> EL_TBox:
     ignored_rules = 0
     ignored_domain = 0
     ignored_range = 0
@@ -468,7 +468,7 @@ def construct_normalized_tbox(onto: Ontology):
     # TODO: functional roles, reasoning rules for ELI, etc
     # TODO: inverse roles in ABox
 
-    t = TBox(tag2name(expand_namespace("owl", "Thing")))
+    t = EL_TBox(tag2name(expand_namespace("owl", "Thing")))
     t.fresh_names = set(NameFactory.created_names)
     for rule in onto.rules:
         if type(rule) != SubClassOf:
@@ -571,7 +571,7 @@ def construct_normalized_tbox(onto: Ontology):
     return t
 
 
-def compact_canonical_model(abox: ABoxBuilder, tbox: TBox):
+def compact_canonical_model(abox: ABoxBuilder, tbox: EL_TBox):
     # TODO refactor. Should be more obviously correct
     for cn in tbox.cns:
         abox.declare_cn(cn)
