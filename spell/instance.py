@@ -5,6 +5,7 @@ from spell.structures import Signature, Structure
 
 
 class OP(IntEnum):
+    CN = -1
     TOP = 0
     BOT = 1
     NEG = 2

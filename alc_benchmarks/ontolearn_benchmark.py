@@ -13,6 +13,8 @@ from ontolearn.refinement_operators import ModifiedCELOERefinement
 from owlapy.owl_individual import IRI, OWLNamedIndividual
 from owlapy.render import DLSyntaxObjectRenderer
 
+from alc_benchmarks.alc_benchmark import instance_to_dllearner
+
 # from alc_benchmark import instance_to_dllearner
 
 

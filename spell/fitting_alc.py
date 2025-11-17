@@ -1,5 +1,6 @@
 import concurrent.futures
 from enum import StrEnum
+import operator
 import time
 from collections.abc import Iterable
 from concurrent.futures import ProcessPoolExecutor
@@ -88,14 +89,24 @@ def cn_types(A: Structure, sigma: Signature) -> set[frozenset[str]]:
         res.add(tp)
     return res
 
-
-@dataclass
-class STree:
-    label: str
-    children: list["STree"]
+@dataclass(slots = True)
+class ALCConcept:
+    operation : OP
+    name: str
+    value: Any
+    children: list["ALCConcept"]
 
     def to_tree_int(self) -> list[str]:
-        res = [self.label]
+        if self.operation == OP.CN:
+            # concept name
+            res = [self.name]
+        elif self.operation in {OP.ALL, OP.EX}:
+            res = [f"{d_op[self.operation]}.{self.name}"]
+        elif self.operation in {OP.GE, OP.LE}:
+            res = [f"{d_op[self.operation]}{self.value} {self.name}"]
+        else:
+            res = [f"{d_op[self.operation]}"]
+
         for c in self.children:
             cs = c.to_tree_int()
             res.append(" +-- " + cs[0])
@@ -104,24 +115,6 @@ class STree:
 
     def to_tree(self) -> str:
         return "\n".join(self.to_tree_int())
-
-    def to_string(self):
-        ns = str(self.label)
-        if len(self.children) == 0:
-            return ns
-        elif len(self.children) == 1:
-            if self.label.startswith("all"):
-                nss = f"∀.{ns[4:]}"
-            elif self.label.startswith("ex"):
-                nss = f"∃.{ns[3:]}"
-            else:
-                nss = ns
-            return f"{nss} {self.children[0].to_string()}"
-        elif len(self.children) == 2:
-            return f"({self.children[0].to_string()} {self.label} {self.children[1].to_string()})"
-        else:
-            return ""
-
 
 class ALCSATEncoding:
     def __init__(self, instance: Instance):
@@ -941,55 +934,55 @@ class ALCSATEncoding:
                 res.add(n)
         return frozenset(res)
 
-    def nodelabel(self, i: int) -> str:
+    def nodelabel(self, i: int) -> tuple[OP, int, str]:
         assert self.solver and self.solver.get_status()
         m = self.solver.get_model()
         assert isinstance(m, list)
         if (self.vars[X, OP.TOP] + i) in m:
-            return d_op[OP.TOP]
+            return (OP.TOP, 0, "")
         if (self.vars[X, OP.BOT] + i) in m:
-            return d_op[OP.BOT]
+            return (OP.BOT, 0, "")
         for cn in self.inst.sigma.conceptnames:
             if (self.vars[X, cn] + i) in m:
-                return cn
+                return (OP.CN, 0, cn)
         for op in self.inst.op_b():
             if (self.vars[X, op] + i) in m:
-                return d_op[op]
+                return (op, 0, "")
         if OP.EX in self.inst.op:
             for r in self.inst.sigma.rolenames:
                 if (self.vars[X, OP.EX, r] + i) in m:
-                    return f"ex.{r}"
+                    return (OP.EX, 0, r)
         if OP.ALL in self.inst.op:
             for r in self.inst.sigma.rolenames:
                 if (self.vars[X, OP.ALL, r] + i) in m:
-                    return f"all.{r}"
+                    return (OP.ALL, 0, r)
         if OP.LE in self.inst.op:
             for r in self.inst.sigma.rolenames:
                 for q in range(1, self.inst.max_q + 1):
                     if (self.vars[X, OP.LE, r, q] + i) in m:
-                        return f"<={q} {r}."
+                        return (OP.LE, q, r)
         if OP.GE in self.inst.op:
             for r in self.inst.sigma.rolenames:
                 for q in range(1, self.inst.max_q + 1):
                     if (self.vars[X, OP.GE, r, q] + i) in m:
-                        return f">={q} {r}."
+                        return (OP.GE, q, r)
         assert False
 
-    def modelToTree(self, i: int = 0) -> STree:
+    def modelToTree(self, i: int = 0) -> ALCConcept:
         assert self.solver and self.solver.get_status()
         m = self.solver.get_model()
         assert isinstance(m, list)
 
-        label = self.nodelabel(i)
+        (op, q, r) = self.nodelabel(i)
 
-        children: list[STree] = []
+        children: list[ALCConcept] = []
         for j in range(i + 1, self.k):
             if (self.vars[V, 1, i] + j) in m:
                 children.append(self.modelToTree(j))
             if j < self.k - 1 and (self.vars[V, 2, i] + j) in m:
                 children.append(self.modelToTree(j))
                 children.append(self.modelToTree(j + 1))
-        return STree(label, children)
+        return ALCConcept(op, r, q, children)
 
 
 ApproxTask = tuple[ALCSATEncoding, int, int, list[int]]
@@ -1006,6 +999,8 @@ def solve_approx(task: ApproxTask):
     best_n = 0
     enc.types = cn_types(enc.inst.A, enc.inst.sigma)
     enc.create_vars()
+
+    assert len(tt) == 1
     enc.syn_tree_encoding2(tt[0])
     # enc.syn_tree_encoding()
     enc.evaluation_constraints2(tt[0])
@@ -1061,11 +1056,11 @@ class FittingALC:
 
     def solve_incr_approx(
         self, max_k: int, start_k: int = 1, min_n: int = 1, timeout: float = -1
-    ) -> tuple[float, int, STree]:
+    ) -> tuple[float, int, ALCConcept]:
         time_start = time.time()
         k: int = start_k
         n: int = max(len(self.inst.P), len(self.inst.N), min_n)
-        best_sol: STree = STree(d_op[OP.TOP], [])
+        best_sol: ALCConcept = ALCConcept(OP.TOP, "", 0, [])
         best_acc = 0
         dt = time.time() - time_start
 

@@ -4,7 +4,8 @@ import time
 
 import pandas as pd
 
-from spell.fitting_alc import ALL, AND, EX, NEG, OR, FittingALC
+from spell.fitting_alc import FittingALC
+from spell.instance import ALC_OP
 from spell.structures import map_ind_name, structure_from_owl
 
 from .alc_benchmark import read_examples_from_json
@@ -35,7 +36,7 @@ def benchmark_run(dir):
             N = list(map(lambda n: map_ind_name(A, n), N))
             start = time.time()
             max_k = 32
-            f = FittingALC(A, max_k, P, N, op={EX, ALL, OR, AND, NEG})
+            f = FittingALC(A, max_k, P, N, op=ALC_OP)
             a_alcsat, n_alcsat, c_alcsat = f.solve_incr(max_k)
             end = time.time()
             t_alcsat = end - start
