@@ -104,7 +104,12 @@ def random_concept(size: int, sigma: Signature) -> Structure:
             no_casserts += 1
 
     return Structure(
-        max_ind=edges + 1, cn_ext=casserts, rn_ext=rasserts, dp_ext = {}, indmap={}, nsmap={}
+        max_ind=edges + 1,
+        cn_ext=casserts,
+        rn_ext=rasserts,
+        dp_ext={},
+        indmap={},
+        nsmap={},
     )
 
 
@@ -246,7 +251,9 @@ def structure2concept(s: Structure) -> ELConcept:
 def concept2structure(c: ELConcept) -> Structure:
     queue: list[tuple[ELConcept, int]] = [(c, 0)]
 
-    res = Structure(max_ind=1, cn_ext={}, rn_ext={0: set()}, dp_ext={}, indmap={}, nsmap={})
+    res = Structure(
+        max_ind=1, cn_ext={}, rn_ext={0: set()}, dp_ext={}, indmap={}, nsmap={}
+    )
 
     while len(queue) > 0:
         (c, ind) = queue.pop(0)

@@ -160,7 +160,7 @@ def solve(path, ex_path, k):
     P = list(map(lambda n: map_ind_name(A, n), P))
     N = list(map(lambda n: map_ind_name(A, n), N))
     f = FittingALC(A, k, P, N, op=ALC_OP)
-    return f.solve_incr(k )
+    return f.solve_incr(k)
 
 
 # def solve_old(path, ex_path, k):

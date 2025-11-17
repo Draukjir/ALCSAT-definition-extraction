@@ -1,16 +1,14 @@
 import concurrent.futures
 from enum import StrEnum
-import operator
 import time
 from collections.abc import Iterable
 from concurrent.futures import ProcessPoolExecutor
-from dataclasses import dataclass
 from typing import Any
 
 from pysat.card import CardEnc, EncType
 from pysat.solvers import Solver
 
-from spell.instance import ALC_OP, OP, Instance
+from spell.instance import ALC_OP, OP, ALCConcept, Instance
 from spell.preprocessing import (
     bisimulation_reduction,
     encode_dataproperties,
@@ -36,19 +34,6 @@ class FittingMode(StrEnum):
 # BUT: experiments suggest that when finding a single path of size k, there is a slowdown for 11 and above
 # Indeed, 10 seems to be a local minimum
 TREE_TEMPLATE_LIMIT = 10
-
-d_op = {
-    0: "TOP",
-    1: "BOT",
-    2: "NEG",
-    3: "AND",
-    4: "OR",
-    5: "EX",
-    6: "ALL",
-    7: "LE",
-    8: "GE",
-}
-
 
 X = 0
 Z = 2
@@ -89,32 +74,6 @@ def cn_types(A: Structure, sigma: Signature) -> set[frozenset[str]]:
         res.add(tp)
     return res
 
-@dataclass(slots = True)
-class ALCConcept:
-    operation : OP
-    name: str
-    value: Any
-    children: list["ALCConcept"]
-
-    def to_tree_int(self) -> list[str]:
-        if self.operation == OP.CN:
-            # concept name
-            res = [self.name]
-        elif self.operation in {OP.ALL, OP.EX}:
-            res = [f"{d_op[self.operation]}.{self.name}"]
-        elif self.operation in {OP.GE, OP.LE}:
-            res = [f"{d_op[self.operation]}{self.value} {self.name}"]
-        else:
-            res = [f"{d_op[self.operation]}"]
-
-        for c in self.children:
-            cs = c.to_tree_int()
-            res.append(" +-- " + cs[0])
-            res.extend(["    " + s for s in cs[1:]])
-        return res
-
-    def to_tree(self) -> str:
-        return "\n".join(self.to_tree_int())
 
 class ALCSATEncoding:
     def __init__(self, instance: Instance):
@@ -1120,7 +1079,9 @@ class FittingALC:
                             assert k_sol
                             best_sol = k_sol
                             best_acc = k_acc
-                            print(f"Satisfiable for k={k}, n={k_n}, acc={k_acc:.6f}, f1={k_f1:.6f}")
+                            print(
+                                f"Satisfiable for k={k}, n={k_n}, acc={k_acc:.6f}, f1={k_f1:.6f}"
+                            )
                             print(best_sol.to_tree())
                             n = k_n + 1
                 except TimeoutError:
