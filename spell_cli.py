@@ -62,12 +62,6 @@ def main():
         default=1,
         help="number of worker processes (default = 1)",
     )
-
-    _ = parser.add_argument(
-        "--disable_tree_templates",
-        action="store_true",
-        help="(alcsat only) disables optimization that precomputes tree templates",
-    )
     
     args = parser.parse_args()
 
@@ -121,7 +115,6 @@ def main():
             P,
             N,
             op=frozenset(L_OP[args.language]),
-            tree_templates=not args.disable_tree_templates,
             workers=args.workers,
             max_q=args.max_q,
         )

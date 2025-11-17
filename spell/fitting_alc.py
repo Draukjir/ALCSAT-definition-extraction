@@ -117,9 +117,8 @@ class STree:
 
 
 class ALCSATEncoding:
-    def __init__(self, instance: Instance, tree_templates: bool, type_encoding: bool):
+    def __init__(self, instance: Instance):
         self.inst: Instance = instance
-        self.tree_templates: bool = tree_templates
         self.solver: Solver | None = None
         self.k: int = 0
         self.vars: dict[Any, int] = {}
@@ -181,11 +180,10 @@ class ALCSATEncoding:
 
         self.max_var = i * self.k + 1
 
-        if self.tree_templates:
-            tree_k = self.k
-            for idx, _ in enumerate(all_trees(tree_k, 0)):
-                d[T, idx] = self.max_var
-                self.max_var += 1
+        tree_k = self.k
+        for idx, _ in enumerate(all_trees(tree_k, 0)):
+            d[T, idx] = self.max_var
+            self.max_var += 1
 
         self.vars = d
 
@@ -439,7 +437,7 @@ class ALCSATEncoding:
                         )
                     )
 
-        if self.tree_templates and False:
+        if False:
             tree_k = min(self.k, TREE_TEMPLATE_LIMIT)
 
             tree_vars = []
@@ -1027,7 +1025,6 @@ class FittingALC:
         P: list[int],
         N: list[int],
         op = ALC_OP,
-        tree_templates=True,
         workers: int = 1,
         max_q=2,
     ):
@@ -1037,7 +1034,6 @@ class FittingALC:
         sigma: Signature = determine_relevant_symbols(A, P + N, 1, max_k - 1)
         self.max_k: int = max_k
         self.inst: Instance = Instance(A2, P2, N2, sigma, op, max_q=max_q)
-        self.tree_templates: bool = tree_templates
         self.workers: int = workers
 
     def accuracy(self, st: frozenset[int]) -> float:
@@ -1085,7 +1081,7 @@ class FittingALC:
 
         with ProcessPoolExecutor(self.workers) as p:
             while k <= max_k and (dt < timeout or timeout == -1) and best_acc < 1.0:
-                enc = ALCSATEncoding(self.inst, True, True)
+                enc = ALCSATEncoding(self.inst)
                 enc.k = k
 
                 # if self.workers > 1:
