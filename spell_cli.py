@@ -62,7 +62,7 @@ def main():
         default=1,
         help="number of worker processes (default = 1)",
     )
-    
+
     args = parser.parse_args()
 
     owlfile = args.kb_owl_file

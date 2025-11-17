@@ -680,59 +680,6 @@ def solution2sparql(q: Structure):
     return "SELECT DISTINCT ?0 WHERE {{\n {}\n}}".format("\n ".join(clauses))
 
 
-# Returns A restricted to individuals that can be reached in k steps from a
-# Renames individuals
-def restrict_to_neighborhood(
-    k: int, A: Structure, starts: list[int]
-) -> tuple[Structure, dict[int, int]]:
-    cns = [cn for cn in A.cn_ext.keys() if A.cn_ext[cn]]
-
-    # This has its own distance calculation to avoid computing the distance
-    # for the entirety of A
-    inds = set(starts)
-    dist = {a: 0 for a in starts}
-    for r in range(k):
-        step = set()
-        for i1 in inds:
-            for i2, rn in A.rn_ext[i1]:
-                step.add(i2)
-        inds = inds.union(step)
-        for i in step:
-            if i in dist:
-                dist[i] = min(r + 1, dist[i])
-            else:
-                dist[i] = r + 1
-
-    mapping = {old_ind: new_ind for (new_ind, old_ind) in enumerate(inds)}
-
-    n_indmap = {
-        name: mapping[old_ind]
-        for name, old_ind in A.indmap.items()
-        if old_ind in mapping
-    }
-
-    B = Structure(
-        max_ind=len(inds),
-        cn_ext={cn: set() for cn in cns},
-        rn_ext={a: set() for a in range(len(inds))},
-        dp_ext={a: set() for a in range(len(inds))},
-        indmap=n_indmap,
-        nsmap=A.nsmap,
-    )
-
-    for cn in cns:
-        B.cn_ext[cn] = {mapping[ind] for ind in A.cn_ext[cn] & inds}
-
-    for i1 in inds:
-        B.rn_ext[mapping[i1]] = set()
-        B.dp_ext[mapping[i1]] = A.dp_ext[i1]
-        for i2, rn in A.rn_ext[i1]:
-            if i2 in inds and dist[i1] < k:
-                B.rn_ext[mapping[i1]].add((mapping[i2], rn))
-
-    return (B, mapping)
-
-
 def generate_all_trees(order: int):
     layout = list(range(order))
 
@@ -768,22 +715,3 @@ def levels_to_preds(layout: list[int]) -> list[int]:
             result[i - 1] = stack[-1]
         stack.append(i)
     return result
-
-
-def copy_structure(A: Structure) -> Structure:
-    cns = {}
-    for cn in A.cn_ext.keys():
-        cns[cn] = set(A.cn_ext[cn])
-
-    rns = {}
-    for a in ind(A):
-        rns[a] = set(A.rn_ext[a])
-    # TODO not a deep copy
-    return Structure(
-        max_ind=A.max_ind,
-        cn_ext=cns,
-        rn_ext=rns,
-        dp_ext=A.dp_ext,
-        indmap=A.indmap,
-        nsmap=A.nsmap,
-    )

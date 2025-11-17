@@ -11,9 +11,9 @@ from .structures import (
     conceptname_ext,
     generate_all_trees,
     ind,
-    restrict_to_neighborhood,
     solution2sparql,
 )
+from .preprocessing import restrict_to_neighborhood
 
 mode = Enum("mode", "exact neg_approx full_approx alc")
 

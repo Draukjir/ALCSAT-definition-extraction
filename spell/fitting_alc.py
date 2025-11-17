@@ -14,6 +14,7 @@ from spell.preprocessing import (
     bisimulation_reduction,
     encode_dataproperties,
     prune_conceptnames,
+    restrict_neighborhood,
 )
 
 from .fitting import (
@@ -22,7 +23,6 @@ from .fitting import (
 from .structures import (
     Signature,
     Structure,
-    restrict_to_neighborhood,
 )
 
 
@@ -703,9 +703,7 @@ class ALCSATEncoding:
             for tp in self.types:
                 for cn in self.inst.sigma.conceptnames:
                     if cn in tp:
-                        self.add_clause(
-                            (-(self.vars[X, cn] + i), self.vars[X, tp] + i)
-                        )
+                        self.add_clause((-(self.vars[X, cn] + i), self.vars[X, tp] + i))
                     if cn not in tp:
                         self.add_clause(
                             (-(self.vars[X, cn] + i), -(self.vars[X, tp] + i))
@@ -872,9 +870,7 @@ class ALCSATEncoding:
             for tp in self.types:
                 for cn in self.inst.sigma.conceptnames:
                     if cn in tp:
-                        self.add_clause(
-                            (-(self.vars[X, cn] + i), self.vars[X, tp] + i)
-                        )
+                        self.add_clause((-(self.vars[X, cn] + i), self.vars[X, tp] + i))
                     if cn not in tp:
                         self.add_clause(
                             (-(self.vars[X, cn] + i), -(self.vars[X, tp] + i))
@@ -1050,12 +1046,9 @@ class FittingALC:
         workers: int = 1,
         max_q: int = 2,
     ):
-        A2, m = restrict_to_neighborhood(max_k - 1, A, P + N)
-        P2: list[int] = [m[a] for a in P]
-        N2: list[int] = [m[b] for b in N]
         sigma: Signature = determine_relevant_symbols(A, P + N, 1, max_k - 1)
         self.max_k: int = max_k
-        self.inst: Instance = Instance(A2, P2, N2, sigma, op, max_q=max_q)
+        self.inst: Instance = Instance(A, P, N, sigma, op, max_q=max_q)
         self.workers: int = workers
 
     def solve(self):
@@ -1076,6 +1069,8 @@ class FittingALC:
         best_sol: STree = STree(d_op[OP.TOP], [])
         best_acc = 0
         dt = time.time() - time_start
+
+        self.inst = restrict_neighborhood(self.inst, max_k)
 
         self.inst = encode_dataproperties(self.inst)
 
@@ -1139,7 +1134,7 @@ class FittingALC:
                 dt = time.time() - time_start
 
             # Really kill the SAT solver processes
-            for pid, proc in p._processes.items():
+            for proc in p._processes.values():
                 proc.terminate()
             p.shutdown(wait=False, cancel_futures=True)
         return best_acc, k, best_sol

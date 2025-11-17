@@ -10,7 +10,6 @@ from .structures import (
     Signature,
     Structure,
     conceptname_ext,
-    copy_structure,
     generate_all_trees,
     ind,
     map_ind_name,
@@ -59,8 +58,10 @@ def add_random_cn(A: Structure, sigma: Signature) -> Structure:
         cn = random.choice(sigma.conceptnames)
         attempts += 1
 
-    A2 = copy_structure(A)
+    A2 = Structure(A.max_ind, A.cn_ext, A.rn_ext, A.dp_ext, A.indmap, A.nsmap)
 
+    A2.cn_ext = dict(A2.cn_ext)
+    A2.cn_ext[cn] = set(A.cn_ext[cn])
     A2.cn_ext[cn].add(a)
     return A2
 

@@ -114,12 +114,11 @@ def main():
     remaining_time = -1
     if args.timeout != -1:
         remaining_time = args.timeout - (time.perf_counter() - time_start)
+
     if args.mode == FittingMode.EXACT:
         acc, _, _ = f.solve_incr(args.max_size, timeout=remaining_time)
     elif args.mode == FittingMode.APPROX:
         acc, _, _ = f.solve_incr_approx(args.max_size, timeout=remaining_time)
-    else:
-        print(f"Fitting mode {args.mode} is not known.")
 
     time_solved = time.perf_counter()
 

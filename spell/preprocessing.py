@@ -107,7 +107,6 @@ def color_refinement(
 
 
 def bisimulation_reduction(inst: Instance, max_k: int) -> Instance:
-    # TODO: this ignores datatypes for now
     color = color_refinement(inst.A, inst.sigma, True, max_k)
 
     A = inst.A
@@ -146,3 +145,63 @@ def bisimulation_reduction(inst: Instance, max_k: int) -> Instance:
         sigma,
         inst.op,
     )
+
+
+# Returns A restricted to individuals that can be reached in k steps from a
+# Renames individuals
+def restrict_to_neighborhood(
+    k: int, A: Structure, starts: list[int]
+) -> tuple[Structure, dict[int, int]]:
+    cns = [cn for cn in A.cn_ext.keys() if A.cn_ext[cn]]
+
+    # This has its own distance calculation to avoid computing the distance
+    # for the entirety of A
+    inds = set(starts)
+    dist = {a: 0 for a in starts}
+    for r in range(k):
+        step = set()
+        for i1 in inds:
+            for i2, rn in A.rn_ext[i1]:
+                step.add(i2)
+        inds = inds.union(step)
+        for i in step:
+            if i in dist:
+                dist[i] = min(r + 1, dist[i])
+            else:
+                dist[i] = r + 1
+
+    mapping = {old_ind: new_ind for (new_ind, old_ind) in enumerate(inds)}
+
+    n_indmap = {
+        name: mapping[old_ind]
+        for name, old_ind in A.indmap.items()
+        if old_ind in mapping
+    }
+
+    B = Structure(
+        max_ind=len(inds),
+        cn_ext={cn: set() for cn in cns},
+        rn_ext={a: set() for a in range(len(inds))},
+        dp_ext={a: set() for a in range(len(inds))},
+        indmap=n_indmap,
+        nsmap=A.nsmap,
+    )
+
+    for cn in cns:
+        B.cn_ext[cn] = {mapping[ind] for ind in A.cn_ext[cn] & inds}
+
+    for i1 in inds:
+        B.rn_ext[mapping[i1]] = set()
+        B.dp_ext[mapping[i1]] = A.dp_ext[i1]
+        for i2, rn in A.rn_ext[i1]:
+            if i2 in inds and dist[i1] < k:
+                B.rn_ext[mapping[i1]].add((mapping[i2], rn))
+
+    return (B, mapping)
+
+
+def restrict_neighborhood(inst: Instance, k: int) -> Instance:
+    A, mapping = restrict_to_neighborhood(k - 1, inst.A, inst.P + inst.N)
+    P2 = [mapping[a] for a in inst.P]
+    N2 = [mapping[a] for a in inst.N]
+    return Instance(A, P2, N2, inst.sigma, inst.op, inst.max_q)
