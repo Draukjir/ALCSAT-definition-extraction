@@ -11,8 +11,11 @@ from owlready2 import default_world, get_ontology
 from rdflib import Graph
 
 from spell.benchmark_tools import construct_owl_from_structure
-from spell.fitting_alc import ALL, AND, EX, NEG, OR, FittingALC
-from spell.structures import map_ind_name, restrict_to_neighborhood, structure_from_owl
+from spell.fitting_alc import FittingALC
+from spell.structures import map_ind_name, structure_from_owl
+from spell.instance import ALC_OP, OP
+
+from spell.preprocessing import restrict_to_neighborhood
 
 from .ontolearn_benchmark import run_evo
 
@@ -72,7 +75,7 @@ def query_and_solve(path, q_pos, q_neg, n_pos, n_neg, k):
     A = structure_from_owl(path)
     P = list(map(lambda n: map_ind_name(A, n), P))
     N = list(map(lambda n: map_ind_name(A, n), N))
-    f = FittingALC(A, k, P, N, op={EX, ALL, OR, AND, NEG})
+    f = FittingALC(A, k, P, N, op=ALC_OP)
     return f.solve()
 
 
@@ -147,7 +150,7 @@ def solve_fixed_k(path, ex_path, k):
     P, N = read_examples_from_json(ex_path)
     P = list(map(lambda n: map_ind_name(A, n), P))
     N = list(map(lambda n: map_ind_name(A, n), N))
-    f = FittingALC(A, k, P, N, op={EX, ALL, OR, AND, NEG})
+    f = FittingALC(A, k, P, N, op=ALC_OP)
     return f.solve()
 
 
@@ -156,8 +159,8 @@ def solve(path, ex_path, k):
     P, N = read_examples_from_json(ex_path)
     P = list(map(lambda n: map_ind_name(A, n), P))
     N = list(map(lambda n: map_ind_name(A, n), N))
-    f = FittingALC(A, k, P, N, op={EX, ALL, OR, AND, NEG})
-    return f.solve_incr(k, return_string=True)
+    f = FittingALC(A, k, P, N, op=ALC_OP)
+    return f.solve_incr(k )
 
 
 # def solve_old(path, ex_path, k):
@@ -173,7 +176,7 @@ def test(path, P, N):
     A = structure_from_owl(path)
     P = list(map(lambda n: map_ind_name(A, n), P))
     N = list(map(lambda n: map_ind_name(A, n), N))
-    f = FittingALC(A, 6, P, N, op={EX, ALL, OR, AND})
+    f = FittingALC(A, 6, P, N, op=ALC_OP)
     f.solve()
 
 
@@ -185,7 +188,7 @@ def run_on_ontolearn_examples(kb_path, json_path, problem_key, k):
     N = d["problems"][problem_key]["negative_examples"]
     P = list(map(lambda n: map_ind_name(A, n), P))
     N = list(map(lambda n: map_ind_name(A, n), N))
-    f = FittingALC(A, k, P, N, op={EX, ALL, OR, AND})
+    f = FittingALC(A, k, P, N, op=ALC_OP)
     f.solve_incr(k)
 
 
@@ -355,7 +358,7 @@ def benchmark_run(dir):
             N = list(map(lambda n: map_ind_name(A, n), N))
             start = time.time()
             max_k = 32
-            f = FittingALC(A, max_k, P, N, op={EX, ALL, OR, AND, NEG})
+            f = FittingALC(A, max_k, P, N, op=ALC_OP)
             a_alcsat, n_alcsat, c_alcsat = f.solve_incr(max_k)
             end = time.time()
             t_alcsat = end - start

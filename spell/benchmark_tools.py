@@ -2,7 +2,7 @@ import functools
 import os
 import random
 import time
-from typing import Generator, Union
+from collections.abc import Generator
 
 from .fitting import mode, non_empty_symbols, solve_incr
 from .structures import (
@@ -20,11 +20,11 @@ from .structures import (
 ROBOT_PATH = "{}/../robot/robot".format(os.path.dirname(os.path.realpath(__file__)))
 ROBOT_JAVA_ARGS = "-Xmx40G"
 
-Concept = frozenset[tuple[str, Union[None, "Concept"]]]
+ELConcept = frozenset[tuple[str, "None | ELConcept"]]
 
 
-def drop_leave_atom(c: Concept) -> list[Concept]:
-    res: list[Concept] = []
+def drop_leave_atom(c: ELConcept) -> list[ELConcept]:
+    res: list[ELConcept] = []
 
     for rn, d in c:
         weak_c = c - {(rn, d)}
@@ -39,7 +39,7 @@ def drop_leave_atom(c: Concept) -> list[Concept]:
     return res
 
 
-def weaken_concept(concept: Concept, steps: int) -> set[Concept]:
+def weaken_concept(concept: ELConcept, steps: int) -> set[ELConcept]:
     s = {concept}
 
     for _ in range(steps):
@@ -104,15 +104,15 @@ def random_concept(size: int, sigma: Signature) -> Structure:
             no_casserts += 1
 
     return Structure(
-        max_ind=edges + 1, cn_ext=casserts, rn_ext=rasserts, indmap={}, nsmap={}
+        max_ind=edges + 1, cn_ext=casserts, rn_ext=rasserts, dp_ext = {}, indmap={}, nsmap={}
     )
 
 
-def frontier(c: Concept) -> list[Concept]:
-    res: list[Concept] = []
+def frontier(c: ELConcept) -> list[ELConcept]:
+    res: list[ELConcept] = []
 
     for rn, d in c:
-        base: Concept = c - {(rn, d)}
+        base: ELConcept = c - {(rn, d)}
         if not d:  # Conceptname
             res.append(base)
         elif len(d) == 0:  # Leaf
@@ -126,7 +126,7 @@ def frontier(c: Concept) -> list[Concept]:
     return res
 
 
-def repeated_frontier(c: Concept, n: int) -> list[Concept]:
+def repeated_frontier(c: ELConcept, n: int) -> list[ELConcept]:
     f = [c]
 
     for i in range(n):
@@ -135,14 +135,14 @@ def repeated_frontier(c: Concept, n: int) -> list[Concept]:
     return f
 
 
-def drop_root_subtree(c: Concept) -> list[Concept]:
-    res: list[Concept] = []
+def drop_root_subtree(c: ELConcept) -> list[ELConcept]:
+    res: list[ELConcept] = []
     for rn, d in c:
         res.append(c - {(rn, d)})
     return res
 
 
-def weaken_drop_root_subtrees(c: Concept, succs: int) -> list[Concept]:
+def weaken_drop_root_subtrees(c: ELConcept, succs: int) -> list[ELConcept]:
     r1 = frontier(c)
 
     while len(r1[0]) > succs:
@@ -151,7 +151,7 @@ def weaken_drop_root_subtrees(c: Concept, succs: int) -> list[Concept]:
     return list(set(r1))
 
 
-def concept2sparqlclauses(concept: Concept, counter) -> list[str]:
+def concept2sparqlclauses(concept: ELConcept, counter: int) -> list[str]:
     res: list[str] = []
 
     thisnode = counter
@@ -172,7 +172,7 @@ def concept2sparqlclauses(concept: Concept, counter) -> list[str]:
     return res
 
 
-def concept2sparql(concept: Concept) -> str:
+def concept2sparql(concept: ELConcept) -> str:
     clauses = concept2sparqlclauses(concept, 0)
 
     return "SELECT DISTINCT ?0 WHERE {{\n {}\n}}".format("\n ".join(clauses))
@@ -194,7 +194,7 @@ def sparql2struct(sparql: str) -> Structure:
     return b.A
 
 
-def conj2string(rn: str, d: None | Concept) -> str:
+def conj2string(rn: str, d: None | ELConcept) -> str:
     if d is None:
         return "{}".format(rn)
     if len(d) > 1:
@@ -203,7 +203,7 @@ def conj2string(rn: str, d: None | Concept) -> str:
         return "\\exists {}.{}".format(rn, concept2string(d))
 
 
-def concept2string(concept: Concept) -> str:
+def concept2string(concept: ELConcept) -> str:
     if len(concept) == 0:
         return "\\top"
     sub_concepts = list(conj2string(rn, d) for (rn, d) in concept)
@@ -212,13 +212,13 @@ def concept2string(concept: Concept) -> str:
 
 
 @functools.cache
-def number_of_vars(c: None | Concept) -> int:
+def number_of_vars(c: None | ELConcept) -> int:
     if c is None:
         return 0
     return 1 + sum([number_of_vars(d) for (rn, d) in c])
 
 
-def concept_depth(c: None | Concept) -> int:
+def concept_depth(c: None | ELConcept) -> int:
     if c is None:
         return 0
     if len(c) == 0:
@@ -226,8 +226,8 @@ def concept_depth(c: None | Concept) -> int:
     return 1 + max([concept_depth(d) for (rn, d) in c])
 
 
-def structure2concept_rec(s: Structure, i: int) -> Concept:
-    res: Concept = frozenset()
+def structure2concept_rec(s: Structure, i: int) -> ELConcept:
+    res: ELConcept = frozenset()
     for cn in s.cn_ext.keys():
         if i in s.cn_ext[cn]:
             res = res | {(cn, None)}
@@ -239,14 +239,14 @@ def structure2concept_rec(s: Structure, i: int) -> Concept:
     return res
 
 
-def structure2concept(s: Structure) -> Concept:
+def structure2concept(s: Structure) -> ELConcept:
     return structure2concept_rec(s, 0)
 
 
-def concept2structure(c: Concept) -> Structure:
-    queue: list[tuple[Concept, int]] = [(c, 0)]
+def concept2structure(c: ELConcept) -> Structure:
+    queue: list[tuple[ELConcept, int]] = [(c, 0)]
 
-    res = Structure(max_ind=1, cn_ext={}, rn_ext={0: set()}, indmap={}, nsmap={})
+    res = Structure(max_ind=1, cn_ext={}, rn_ext={0: set()}, dp_ext={}, indmap={}, nsmap={})
 
     while len(queue) > 0:
         (c, ind) = queue.pop(0)
@@ -263,6 +263,7 @@ def concept2structure(c: Concept) -> Structure:
                     max_ind=res.max_ind + 1,
                     cn_ext=res.cn_ext,
                     rn_ext=res.rn_ext,
+                    dp_ext={},
                     indmap={},
                     nsmap={},
                 )
@@ -272,7 +273,7 @@ def concept2structure(c: Concept) -> Structure:
     return res
 
 
-def get_reachable_inds(owlfile, starts: list[str]) -> list[str]:
+def get_reachable_inds(owlfile: str, starts: list[str]) -> list[str]:
     A = structure_from_owl(owlfile)
     new_elems = {A.indmap[s] for s in starts}
     res: set[int] = set()
@@ -349,7 +350,7 @@ def owlname2tdbname(owlfile):
     return ".cache/{}".format(owlfile.replace("/", "-"))
 
 
-def parse_query_output(output_file) -> list[str]:
+def parse_query_output(output_file: str) -> list[str]:
     result: list[str] = []
     with open(output_file) as file:
         try:
@@ -412,7 +413,7 @@ def merge_negatives(negs: list[list[str]]):
 
 
 def query_for_benchmark_examples(
-    tdbdir: str, concept: Concept, steps: int, bound: int
+    tdbdir: str, concept: ELConcept, steps: int, bound: int
 ) -> tuple[list[str], list[str]]:
     ws = repeated_frontier(concept, steps)
 
@@ -526,7 +527,7 @@ def construct_sml_benchmark(
     )
 
 
-def parse_simple_concept(concept_str: list[str]) -> tuple[list[str], Concept]:
+def parse_simple_concept(concept_str: list[str]) -> tuple[list[str], ELConcept]:
     if concept_str[0] == "\\exists":
         rn = concept_str[1]
         if concept_str[2] == "(":
@@ -541,7 +542,7 @@ def parse_simple_concept(concept_str: list[str]) -> tuple[list[str], Concept]:
     return concept_str[1:], frozenset({(concept_str[0], None)})
 
 
-def parse_conjunction(concept_str: list[str]) -> tuple[list[str], Concept]:
+def parse_conjunction(concept_str: list[str]) -> tuple[list[str], ELConcept]:
     concept_str, res = parse_simple_concept(concept_str)
     if len(concept_str) > 0:
         if concept_str[0] == ")":
@@ -552,7 +553,7 @@ def parse_conjunction(concept_str: list[str]) -> tuple[list[str], Concept]:
     return concept_str, res
 
 
-def parse_concept(concept_str: str) -> Concept:
+def parse_concept(concept_str: str) -> ELConcept:
     # concept_str = concept_str.replace(".", " ")
     concept_str = concept_str.replace("(", " ( ")
     concept_str = concept_str.replace(")", " ) ")
@@ -693,7 +694,7 @@ def class_string(cn: str) -> str:
     return '    <rdf:type rdf:resource="{}"/>\n'.format(encode(cn))
 
 
-def construct_owl_from_structure(filename, A: Structure):
+def construct_owl_from_structure(filename: str, A: Structure):
     sigma: Signature = non_empty_symbols(A)
 
     reverse_indmap = {
@@ -752,7 +753,7 @@ def construct_owl_from_structure(filename, A: Structure):
 
 
 def construct_owl_from_concepts(
-    filename, ps: list[Concept], ns: list[Concept]
+    filename: str, ps: list[ELConcept], ns: list[ELConcept]
 ) -> tuple[list[str], list[str]]:
     pos_inds: list[str] = []
     neg_inds: list[str] = []
@@ -784,7 +785,7 @@ def construct_owl_from_concepts(
             )
 
         maxind = 0
-        queue: list[tuple[Concept, int]] = []
+        queue: list[tuple[ELConcept, int]] = []
         for p in ps:
             queue.append((p, maxind))
             pos_inds.append("http://example.com/test#a{}".format(maxind))
@@ -827,7 +828,7 @@ def construct_owl_from_concepts(
         return (pos_inds, neg_inds)
 
 
-def parse_eltl_paren(parts: list[str]) -> tuple[Concept, list[str]]:
+def parse_eltl_paren(parts: list[str]) -> tuple[ELConcept, list[str]]:
     if parts[0] != "(":
         return parse_eltl_simple_concept(parts)
     else:
@@ -836,7 +837,7 @@ def parse_eltl_paren(parts: list[str]) -> tuple[Concept, list[str]]:
         return C, parts[1:]
 
 
-def parse_eltl_simple_concept(parts: list[str]) -> tuple[Concept, list[str]]:
+def parse_eltl_simple_concept(parts: list[str]) -> tuple[ELConcept, list[str]]:
     assert len(parts) > 0
 
     if len(parts) > 1 and parts[1] == "some":
@@ -860,7 +861,7 @@ def parse_eltl_simple_concept(parts: list[str]) -> tuple[Concept, list[str]]:
         return frozenset({(C, None)}), parts[1:]
 
 
-def parse_eltl_conj(parts: list[str]) -> tuple[Concept, list[str]]:
+def parse_eltl_conj(parts: list[str]) -> tuple[ELConcept, list[str]]:
     C, parts = parse_eltl_paren(parts)
 
     while len(parts) > 0 and (parts[0] == "and" or parts[0] == "or"):
@@ -871,7 +872,7 @@ def parse_eltl_conj(parts: list[str]) -> tuple[Concept, list[str]]:
 
 
 @functools.cache
-def cn_signature(c: Concept) -> set[str]:
+def cn_signature(c: ELConcept) -> set[str]:
     res = set()
 
     for rn, c1 in c:
@@ -883,7 +884,7 @@ def cn_signature(c: Concept) -> set[str]:
 
 # is d stronger than c
 @functools.cache
-def subsum(c: Concept, d: Concept) -> bool:
+def subsum(c: ELConcept, d: ELConcept) -> bool:
     for rn, c1 in c:
         if c1 == None:  # Conceptname
             if (rn, None) not in d:
@@ -902,7 +903,7 @@ def subsum(c: Concept, d: Concept) -> bool:
     return True
 
 
-def is_addition_still_core(base: Concept, rn, add) -> bool:
+def is_addition_still_core(base: ELConcept, rn, add) -> bool:
     if not cn_signature(add).issubset(cn_signature(base)):
         return True
     for rn2, d in base:
@@ -914,9 +915,9 @@ def is_addition_still_core(base: Concept, rn, add) -> bool:
     return True
 
 
-def core_frontier(c: Concept) -> Generator[Concept, None, None]:
+def core_frontier(c: ELConcept) -> Generator[ELConcept, None, None]:
     for rn, d in c:
-        base: Concept = c - {(rn, d)}
+        base: ELConcept = c - {(rn, d)}
         if not d:  # Conceptname
             yield base
         elif len(d) == 0:  # Leaf
@@ -931,7 +932,7 @@ def core_frontier(c: Concept) -> Generator[Concept, None, None]:
 
 
 # Naive implementation
-def distance_from_top(c: Concept) -> int:
+def distance_from_top(c: ELConcept) -> int:
     largest = 0
     res = 0
     while len(c) > 0:
@@ -947,7 +948,7 @@ def distance_from_top(c: Concept) -> int:
     return res
 
 
-def parse_eltl(c: str) -> Concept:
+def parse_eltl(c: str) -> ELConcept:
     c = c.replace("(", " ( ")
     c = c.replace(")", " ) ")
     c = c.replace("  ", " ")
@@ -961,7 +962,7 @@ def parse_eltl(c: str) -> Concept:
     return C
 
 
-def labeled_r_path_dual(path: list[str], cns: set[str]) -> Concept:
+def labeled_r_path_dual(path: list[str], cns: set[str]) -> ELConcept:
     if len(path) == 0:
         return frozenset()
     c = path[0]
@@ -976,7 +977,7 @@ def labeled_r_path_dual(path: list[str], cns: set[str]) -> Concept:
     return frozenset({("r", attach), ("r", rest)})
 
 
-def labeld_r_path(length: int, cns: set[str]) -> Concept:
+def labeld_r_path(length: int, cns: set[str]) -> ELConcept:
     attach = frozenset({(cn, None) for cn in cns})
     if length <= 1:
         return attach
@@ -984,7 +985,7 @@ def labeld_r_path(length: int, cns: set[str]) -> Concept:
         return frozenset({("r", labeld_r_path(length - 1, cns))}) | attach
 
 
-def is_core(c: Concept) -> bool:
+def is_core(c: ELConcept) -> bool:
     # If frontier element not weaker, then it is not a core
     for d in frontier(c):
         if subsum(c, d):
@@ -992,7 +993,7 @@ def is_core(c: Concept) -> bool:
     return True
 
 
-def remove_random_atom(c: Concept) -> Concept:
+def remove_random_atom(c: ELConcept) -> ELConcept:
     A = concept2structure(c)
 
     atoms = []

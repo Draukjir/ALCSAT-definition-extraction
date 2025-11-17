@@ -1,7 +1,7 @@
 import sys
 
 from spell.benchmark_tools import (
-    Concept,
+    ELConcept,
     concept2string,
     construct_owl_from_concepts,
     emit_sml_benchmark,
@@ -9,8 +9,8 @@ from spell.benchmark_tools import (
 )
 
 
-def construct_hard_conjunction_benchmark(size) -> tuple[list[Concept], list[Concept]]:
-    C: Concept = frozenset(
+def construct_hard_conjunction_benchmark(size) -> tuple[list[ELConcept], list[ELConcept]]:
+    C: ELConcept = frozenset(
         {("r", frozenset({("A{}".format(i), None) for i in range(size)}))}
     )
 
@@ -19,8 +19,8 @@ def construct_hard_conjunction_benchmark(size) -> tuple[list[Concept], list[Conc
 
 def construct_hard_deep_conjunction_benchmark(
     size,
-) -> tuple[list[Concept], list[Concept]]:
-    C: Concept = frozenset(
+) -> tuple[list[ELConcept], list[ELConcept]]:
+    C: ELConcept = frozenset(
         {
             (
                 "r",
@@ -34,7 +34,7 @@ def construct_hard_deep_conjunction_benchmark(
     return [C], frontier(C)
 
 
-def construct_hard_path_benchmark(size) -> tuple[list[Concept], list[Concept]]:
+def construct_hard_path_benchmark(size) -> tuple[list[ELConcept], list[ELConcept]]:
     C = frozenset()
 
     for i in range(size):
