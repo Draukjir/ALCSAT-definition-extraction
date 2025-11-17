@@ -1001,6 +1001,7 @@ def solve_approx(task: ApproxTask):
     n = max(len(enc.inst.P), len(enc.inst.N), min_n)
 
     best_sol = None
+    best_f1 = 0
     best_accuracy = 0
     best_n = 0
     enc.types = cn_types(enc.inst.A, enc.inst.sigma)
@@ -1020,7 +1021,7 @@ def solve_approx(task: ApproxTask):
         enc.fitting_constraints_approximate(n)
 
         if not enc.solver.solve():
-            return best_accuracy, best_n, k, best_sol
+            return best_accuracy, best_f1, best_n, k, best_sol
 
         best_sol = enc.modelToTree()
         extension = enc.model_extension()
@@ -1028,11 +1029,9 @@ def solve_approx(task: ApproxTask):
         best_accuracy = enc.inst.accuracy(extension)
         best_f1 = enc.inst.f1score(extension)
         best_n = enc.model_n()
-        print(f"Satisfiable for k={k}, n={best_n}, acc={best_accuracy}, f1={best_f1}")
-        print(best_sol.to_tree())
         n = best_n + 1
 
-    return best_accuracy, best_n, k, best_sol
+    return best_accuracy, best_f1, best_n, k, best_sol
 
 
 class FittingALC:
@@ -1113,7 +1112,7 @@ class FittingALC:
                     for ft in concurrent.futures.as_completed(
                         fts, timeout=remaining_time
                     ):
-                        k_acc, k_n, _, k_sol = ft.result()
+                        k_acc, k_f1, k_n, _, k_sol = ft.result()
                         progress += 1
 
                         print(
@@ -1126,6 +1125,8 @@ class FittingALC:
                             assert k_sol
                             best_sol = k_sol
                             best_acc = k_acc
+                            print(f"Satisfiable for k={k}, n={k_n}, acc={k_acc:.6f}, f1={k_f1:.6f}")
+                            print(best_sol.to_tree())
                             n = k_n + 1
                 except TimeoutError:
                     pass
