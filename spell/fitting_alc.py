@@ -50,6 +50,30 @@ T = 6
 H = 7
 
 
+# Generate non-isomorphic trees of size n with at most binary outdegree
+def all_trees(
+    k: int, start: int = 0
+) -> list[list[tuple[int] | tuple[int, int] | tuple[()]]]:
+    if k == 1:
+        return [[()]]
+
+    res = []
+    for i in range(1, (k - 1) // 2 + 1):
+        for idx_a, a in enumerate(all_trees(i, start + 2)):
+            for idx_b, b in enumerate(all_trees((k - 1) - i, start + i + 1)):
+                # If a, b have the same size, skip pairs that already occured
+                if i == (k - 1) - i and idx_b < idx_a:
+                    continue
+                # Whacky tree composition to ensure that children of binary nodes are always adjacent
+                # (the start + 2 for the a trees is for the same purpose)
+                res.append([(start + 1, start + 2)] + [a[0]] + [b[0]] + a[1:] + b[1:])
+
+    for a in all_trees(k - 1, start + 1):
+        res.append([(start + 1,)] + a)
+
+    return res
+
+
 def cn_types(A: Structure, sigma: Signature) -> set[frozenset[str]]:
     res: set[frozenset[str]] = set()
     for i in range(A.max_ind):
@@ -1145,25 +1169,3 @@ class FittingALC:
         return best_acc, k, best_sol
 
 
-# Generate non-isomorphic trees of size n with at most binary outdegree
-def all_trees(
-    k: int, start: int = 0
-) -> list[list[tuple[int] | tuple[int, int] | tuple[()]]]:
-    if k == 1:
-        return [[()]]
-
-    res = []
-    for i in range(1, (k - 1) // 2 + 1):
-        for idx_a, a in enumerate(all_trees(i, start + 2)):
-            for idx_b, b in enumerate(all_trees((k - 1) - i, start + i + 1)):
-                # If a, b have the same size, skip pairs that already occured
-                if i == (k - 1) - i and idx_b < idx_a:
-                    continue
-                # Whacky tree composition to ensure that children of binary nodes are always adjacent
-                # (the start + 2 for the a trees is for the same purpose)
-                res.append([(start + 1, start + 2)] + [a[0]] + [b[0]] + a[1:] + b[1:])
-
-    for a in all_trees(k - 1, start + 1):
-        res.append([(start + 1,)] + a)
-
-    return res
