@@ -68,12 +68,7 @@ def main():
         action="store_true",
         help="(alcsat only) disables optimization that precomputes tree templates",
     )
-    _ = parser.add_argument(
-        "--disable_type_encoding",
-        action="store_true",
-        help="(alcsat only) disables optimization that replaces concept names with types (internally)",
-    )
-
+    
     args = parser.parse_args()
 
     owlfile = args.kb_owl_file
@@ -126,7 +121,6 @@ def main():
             P,
             N,
             op=frozenset(L_OP[args.language]),
-            type_encoding=not args.disable_type_encoding,
             tree_templates=not args.disable_tree_templates,
             workers=args.workers,
             max_q=args.max_q,

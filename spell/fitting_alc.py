@@ -120,7 +120,6 @@ class ALCSATEncoding:
     def __init__(self, instance: Instance, tree_templates: bool, type_encoding: bool):
         self.inst: Instance = instance
         self.tree_templates: bool = tree_templates
-        self.type_encoding: bool = type_encoding
         self.solver: Solver | None = None
         self.k: int = 0
         self.vars: dict[Any, int] = {}
@@ -172,14 +171,13 @@ class ALCSATEncoding:
             d[V, 2, j] = i * self.k + 1
             i += 1
 
-        if self.type_encoding:
-            for tp in self.types:
-                d[X, tp] = i * self.k + 1
-                i += 1
-
-            # For leaves
-            d[L] = i * self.k + 1
+        for tp in self.types:
+            d[X, tp] = i * self.k + 1
             i += 1
+
+        # For leaves
+        d[L] = i * self.k + 1
+        i += 1
 
         self.max_var = i * self.k + 1
 
@@ -315,9 +313,8 @@ class ALCSATEncoding:
                     )
 
             for cn in self.inst.sigma.conceptnames:
-                if self.type_encoding:
-                    # Is a leaf
-                    self.add_clause((-(self.vars[X, cn] + i), (self.vars[L] + i)))
+                # Is a leaf
+                self.add_clause((-(self.vars[X, cn] + i), (self.vars[L] + i)))
 
             for j in range(i + 1, self.k):
                 for cn in self.inst.sigma.conceptnames:
@@ -695,53 +692,39 @@ class ALCSATEncoding:
                         (-(self.vars[X, OP.BOT] + i), -(self.vars[Z, a] + i))
                     )
 
-        if not self.type_encoding:
-            for cn in self.inst.sigma.conceptnames:
-                for i in range(self.k):
-                    for a in range(self.inst.A.max_ind):
-                        if a in self.inst.A.cn_ext[cn]:
-                            self.add_clause(
-                                (-(self.vars[X, cn] + i), self.vars[Z, a] + i)
-                            )
-                        else:
-                            self.add_clause(
-                                (-(self.vars[X, cn] + i), -(self.vars[Z, a] + i))
-                            )
+        for i in range(self.k):
+            if len(tree[i]) != 0:
+                continue
+            for tp in self.types:
+                for cn in self.inst.sigma.conceptnames:
+                    if cn in tp:
+                        self.add_clause(
+                            (-(self.vars[X, cn] + i), self.vars[X, tp] + i)
+                        )
+                    if cn not in tp:
+                        self.add_clause(
+                            (-(self.vars[X, cn] + i), -(self.vars[X, tp] + i))
+                        )
 
-        if self.type_encoding:
+        for a in range(self.inst.A.max_ind):
+            tp = frozenset(
+                {
+                    cn
+                    for cn in self.inst.sigma.conceptnames
+                    if a in self.inst.A.cn_ext[cn]
+                }
+            )
+            assert tp in self.types
             for i in range(self.k):
                 if len(tree[i]) != 0:
                     continue
-                for tp in self.types:
-                    for cn in self.inst.sigma.conceptnames:
-                        if cn in tp:
-                            self.add_clause(
-                                (-(self.vars[X, cn] + i), self.vars[X, tp] + i)
-                            )
-                        if cn not in tp:
-                            self.add_clause(
-                                (-(self.vars[X, cn] + i), -(self.vars[X, tp] + i))
-                            )
-
-            for a in range(self.inst.A.max_ind):
-                tp = frozenset(
-                    {
-                        cn
-                        for cn in self.inst.sigma.conceptnames
-                        if a in self.inst.A.cn_ext[cn]
-                    }
-                )
-                assert tp in self.types
-                for i in range(self.k):
-                    if len(tree[i]) != 0:
-                        continue
-                    self.add_clause((-(self.vars[X, tp] + i), self.vars[Z, a] + i))
-                    self.add_clause(
-                        (
-                            (self.vars[X, tp] + i),
-                            -(self.vars[Z, a] + i),
-                        )
+                self.add_clause((-(self.vars[X, tp] + i), self.vars[Z, a] + i))
+                self.add_clause(
+                    (
+                        (self.vars[X, tp] + i),
+                        -(self.vars[Z, a] + i),
                     )
+                )
 
     def evaluation_constraints(self):
         for a in range(self.inst.A.max_ind):
@@ -880,51 +863,37 @@ class ALCSATEncoding:
                 self.add_clause((-(self.vars[X, OP.TOP] + i), (self.vars[Z, a] + i)))
                 self.add_clause((-(self.vars[X, OP.BOT] + i), -(self.vars[Z, a] + i)))
 
-        if not self.type_encoding:
-            for cn in self.inst.sigma.conceptnames:
-                for i in range(self.k):
-                    for a in range(self.inst.A.max_ind):
-                        if a in self.inst.A.cn_ext[cn]:
-                            self.add_clause(
-                                (-(self.vars[X, cn] + i), self.vars[Z, a] + i)
-                            )
-                        else:
-                            self.add_clause(
-                                (-(self.vars[X, cn] + i), -(self.vars[Z, a] + i))
-                            )
-
-        if self.type_encoding:
-            for i in range(self.k):
-                for tp in self.types:
-                    for cn in self.inst.sigma.conceptnames:
-                        if cn in tp:
-                            self.add_clause(
-                                (-(self.vars[X, cn] + i), self.vars[X, tp] + i)
-                            )
-                        if cn not in tp:
-                            self.add_clause(
-                                (-(self.vars[X, cn] + i), -(self.vars[X, tp] + i))
-                            )
-
-            for a in range(self.inst.A.max_ind):
-                tp = frozenset(
-                    {
-                        cn
-                        for cn in self.inst.sigma.conceptnames
-                        if a in self.inst.A.cn_ext[cn]
-                    }
-                )
-                assert tp in self.types
-                for i in range(self.k):
-                    self.add_clause((-(self.vars[X, tp] + i), self.vars[Z, a] + i))
-                    # Problem: the following should only happen for CONCEPT NAME NODES. We thus need an additional variable that is true iff a node is a concept name node
-                    self.add_clause(
-                        (
-                            (self.vars[X, tp] + i),
-                            -(self.vars[Z, a] + i),
-                            -(self.vars[L] + i),
+        for i in range(self.k):
+            for tp in self.types:
+                for cn in self.inst.sigma.conceptnames:
+                    if cn in tp:
+                        self.add_clause(
+                            (-(self.vars[X, cn] + i), self.vars[X, tp] + i)
                         )
+                    if cn not in tp:
+                        self.add_clause(
+                            (-(self.vars[X, cn] + i), -(self.vars[X, tp] + i))
+                        )
+
+        for a in range(self.inst.A.max_ind):
+            tp = frozenset(
+                {
+                    cn
+                    for cn in self.inst.sigma.conceptnames
+                    if a in self.inst.A.cn_ext[cn]
+                }
+            )
+            assert tp in self.types
+            for i in range(self.k):
+                self.add_clause((-(self.vars[X, tp] + i), self.vars[Z, a] + i))
+                # Problem: the following should only happen for CONCEPT NAME NODES. We thus need an additional variable that is true iff a node is a concept name node
+                self.add_clause(
+                    (
+                        (self.vars[X, tp] + i),
+                        -(self.vars[Z, a] + i),
+                        -(self.vars[L] + i),
                     )
+                )
 
     def fitting_constraints_approximate(self, n: int):
         assert self.solver
@@ -1057,9 +1026,8 @@ class FittingALC:
         max_k: int,
         P: list[int],
         N: list[int],
-        op=ALC_OP,
+        op = ALC_OP,
         tree_templates=True,
-        type_encoding=True,
         workers: int = 1,
         max_q=2,
     ):
@@ -1070,7 +1038,6 @@ class FittingALC:
         self.max_k: int = max_k
         self.inst: Instance = Instance(A2, P2, N2, sigma, op, max_q=max_q)
         self.tree_templates: bool = tree_templates
-        self.type_encoding: bool = type_encoding
         self.workers: int = workers
 
     def accuracy(self, st: frozenset[int]) -> float:
