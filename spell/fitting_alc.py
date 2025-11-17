@@ -1,5 +1,6 @@
 import concurrent.futures
 from enum import StrEnum
+import random
 import time
 from collections.abc import Iterable
 from concurrent.futures import ProcessPoolExecutor
@@ -1095,3 +1096,67 @@ class FittingALC:
                 proc.terminate()
             p.shutdown(wait=False, cancel_futures=True)
         return best_acc, k, best_sol
+
+
+def chunks(lst: list[int], n: int):
+    for i in range(0, len(lst), n):
+        yield lst[i : i + n]
+
+
+def kfold(inst: Instance, folds: int = 5):
+    all_p = list(inst.P)
+    all_n = list(inst.N)
+
+    inst = encode_dataproperties(inst)
+
+    random.shuffle(all_p)
+    random.shuffle(all_n)
+
+    # TODO: aufrunden
+    p_chunks = list(chunks(all_p, len(all_p) // folds))
+    n_chunks = list(chunks(all_n, len(all_n) // folds))
+
+    accuracies = []
+    accuracies2 = []
+    f1scores2 = []
+
+    for i in range(folds):
+        this_p = [p for j in range(folds) for p in p_chunks[j] if j != i]
+        this_n = [n for j in range(folds) for n in n_chunks[j] if j != i]
+
+        f = FittingALC(inst.A, 6, this_p, this_n, inst.op, 8, 2)
+        (acc, n, concept) = f.solve_incr_approx(6)
+        accuracies.append(acc)
+
+        other_p = p_chunks[i]
+        other_n = n_chunks[i]
+
+        tp = 0
+        fp = 0
+        tn = 0
+        fn = 0
+
+        for p in other_p:
+            if concept.mc(inst.A, p):
+                tp += 1
+            else:
+                fn += 1
+        for n in other_n:
+            if concept.mc(inst.A, n):
+                fp += 1
+            else:
+                tn += 1
+
+        acc2 = (tp + tn) / (tp + fn + fp + tn)
+        f1 = (2 * tp) / (2 * tp + fp + fn)
+        f1scores2.append(f1)
+        accuracies2.append(acc2)
+
+    print(accuracies)
+    print(sum(accuracies) / len(accuracies))
+
+    print(accuracies2)
+    print(sum(accuracies2) / len(accuracies2))
+
+    print(f1scores2)
+    print(sum(f1scores2) / len(f1scores2))

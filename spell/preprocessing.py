@@ -60,6 +60,7 @@ def encode_dataproperties(inst: Instance) -> Instance:
 
     for a in range(A.max_ind):
         B.rn_ext[a] = set(A.rn_ext[a])
+        B.dp_ext[a] = []
 
     for a in range(A.max_ind):
         for v, t, p in A.dp_ext[a]:
@@ -128,6 +129,7 @@ def bisimulation_reduction(inst: Instance, max_k: int) -> Instance:
         ca = color2class[color[a]]
         if ca not in B.rn_ext:
             B.rn_ext[ca] = set()
+            B.dp_ext[ca] = []
         for b, r in A.rn_ext[a]:
             cb = color2class[color[b]]
             B.rn_ext[ca].add((cb, r))
