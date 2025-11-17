@@ -39,3 +39,34 @@ class Instance:
 
     def op_q(self):
         return self.op.intersection(ALC_OP_Q)
+
+    def accuracy(self, st: frozenset[int]) -> float:
+        tp = 0
+        tn = 0
+
+        for a in self.P:
+            if a in st:
+                tp += 1
+
+        for a in self.N:
+            if a not in st:
+                tn += 1
+
+        return (tp + tn) / (len(self.P) + len(self.N))
+
+    def f1score(self, st: frozenset[int]) -> float:
+        tp = 0
+        fn = 0
+        fp = 0
+
+        for a in self.P:
+            if a in st:
+                tp += 1
+            else:
+                fn += 1
+
+        for a in self.N:
+            if a in st:
+                fp += 1
+
+        return (2 * tp) / (2 * tp + fp + fn)

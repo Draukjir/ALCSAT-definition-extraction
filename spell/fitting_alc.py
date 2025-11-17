@@ -929,6 +929,22 @@ class ALCSATEncoding:
                 res += 1
         return res
 
+    def model_extension(self) -> frozenset[int]:
+        assert self.solver and self.solver.get_status()
+        # Return the number of positive/negative examples that is claimed to be covered by a model
+        m = self.solver.get_model()
+        assert isinstance(m, list)
+
+        res: set[int] = set()
+        for p in self.inst.P:
+            if self.vars[Z, p] + 0 in m:
+                res.add(p)
+
+        for n in self.inst.N:
+            if self.vars[Z, n] + 0 in m:
+                res.add(n)
+        return frozenset(res)
+
     def nodelabel(self, i: int) -> str:
         assert self.solver and self.solver.get_status()
         m = self.solver.get_model()
@@ -1002,24 +1018,23 @@ def solve_approx(task: ApproxTask):
     if len(tt) > 0:
         enc.add_clause([enc.vars[T, t] for t in tt])
 
-    # print("{} clauses".format(len(enc.clauses)))
     enc.solver = Solver(name="g4", incr=True, bootstrap_with=enc.clauses)
 
     while n <= len(enc.inst.P) + len(enc.inst.N):
         enc.fitting_constraints_approximate(n)
 
         if not enc.solver.solve():
-            # print(f"Not satisfiable for k={k}, n={n}, tt = {tt}")
             return best_accuracy, best_n, k, best_sol
 
         best_sol = enc.modelToTree()
-        model_n = enc.model_n()
+        extension = enc.model_extension()
 
-        best_accuracy = model_n / (len(enc.inst.P) + len(enc.inst.N))
-        best_n = model_n
-        print(f"Satisfiable for k={k}, n={model_n}, acc={best_accuracy}")
+        best_accuracy = enc.inst.accuracy(extension)
+        best_f1 = enc.inst.f1score(extension)
+        best_n = enc.model_n()
+        print(f"Satisfiable for k={k}, n={best_n}, acc={best_accuracy}, f1={best_f1}")
         print(best_sol.to_tree())
-        n = model_n + 1
+        n = best_n + 1
 
     return best_accuracy, best_n, k, best_sol
 
@@ -1031,9 +1046,9 @@ class FittingALC:
         max_k: int,
         P: list[int],
         N: list[int],
-        op=ALC_OP,
+        op: frozenset[OP] = ALC_OP,
         workers: int = 1,
-        max_q=2,
+        max_q: int = 2,
     ):
         A2, m = restrict_to_neighborhood(max_k - 1, A, P + N)
         P2: list[int] = [m[a] for a in P]
@@ -1042,20 +1057,6 @@ class FittingALC:
         self.max_k: int = max_k
         self.inst: Instance = Instance(A2, P2, N2, sigma, op, max_q=max_q)
         self.workers: int = workers
-
-    def accuracy(self, st: frozenset[int]) -> float:
-        tp = 0
-        tn = 0
-
-        for a in self.inst.P:
-            if a in st:
-                tp += 1
-
-        for a in self.inst.N:
-            if a not in st:
-                tn += 1
-
-        return (tp + tn) / (len(self.inst.P) + len(self.inst.N))
 
     def solve(self):
         acc, _, _ = self.solve_incr(self.max_k, self.max_k)
@@ -1068,7 +1069,7 @@ class FittingALC:
 
     def solve_incr_approx(
         self, max_k: int, start_k: int = 1, min_n: int = 1, timeout: float = -1
-    ):
+    ) -> tuple[float, int, STree]:
         time_start = time.time()
         k: int = start_k
         n: int = max(len(self.inst.P), len(self.inst.N), min_n)
@@ -1108,6 +1109,11 @@ class FittingALC:
                     remaining_time = None
 
                 progress = 0
+                print(
+                    "Searching with k = {}, progress {}/{}".format(
+                        k, progress, len(tasks)
+                    )
+                )
                 try:
                     for ft in concurrent.futures.as_completed(
                         fts, timeout=remaining_time
