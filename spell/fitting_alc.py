@@ -1,4 +1,5 @@
 import concurrent.futures
+from enum import StrEnum
 import time
 from collections.abc import Iterable
 from concurrent.futures import ProcessPoolExecutor
@@ -23,6 +24,12 @@ from .structures import (
     Structure,
     restrict_to_neighborhood,
 )
+
+
+class FittingMode(StrEnum):
+    EXACT = "exact"
+    APPROX = "approx"
+
 
 # There should be 2079 trees with 13 nodes. Seems like a sensible limit
 # BUT: experiments suggest that when finding a single path of size k, there is a slowdown for 11 and above
@@ -1024,7 +1031,7 @@ class FittingALC:
         max_k: int,
         P: list[int],
         N: list[int],
-        op = ALC_OP,
+        op=ALC_OP,
         workers: int = 1,
         max_q=2,
     ):
@@ -1130,5 +1137,3 @@ class FittingALC:
                 proc.terminate()
             p.shutdown(wait=False, cancel_futures=True)
         return best_acc, k, best_sol
-
-

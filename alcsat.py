@@ -2,9 +2,8 @@ import argparse
 import sys
 import time
 
-from spell.fitting import mode, solve_incr
 from spell.fitting_alc import *
-from spell.structures import solution2sparql, structure_from_owl
+from spell.structures import structure_from_owl
 
 LANGUAGES = ["el", "el_alcsat", "fl0", "ex-or", "all-or", "elu", "alc", "alcq"]
 L_OP = {
@@ -20,7 +19,7 @@ L_OP = {
 
 
 def main():
-    parser = argparse.ArgumentParser(prog="spell_cli.py")
+    parser = argparse.ArgumentParser(prog="alcsat.py")
 
     _ = parser.add_argument(
         "kb_owl_file", help="path to a OWL knowledge base in RDF/XML format"
@@ -35,23 +34,20 @@ def main():
     _ = parser.add_argument(
         "--language",
         type=str,
-        default="el",
+        default="alcq",
         choices=LANGUAGES,
-        help="language to learn in, el: {exists,and}, el_alcsat: {exists,and}, fl0: {forall,and}, ex-or: {exists,or}, all-or: {forall,or}, elu: {exists,and,or}, alc: {forall,exists,and,or,neg}, alc: {forall,exists,and,or,neg, le, ge} (default=el)",
+        help="language to learn in, el: {exists, and}, el_alcsat: {exists, and}, fl0: {forall, and}, ex-or: {exists, or}, all-or: {forall, or}, elu: {exists, and, or}, alc: {forall, exists, and, or, neg}, alcq: {forall, exists, and, or, neg, le, ge} (default=alcq)",
     )
 
     _ = parser.add_argument("--max_size", type=int, default=12, help="(default=12)")
     _ = parser.add_argument("--max_q", type=int, default=2, help="(default=2)")
     _ = parser.add_argument(
         "--mode",
-        choices=["exact", "neg_approx", "full_approx"],
-        default=mode.exact,
-        help="(default=exact)",
+        choices=[FittingMode.EXACT, FittingMode.APPROX],
+        default=FittingMode.APPROX,
+        help="(default=approx)",
     )
 
-    _ = parser.add_argument(
-        "--output", type=str, help="write best fitting SPARQL query to a file"
-    )
     _ = parser.add_argument(
         "--timeout", type=float, default=-1, help="in seconds (default=-1)"
     )
@@ -62,14 +58,12 @@ def main():
         default=1,
         help="number of worker processes (default = 1)",
     )
-    
+
     args = parser.parse_args()
 
     owlfile = args.kb_owl_file
     pospath = args.pos_example_list
     negpath = args.neg_example_list
-
-    md = args.mode
 
     time_start = time.perf_counter()
 
@@ -108,27 +102,24 @@ def main():
     time_start_solve = time.perf_counter()
 
     acc = 0
-    if args.language != "el":
-        f = FittingALC(
-            A,
-            args.max_size,
-            P,
-            N,
-            op=frozenset(L_OP[args.language]),
-            workers=args.workers,
-            max_q=args.max_q,
-        )
-        remaining_time = -1
-        if args.timeout != -1:
-            remaining_time = args.timeout - (time.perf_counter() - time_start)
-        if args.mode == mode.exact:
-            acc, _, _ = f.solve_incr(args.max_size, timeout=remaining_time)
-        elif args.mode == "full_approx":
-            acc, _, _ = f.solve_incr_approx(args.max_size, timeout=remaining_time)
-        else:
-            print(f"Mode {args.mode} is only supported for SPELL.")
+    f = FittingALC(
+        A,
+        args.max_size,
+        P,
+        N,
+        op=frozenset(L_OP[args.language]),
+        workers=args.workers,
+        max_q=args.max_q,
+    )
+    remaining_time = -1
+    if args.timeout != -1:
+        remaining_time = args.timeout - (time.perf_counter() - time_start)
+    if args.mode == FittingMode.EXACT:
+        acc, _, _ = f.solve_incr(args.max_size, timeout=remaining_time)
+    elif args.mode == FittingMode.APPROX:
+        acc, _, _ = f.solve_incr_approx(args.max_size, timeout=remaining_time)
     else:
-        _, res = solve_incr(A, P, N, md, timeout=args.timeout, max_size=args.max_size)
+        print(f"Fitting mode {args.mode} is not known.")
 
     time_solved = time.perf_counter()
 
@@ -138,11 +129,6 @@ def main():
         )
     )
     print("== Reached accurary {:.4f}".format(acc))
-
-    if args.output != None:
-        print("== Writing result to {}".format(args.output))
-        with open(args.output, "w", encoding="UTF-8") as file:
-            file.write(solution2sparql(res))
 
 
 if __name__ == "__main__":
