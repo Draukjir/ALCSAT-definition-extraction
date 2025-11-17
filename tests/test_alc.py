@@ -1,5 +1,7 @@
 from spell.fitting_alc import *
 
+from spell.preprocessing import *
+
 
 def test_trees():
     # See https://en.wikipedia.org/wiki/Wedderburn%E2%80%93Etherington_number
@@ -14,14 +16,14 @@ def test_color_refinement():
     cn2 = {"A": {6}}
     A2 = Structure(7, cn2, rn2, {i: set() for i in range(6)}, {}, {})
 
-    colors_alcq = color_refinement_alc(A2, Signature(["A"], ["r"]), True, 10)
+    colors_alcq = color_refinement(A2, Signature(["A"], ["r"]), True, 10)
 
     assert colors_alcq[0] != colors_alcq[2]
     assert colors_alcq[0] != colors_alcq[5]
     assert colors_alcq[2] != colors_alcq[5]
     assert colors_alcq[1] == colors_alcq[3]
 
-    colors_alc = color_refinement_alc(A2, Signature(["A"], ["r"]), False, 10)
+    colors_alc = color_refinement(A2, Signature(["A"], ["r"]), False, 10)
     assert colors_alc[0] == colors_alc[2]
     assert colors_alc[0] != colors_alc[5]
     assert colors_alc[1] == colors_alc[3]
@@ -39,7 +41,7 @@ def test1():
     P1 = [0]
     N1 = [1, 2]
     i = (A1, 3, P1, N1)
-    f = FittingALC(*i, op={EX, ALL, OR, AND})
+    f = FittingALC(*i, op={OP.EX, OP.ALL, OP.OR, OP.AND})
     assert f.solve()
 
 
@@ -51,7 +53,7 @@ def test2():
     P2 = [0]
     N2 = [1]
     i = (A2, 3, P2, N2)
-    f = FittingALC(*i, op={EX, ALL, OR, AND})
+    f = FittingALC(*i, op={OP.EX, OP.ALL, OP.OR, OP.AND})
     assert f.solve()
 
 
@@ -67,7 +69,7 @@ def test3():
     P3 = [1, 2]
     N3 = [0]
     i = (A3, 3, P3, N3)
-    f = FittingALC(*i, op={EX, ALL, OR, AND})
+    f = FittingALC(*i, op={OP.EX, OP.ALL, OP.OR, OP.AND})
     assert f.solve()
 
 
@@ -82,7 +84,7 @@ def test4():
     P4 = [1]
     N4 = [0]
     i = (A4, 3, P4, N4)
-    f = FittingALC(*i, op={EX, ALL, OR, AND})
+    f = FittingALC(*i, op={OP.EX, OP.ALL, OP.OR, OP.AND})
     assert f.solve()
 
 
@@ -98,7 +100,7 @@ def test5():
     P5 = [0]
     N5 = []
     i = (A5, 1, P5, N5)
-    f = FittingALC(*i, op={EX, ALL, OR, AND})
+    f = FittingALC(*i, op={OP.EX, OP.ALL, OP.OR, OP.AND})
     assert f.solve()
 
 
@@ -114,7 +116,7 @@ def test6():
     P6 = [0]
     N6 = [1]
     i = (A6, 2, P6, N6)
-    f = FittingALC(*i, op={EX, ALL, OR, AND, NEG})
+    f = FittingALC(*i, op={OP.EX, OP.ALL, OP.OR, OP.AND, OP.NEG})
     assert f.solve()
 
 
@@ -137,7 +139,7 @@ def test_alcq():
     P = [1, 4]
     N = [7]
     i = (A, 2, P, N)
-    f = FittingALC(*i, op={EX, ALL, OR, AND, NEG, LE, GE})
+    f = FittingALC(*i, op={OP.EX, OP.ALL, OP.OR, OP.AND, OP.NEG, OP.LE, OP.GE})
     assert f.solve()
 
 
@@ -152,11 +154,11 @@ def testEx():
     )
 
     i = (A, 2, [0], [1])
-    f = FittingALC(*i, op={EX})
+    f = FittingALC(*i, op={OP.EX})
     assert f.solve()
 
     i2 = (A, 2, [1], [0])
-    f2 = FittingALC(*i2, op={EX})
+    f2 = FittingALC(*i2, op={OP.EX})
     assert not f2.solve()
 
 
@@ -171,11 +173,11 @@ def testAnd():
     )
 
     i = (A, 4, [1], [2, 3, 4])
-    f = FittingALC(*i, op={AND})
+    f = FittingALC(*i, op={OP.AND})
     assert not f.solve()
 
     i2 = (A, 5, [1], [2, 3, 4])
-    f2 = FittingALC(*i2, op={AND})
+    f2 = FittingALC(*i2, op={OP.AND})
     assert f2.solve()
 
 
@@ -190,11 +192,11 @@ def testAll():
     )
 
     i = (A, 2, [0], [1])
-    f = FittingALC(*i, op={ALL})
+    f = FittingALC(*i, op={OP.ALL})
     assert not f.solve()
 
     i2 = (A, 2, [1], [0])
-    f2 = FittingALC(*i2, op={ALL})
+    f2 = FittingALC(*i2, op={OP.ALL})
     assert f2.solve()
 
 
@@ -215,5 +217,5 @@ def testSize():
     A.rn_ext[k - 1] = set()
 
     i = (A, k, [0], [1])
-    f = FittingALC(*i, op={EX, AND})
+    f = FittingALC(*i, op={OP.EX, OP.AND})
     assert f.solve()

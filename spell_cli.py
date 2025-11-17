@@ -8,14 +8,14 @@ from spell.structures import solution2sparql, structure_from_owl
 
 LANGUAGES = ["el", "el_alcsat", "fl0", "ex-or", "all-or", "elu", "alc", "alcq"]
 L_OP = {
-    "el": [EX, AND],
-    "el_alcsat": [EX, AND],
-    "fl0": [ALL, AND],
-    "ex-or": [EX, OR],
-    "all-or": [ALL, OR],
-    "elu": [EX, OR, AND],
-    "alc": [ALL, EX, OR, AND, NEG],
-    "alcq": [ALL, EX, OR, AND, NEG, LE, GE],
+    "el": [OP.EX, OP.AND],
+    "el_alcsat": [OP.EX, OP.AND],
+    "fl0": [OP.ALL, OP.AND],
+    "ex-or": [OP.EX, OP.OR],
+    "all-or": [OP.ALL, OP.OR],
+    "elu": [OP.EX, OP.OR, OP.AND],
+    "alc": [OP.ALL, OP.EX, OP.OR, OP.AND, OP.NEG],
+    "alcq": [OP.ALL, OP.EX, OP.OR, OP.AND, OP.NEG, OP.LE, OP.GE],
 }
 
 
