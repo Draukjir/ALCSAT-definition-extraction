@@ -92,22 +92,19 @@ def encode_dataproperties(inst: Instance) -> tuple[Instance, dict[str, ALCConcep
 def color_refinement(
     A: Structure, sigma: Signature, alc_q: bool, iterations: int
 ) -> dict[int, int]:
-    color_register: dict[tuple[tuple[int, str], ...], int] = {}
-    color: dict[int, int] = {}
+    color: dict[int, int] = {a: 0 for a in range(A.max_ind)}
 
     local_types: dict[int, list[tuple[int, str]]] = {a: [] for a in range(A.max_ind)}
     for cn in sigma.conceptnames:
         for a in A.cn_ext[cn]:
             local_types[a].append((0, cn))
 
-    for a in range(A.max_ind):
-        tp = tuple(local_types[a])
-        if tp not in color_register:
-            color_register[tp] = len(color_register)
-        color[a] = color_register[tp]
-
-    for _ in range(iterations):
+    i = 0
+    while i < iterations or iterations == -1:
+        i += 1
         ncolor: dict[int, int] = {}
+        color_register: dict[tuple[tuple[int, str], ...], int] = {}
+
         for a in range(A.max_ind):
             tp2 = list(local_types[a])
             for b, r in A.rn_ext[a]:
@@ -120,6 +117,10 @@ def color_refinement(
             if tpf2 not in color_register:
                 color_register[tpf2] = len(color_register)
             ncolor[a] = color_register[tpf2]
+
+        if color == ncolor:
+            # No change happened
+            return color
 
         color = ncolor
 
