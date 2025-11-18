@@ -52,7 +52,7 @@ def decode_dataproperties(
 
 def encode_dataproperties(inst: Instance) -> tuple[Instance, dict[str, ALCConcept]]:
     A = inst.A
-    sigma = Signature(inst.sigma.conceptnames, inst.sigma.rolenames)
+    sigma = Signature(list(inst.sigma.conceptnames), list(inst.sigma.rolenames))
 
     ranges: dict[str, set[Any]] = {}
 
