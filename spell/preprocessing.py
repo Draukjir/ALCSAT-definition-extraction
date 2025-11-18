@@ -95,8 +95,13 @@ def color_refinement(
     color_register: dict[tuple[tuple[int, str], ...], int] = {}
     color: dict[int, int] = {}
 
+    local_types: dict[int, list[tuple[int, str]]] = {a: [] for a in range(A.max_ind)}
+    for cn in sigma.conceptnames:
+        for a in A.cn_ext[cn]:
+            local_types[a].append((0, cn))
+
     for a in range(A.max_ind):
-        tp = tuple([(0, cn) for cn in sigma.conceptnames if a in A.cn_ext[cn]])
+        tp = tuple(local_types[a])
         if tp not in color_register:
             color_register[tp] = len(color_register)
         color[a] = color_register[tp]
@@ -104,7 +109,7 @@ def color_refinement(
     for _ in range(iterations):
         ncolor: dict[int, int] = {}
         for a in range(A.max_ind):
-            tp2 = list((0, cn) for cn in sigma.conceptnames if a in A.cn_ext[cn])
+            tp2 = list(local_types[a])
             for b, r in A.rn_ext[a]:
                 tp2.append((color[b], r))
             if not alc_q:

@@ -71,6 +71,7 @@ def all_trees(
 
 def cn_types(A: Structure, sigma: Signature) -> set[frozenset[str]]:
     res: set[frozenset[str]] = set()
+    # TODO: this is slow when there are many concept names and many individuals
     for i in range(A.max_ind):
         tp = frozenset(cn for cn in sigma.conceptnames if i in A.cn_ext[cn])
         res.add(tp)
