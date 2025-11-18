@@ -110,17 +110,22 @@ class ALCSATEncoding:
             for c in self.inst.sigma.rolenames:
                 d[X, OP.ALL, c] = i * self.k + 1
                 i += 1
-        for op in self.inst.op_q():
+        if op.LE in self.inst.op_q():
             for q in range(1, self.inst.max_q + 1):
                 for r in self.inst.sigma.rolenames:
-                    d[X, op, r, q] = i * self.k + 1
-                    i += 1
-        for op in self.inst.op_q():
-            for q in range(1, self.inst.max_q + 1):
-                for r in self.inst.sigma.rolenames:
+                    d[X, op.LE, r, q] = i * self.k + 1
+                    i += 1        
                     for a in range(self.inst.A.max_ind):
                         d[H, op, r, q, a] = i * self.k + 1
                         i += 1
+        if op.GE in self.inst.op_q():
+            for q in range(2, self.inst.max_q + 1):
+                for r in self.inst.sigma.rolenames:
+                    d[X, op.GE, r, q] = i * self.k + 1
+                    i += 1        
+                    for a in range(self.inst.A.max_ind):
+                        d[H, op.GE, r, q, a] = i * self.k + 1
+                        i += 1                
         for a in range(self.inst.A.max_ind):
             d[Z, a] = i * self.k + 1
             i += 1
@@ -559,7 +564,7 @@ class ALCSATEncoding:
                                 self.add_clause(
                                     (
                                         -(self.vars[X, OP.LE, r, q] + i),
-                                        -(self.vars[Z, a] + i),
+                                        (self.vars[Z, a] + i),
                                     )
                                 )
                             elif len(successors) <= q:
@@ -601,7 +606,7 @@ class ALCSATEncoding:
 
                 if OP.GE in self.inst.op_q() and len(tree[i]) == 1:
                     for r in self.inst.sigma.rolenames:
-                        for q in range(1, self.inst.max_q + 1):
+                        for q in range(2, self.inst.max_q + 1):
                             successors = [
                                 b for (b, p) in self.inst.A.rn_ext[a] if p == r
                             ]
