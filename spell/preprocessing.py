@@ -1,5 +1,5 @@
 from typing import Any
-from spell.instance import Instance
+from spell.instance import ALCConcept, Instance, OP
 from spell.structures import Signature, Structure
 
 
@@ -39,7 +39,18 @@ def pick_data_thresholds(ranges: dict[str, set[Any]]) -> dict[str, set[Any]]:
     return result
 
 
-def encode_dataproperties(inst: Instance) -> Instance:
+def decode_dataproperties(
+    c: ALCConcept, reverse_mapping: dict[str, ALCConcept]
+) -> ALCConcept:
+    if c.operation == OP.CN and c.name in reverse_mapping:
+        return reverse_mapping[c.name]
+
+    nchildren = [decode_dataproperties(d, reverse_mapping) for d in c.children]
+
+    return ALCConcept(c.operation, c.name, c.value, nchildren)
+
+
+def encode_dataproperties(inst: Instance) -> tuple[Instance, dict[str, ALCConcept]]:
     A = inst.A
     sigma = Signature(inst.sigma.conceptnames, inst.sigma.rolenames)
 
@@ -62,6 +73,8 @@ def encode_dataproperties(inst: Instance) -> Instance:
         B.rn_ext[a] = set(A.rn_ext[a])
         B.dp_ext[a] = []
 
+    reverse_mapping: dict[str, ALCConcept] = {}
+
     for a in range(A.max_ind):
         for v, t, p in A.dp_ext[a]:
             for r in thresholds[p]:
@@ -69,10 +82,11 @@ def encode_dataproperties(inst: Instance) -> Instance:
                 if cn not in B.cn_ext:
                     B.cn_ext[cn] = set()
                     sigma.conceptnames.append(cn)
+                    reverse_mapping[cn] = ALCConcept(OP.DGEQ, p, r, [])
                 if v >= r:
                     B.cn_ext[cn].add(a)
 
-    return Instance(B, inst.P, inst.N, sigma, inst.op, inst.max_q)
+    return Instance(B, inst.P, inst.N, sigma, inst.op, inst.max_q), reverse_mapping
 
 
 def color_refinement(

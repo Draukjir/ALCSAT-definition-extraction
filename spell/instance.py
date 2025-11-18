@@ -16,6 +16,7 @@ class OP(IntEnum):
     ALL = 6
     LE = 7
     GE = 8
+    DGEQ = 9
 
 
 ALC_OP = frozenset({OP.NEG, OP.AND, OP.OR, OP.EX, OP.ALL})
@@ -33,6 +34,7 @@ d_op = {
     6: "ALL",
     7: "LE",
     8: "GE",
+    9: "DGEQ",
 }
 
 
@@ -51,6 +53,8 @@ class ALCConcept:
             res = [f"{d_op[self.operation]}.{self.name}"]
         elif self.operation in {OP.GE, OP.LE}:
             res = [f"{d_op[self.operation]}{self.value} {self.name}"]
+        elif self.operation in {OP.DGEQ}:
+            res = [f"({self.name} >= {self.value})"]
         else:
             res = [f"{d_op[self.operation]}"]
 
@@ -121,6 +125,16 @@ class ALCConcept:
                 ]
             )
             return cnt <= self.value
+        if self.operation == OP.DGEQ:
+            assert len(self.children) == 0
+
+            val: None | Any = None
+            for v, t, r in A.dp_ext[a]:
+                if r == self.name:
+                    val = v
+            if val is None:
+                return False
+            return val >= self.value
         assert False
 
 

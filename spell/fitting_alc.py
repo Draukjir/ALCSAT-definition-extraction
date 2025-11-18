@@ -12,6 +12,7 @@ from pysat.solvers import Solver
 from spell.instance import ALC_OP, OP, ALCConcept, Instance
 from spell.preprocessing import (
     bisimulation_reduction,
+    decode_dataproperties,
     encode_dataproperties,
     prune_conceptnames,
     restrict_neighborhood,
@@ -1026,7 +1027,7 @@ class FittingALC:
 
         self.inst = restrict_neighborhood(self.inst, max_k)
 
-        self.inst = encode_dataproperties(self.inst)
+        self.inst, reverse_data_mapping = encode_dataproperties(self.inst)
 
         self.inst = bisimulation_reduction(self.inst, max_k)
 
@@ -1095,7 +1096,10 @@ class FittingALC:
             for proc in p._processes.values():
                 proc.terminate()
             p.shutdown(wait=False, cancel_futures=True)
-        return best_acc, k, best_sol
+
+        decoded_sol = decode_dataproperties(best_sol, reverse_data_mapping)
+
+        return best_acc, k, decoded_sol
 
 
 def chunks(lst: list[int], n: int):
@@ -1106,8 +1110,6 @@ def chunks(lst: list[int], n: int):
 def kfold(inst: Instance, folds: int = 5):
     all_p = list(inst.P)
     all_n = list(inst.N)
-
-    inst = encode_dataproperties(inst)
 
     random.shuffle(all_p)
     random.shuffle(all_n)
