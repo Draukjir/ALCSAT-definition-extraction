@@ -1124,16 +1124,16 @@ def kfold(inst: Instance, folds: int = 5):
     p_chunks = list(chunks(all_p, len(all_p) // folds))
     n_chunks = list(chunks(all_n, len(all_n) // folds))
 
-    accuracies = []
-    accuracies2 = []
-    f1scores2 = []
+    accuracies: list[float] = []
+    accuracies2: list[float] = []
+    f1scores2: list[float] = []
 
     for i in range(folds):
         this_p = [p for j in range(folds) for p in p_chunks[j] if j != i]
         this_n = [n for j in range(folds) for n in n_chunks[j] if j != i]
 
-        f = FittingALC(inst.A, 6, this_p, this_n, inst.op, 8, 2)
-        (acc, n, concept) = f.solve_incr_approx(6)
+        f = FittingALC(inst.A, 10, this_p, this_n, inst.op, 8, 2)
+        (acc, n, concept) = f.solve_incr_approx(10, timeout=30)
         accuracies.append(acc)
 
         other_p = p_chunks[i]
@@ -1160,11 +1160,11 @@ def kfold(inst: Instance, folds: int = 5):
         f1scores2.append(f1)
         accuracies2.append(acc2)
 
-    print(accuracies)
-    print(sum(accuracies) / len(accuracies))
+    avg_acc = sum(accuracies) / len(accuracies)
+    print(f"Average accuracy on training data: {avg_acc:.4f}")
 
-    print(accuracies2)
-    print(sum(accuracies2) / len(accuracies2))
+    avg_acc2 = sum(accuracies2) / len(accuracies2)
+    print(f"Average accuracy on test data: {avg_acc2:.4f}")
 
-    print(f1scores2)
-    print(sum(f1scores2) / len(f1scores2))
+    avg_f1 = sum(f1scores2) / len(f1scores2)
+    print(f"Average F1score on test data: {avg_f1:.4f}")
