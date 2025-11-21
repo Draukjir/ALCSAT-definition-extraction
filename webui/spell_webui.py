@@ -1,3 +1,6 @@
+import contextlib
+import functools
+import io
 from dataclasses import dataclass
 
 from flask import Flask, render_template, request
@@ -11,10 +14,6 @@ class Example:
     id: int = 0
     name: str = ""
 
-
-import contextlib
-import functools
-import io
 
 print = functools.partial(print, flush=True)
 

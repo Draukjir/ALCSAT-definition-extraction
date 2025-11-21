@@ -115,7 +115,7 @@ class ALCSATEncoding:
             for q in range(1, self.inst.max_q + 1):
                 for r in self.inst.sigma.rolenames:
                     d[X, OP.LE, r, q] = i * self.k + 1
-                    i += 1        
+                    i += 1
                     for a in range(self.inst.A.max_ind):
                         d[H, OP.LE, r, q, a] = i * self.k + 1
                         i += 1
@@ -123,10 +123,10 @@ class ALCSATEncoding:
             for q in range(2, self.inst.max_q + 1):
                 for r in self.inst.sigma.rolenames:
                     d[X, OP.GE, r, q] = i * self.k + 1
-                    i += 1        
+                    i += 1
                     for a in range(self.inst.A.max_ind):
                         d[H, OP.GE, r, q, a] = i * self.k + 1
-                        i += 1                
+                        i += 1
         for a in range(self.inst.A.max_ind):
             d[Z, a] = i * self.k + 1
             i += 1
@@ -193,7 +193,8 @@ class ALCSATEncoding:
                         self.vars[X, op, r, q] + i
                         for op in self.inst.op_q()
                         for r in self.inst.sigma.rolenames
-                        for q in range(1, self.inst.max_q + 1) if op != OP.GE or q != 1
+                        for q in range(1, self.inst.max_q + 1)
+                        if op != OP.GE or q != 1
                     ]
                 )
                 if len(x_vars) > 0:

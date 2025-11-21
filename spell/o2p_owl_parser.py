@@ -1,8 +1,32 @@
 import sys
 
+import lxml.etree
 from lxml.etree import ElementTree
 
-from .o2p_ontology import *
+from .o2p_ontology import (
+    AllValues,
+    Cardinality,
+    ClassIdentifier,
+    Complement,
+    DisjointWith,
+    EquivalentClass,
+    HasSelf,
+    HasValue,
+    Intersection,
+    MaxCardinality,
+    MinCardinality,
+    ObjectProperty,
+    OneOf,
+    Ontology,
+    PropertyReference,
+    Restriction,
+    SomeValues,
+    SubClassOf,
+    Thing,
+    Union,
+)
+
+# from .o2p_ontology import *
 
 #  - TODO don't skip useful tags (see 'skipping')
 #  - TODO parse DataRange
@@ -14,7 +38,6 @@ def print_element(element):
     :param element: element to print
     :type element: xml.etree.ElementTree.Element
     """
-    import lxml
 
     print(lxml.etree.tostring(element, pretty_print=True).decode(), file=sys.stderr)
 

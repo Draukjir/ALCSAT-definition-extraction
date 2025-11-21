@@ -1,4 +1,4 @@
-from spell.fitting_alc import *
+from .instance import OP
 
 CN = 7
 
@@ -11,26 +11,26 @@ class ALC_Concept:
         self.rn = rn
 
     def mc(self, A, a) -> bool:
-        if self.sym == TOP:
+        if self.sym == OP.TOP:
             return True
-        if self.sym == BOT:
+        if self.sym == OP.BOT:
             return False
         if self.sym == CN:
             return a in A.cn_ext[self.c1]
-        if self.sym == AND:
+        if self.sym == OP.AND:
             return self.c1.mc(A, a) and self.c2.mc(A, a)
-        if self.sym == OR:
+        if self.sym == OP.OR:
             return self.c1.mc(A, a) or self.c2.mc(A, a)
-        if self.sym == NEG:
+        if self.sym == OP.NEG:
             return not self.c1.mc(A, a)
-        if self.sym == EX:
+        if self.sym == OP.EX:
             return any(
                 map(
                     lambda b: self.c1.mc(A, b[0]),
                     filter(lambda t: t[1] == self.rn, A.rn_ext[a]),
                 )
             )
-        if self.sym == ALL:
+        if self.sym == OP.ALL:
             return all(
                 map(
                     lambda b: self.c1.mc(A, b[0]),
@@ -40,21 +40,21 @@ class ALC_Concept:
         assert False
 
     def __str__(self) -> str:
-        if self.sym == TOP:
+        if self.sym == OP.TOP:
             return "TOP"
-        if self.sym == BOT:
+        if self.sym == OP.BOT:
             return "BOT"
         if self.sym == CN:
             return str(self.c1)
-        if self.sym == AND:
+        if self.sym == OP.AND:
             return "({} AND {})".format(self.c1, self.c2)
-        if self.sym == OR:
+        if self.sym == OP.OR:
             return "({} OR {})".format(self.c1, self.c2)
-        if self.sym == NEG:
+        if self.sym == OP.NEG:
             return "NEG {}".format(self.c1)
-        if self.sym == EX:
+        if self.sym == OP.EX:
             return "∃.{} {}".format(self.rn, self.c1)
-        if self.sym == ALL:
+        if self.sym == OP.ALL:
             return "∀.{} {}".format(self.rn, self.c1)
         assert False
 
@@ -69,10 +69,10 @@ def parse_string(inp: str) -> tuple[ALC_Concept, str]:
         inp = inp.lstrip()
 
         if inp.startswith("AND"):
-            sym = AND
+            sym = OP.AND
             inp = inp[4:]
         elif inp.startswith("OR"):
-            sym = OR
+            sym = OP.OR
             inp = inp[3:]
         else:
             assert False
@@ -86,25 +86,25 @@ def parse_string(inp: str) -> tuple[ALC_Concept, str]:
 
     if inp.startswith("NEG "):
         c, inp = parse_string(inp[4:])
-        return ALC_Concept(NEG, c), inp
+        return ALC_Concept(OP.NEG, c), inp
 
     if inp.startswith("TOP"):
-        return ALC_Concept(TOP), inp[3:]
+        return ALC_Concept(OP.TOP), inp[3:]
 
     if inp.startswith("BOT"):
-        return ALC_Concept(BOT), inp[3:]
+        return ALC_Concept(OP.BOT), inp[3:]
 
     if inp.startswith("∀."):
         idx = inp.find(" ")
         rn = inp[2:idx]
         c, inp = parse_string(inp[idx + 1 :])
-        return ALC_Concept(ALL, c, rn=rn), inp
+        return ALC_Concept(OP.ALL, c, rn=rn), inp
 
     if inp.startswith("∃."):
         idx = inp.find(" ")
         rn = inp[2:idx]
         c, inp = parse_string(inp[idx + 1 :])
-        return ALC_Concept(EX, c, rn=rn), inp
+        return ALC_Concept(OP.EX, c, rn=rn), inp
 
     idx = inp.find(" ")
     idx2 = inp.find(")")

@@ -196,7 +196,7 @@ def load_owl(file: str) -> tuple[Ontology, ABoxBuilder]:
 
     for _, elem in etree.iterparse(file, events=("end",), remove_blank_text=True):
         # We are only interested in top-level statements
-        if elem.getparent() != None and elem.getparent().getparent() != None:
+        if elem.getparent() is not None and elem.getparent().getparent() is not None:
             continue
         if elem.tag == tag_onto:
             nsmap = elem.nsmap
@@ -425,7 +425,7 @@ class EL_TBox:
 
         # TODO: implement faster algorithm
         change = True
-        while change == True:
+        while change:
             change = False
 
             # CR3
@@ -471,19 +471,19 @@ def construct_normalized_tbox(onto: Ontology) -> EL_TBox:
     t = EL_TBox(tag2name(expand_namespace("owl", "Thing")))
     t.fresh_names = set(NameFactory.created_names)
     for rule in onto.rules:
-        if type(rule) != SubClassOf:
+        if type(rule) is not SubClassOf:
             ignored_rules += 1
             # print("Ignoring tbox rule {}".format(rule))
             continue
-        if type(rule.subject) == ClassIdentifier:
-            if type(rule.object) == ClassIdentifier:
+        if type(rule.subject) is ClassIdentifier:
+            if type(rule.object) is ClassIdentifier:
                 cis += 1
                 t.add_axiom1(rule.subject.identifier, rule.object.identifier)
 
-            if type(rule.object) == Restriction:
+            if type(rule.object) is Restriction:
                 if (
-                    type(rule.object.quantifier) == SomeValues
-                    and rule.object.prop.identifier != None
+                    type(rule.object.quantifier) is SomeValues
+                    and rule.object.prop.identifier is not None
                 ):
                     role = rule.object.prop.identifier
                     B = rule.object.quantifier.from_class.identifier
@@ -495,10 +495,10 @@ def construct_normalized_tbox(onto: Ontology) -> EL_TBox:
                     pass
                     # TODO handle inverse roles here
 
-        elif type(rule.subject) == Restriction:
+        elif type(rule.subject) is Restriction:
             if (
-                type(rule.subject.quantifier) == SomeValues
-                and rule.subject.prop.identifier != None
+                type(rule.subject.quantifier) is SomeValues
+                and rule.subject.prop.identifier is not None
             ):
                 role = rule.subject.prop.identifier
                 B = rule.subject.quantifier.from_class.identifier
@@ -509,7 +509,7 @@ def construct_normalized_tbox(onto: Ontology) -> EL_TBox:
                 ignored_rules += 1
                 # print("Ignoring tbox rule with lhs {}".format(rule.subject))
                 # Inverse roles here
-        elif type(rule.subject) == Intersection:
+        elif type(rule.subject) is Intersection:
             assert len(rule.subject.children) == 2
             A1 = rule.subject.children[0].identifier
             A2 = rule.subject.children[1].identifier
@@ -527,7 +527,7 @@ def construct_normalized_tbox(onto: Ontology) -> EL_TBox:
         t.add_role_inc(s.subject.identifier, s.object.identifier)
 
     for a, b in onto.property_domains:
-        if type(b) != ClassIdentifier:
+        if type(b) is not ClassIdentifier:
             ignored_domain += 1
             # print("Ignoring domain restriction with concept {}".format(b))
             continue
@@ -537,9 +537,9 @@ def construct_normalized_tbox(onto: Ontology) -> EL_TBox:
         t.add_axiom4(role, B, A)
 
     for a, b in onto.property_ranges:
-        if type(b) == Thing or type(b) == TopClass:
+        if type(b) is Thing or type(b) is TopClass:
             continue
-        if type(b) != ClassIdentifier:
+        if type(b) is not ClassIdentifier:
             ignored_range += 1
             # print("Ignoring range restriction with concept {}".format(b))
             continue

@@ -152,7 +152,7 @@ class ObjectProperty(Property):
         self.inverse_of = inverse_of
 
     def __str__(self):
-        if self.identifier == None and self.inverse_of != None:
+        if self.identifier is None and self.inverse_of is not None:
             return "{}-".format(self.inverse_of)
         return self.identifier
 
@@ -231,7 +231,7 @@ class Rule(OntologyObject):
 
 
 def issimple(expr):
-    return type(expr) == ClassIdentifier or type(expr) == Thing
+    return type(expr) is ClassIdentifier or type(expr) is Thing
 
 
 class SubClassOf(Rule):

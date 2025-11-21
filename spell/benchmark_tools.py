@@ -260,7 +260,7 @@ def concept2structure(c: ELConcept) -> Structure:
         res.rn_ext[ind] = set()
 
         for r, c2 in c:
-            if c2 == None:
+            if c2 is None:
                 if r not in res.cn_ext.keys():
                     res.cn_ext[r] = set()
                 res.cn_ext[r].add(ind)
@@ -709,7 +709,7 @@ def construct_owl_from_structure(filename: str, A: Structure):
         for (name, n) in A.indmap.items()
         if "#" in name or "/" in name or "NC_" in name
     }
-    reverse_nsmap = {ns: key for (key, ns) in A.nsmap.items() if key != None}
+    reverse_nsmap = {ns: key for (key, ns) in A.nsmap.items() if key is not None}
 
     rev_cns = {a: set() for a in ind(A)}
     for cn in sigma.conceptnames:
@@ -719,7 +719,7 @@ def construct_owl_from_structure(filename: str, A: Structure):
     with open(filename, "w") as file:
         file.write('<?xml version="1.0"?> \n <rdf:RDF ')
         for key, ns in A.nsmap.items():
-            if key == None:
+            if key is None:
                 file.write('    xmlns="{}"\n'.format(ns))
             else:
                 file.write('    xmlns:{}="{}"\n'.format(key, ns))
@@ -813,13 +813,13 @@ def construct_owl_from_concepts(
             )
 
             for r, c2 in c:
-                if c2 == None:
+                if c2 is None:
                     file.write(
                         '    <rdf:type rdf:resource="http://example.com/test#{}"/>\n'.format(
                             r
                         )
                     )
-                if c2 != None:
+                if c2 is not None:
                     file.write(
                         '    <test:{} rdf:resource="http://example.com/test#a{}"/>\n'.format(
                             r, maxind
@@ -884,7 +884,7 @@ def cn_signature(c: ELConcept) -> set[str]:
 
     for rn, c1 in c:
         res.add(rn)
-        if c1 != None:
+        if c1 is not None:
             res |= cn_signature(c1)
     return res
 
@@ -893,7 +893,7 @@ def cn_signature(c: ELConcept) -> set[str]:
 @functools.cache
 def subsum(c: ELConcept, d: ELConcept) -> bool:
     for rn, c1 in c:
-        if c1 == None:  # Conceptname
+        if c1 is None:  # Conceptname
             if (rn, None) not in d:
                 return False
         else:
@@ -914,7 +914,7 @@ def is_addition_still_core(base: ELConcept, rn, add) -> bool:
     if not cn_signature(add).issubset(cn_signature(base)):
         return True
     for rn2, d in base:
-        if d == None or rn2 != rn:
+        if d is None or rn2 != rn:
             continue
         if subsum(add, d):
             return False  # d is already stronger than add
@@ -1037,7 +1037,7 @@ def execute_sml_bench(path, task):
         print("== Starting incremental solving of {} {}".format(task, lpname))
         time_start_solve = time.process_time()
 
-        res = solve_incr(A, P, N, mode.exact)
+        _ = solve_incr(A, P, N, mode.exact)
 
         time_solved = time.process_time()
 

@@ -2,7 +2,8 @@ import argparse
 import sys
 import time
 
-from spell.fitting_alc import *
+from spell.instance import OP
+from spell.fitting_alc import FittingALC, FittingMode
 from spell.structures import structure_from_owl
 
 LANGUAGES = ["el", "el_alcsat", "fl0", "ex-or", "all-or", "elu", "alc", "alcq"]

@@ -1,6 +1,7 @@
-from spell.fitting_alc import *
-
-from spell.preprocessing import *
+from spell.fitting_alc import FittingALC, all_trees
+from spell.structures import Structure, Signature
+from spell.instance import OP
+from spell.preprocessing import color_refinement
 
 
 def test_trees():

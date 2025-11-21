@@ -3,7 +3,7 @@ import sys
 import time
 
 from spell.fitting import mode, solve_incr
-from spell.fitting_alc import *
+from spell.fitting_alc import FittingALC, OP
 from spell.structures import solution2sparql, structure_from_owl
 
 LANGUAGES = ["el", "el_alcsat", "fl0", "ex-or", "all-or", "elu", "alc", "alcq"]
@@ -139,7 +139,7 @@ def main():
     )
     print("== Reached accurary {:.4f}".format(acc))
 
-    if args.output != None:
+    if args.output is not None:
         print("== Writing result to {}".format(args.output))
         with open(args.output, "w", encoding="UTF-8") as file:
             file.write(solution2sparql(res))

@@ -9,7 +9,9 @@ from spell.benchmark_tools import (
 )
 
 
-def construct_hard_conjunction_benchmark(size) -> tuple[list[ELConcept], list[ELConcept]]:
+def construct_hard_conjunction_benchmark(
+    size,
+) -> tuple[list[ELConcept], list[ELConcept]]:
     C: ELConcept = frozenset(
         {("r", frozenset({("A{}".format(i), None) for i in range(size)}))}
     )
