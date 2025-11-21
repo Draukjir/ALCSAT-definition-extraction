@@ -17,7 +17,7 @@ from .structures import (
     structure_from_owl,
 )
 
-ROBOT_PATH = "{}/../robot/robot".format(os.path.dirname(os.path.realpath(__file__)))
+ROBOT_PATH = f"{os.path.dirname(os.path.realpath(__file__))}/../robot/robot"
 ROBOT_JAVA_ARGS = "-Xmx40G"
 
 ELConcept = frozenset[tuple[str, "None | ELConcept"]]
@@ -161,14 +161,14 @@ def concept2sparqlclauses(concept: ELConcept, counter: int) -> list[str]:
 
     thisnode = counter
     if counter == 0:
-        res.append("?{} a <http://www.w3.org/2002/07/owl#Thing> .".format(counter))
+        res.append(f"?{counter} a <http://www.w3.org/2002/07/owl#Thing> .")
     if len(concept) > 0:
         res.append("FILTER EXISTS {")
         for rn, d in concept:
             if d is None:
-                res.append("?{} a {} .".format(thisnode, rn))
+                res.append(f"?{thisnode} a {rn} .")
             else:
-                res.append("?{} {} ?{} .".format(thisnode, rn, counter + 1))
+                res.append(f"?{thisnode} {rn} ?{counter + 1} .")
                 sub = concept2sparqlclauses(d, counter + 1)
                 res.extend(sub)
                 counter += len(sub) + 1
@@ -201,11 +201,11 @@ def sparql2struct(sparql: str) -> Structure:
 
 def conj2string(rn: str, d: None | ELConcept) -> str:
     if d is None:
-        return "{}".format(rn)
+        return f"{rn}"
     if len(d) > 1:
-        return "\\exists {}.({})".format(rn, concept2string(d))
+        return f"\\exists {rn}.({concept2string(d)})"
     else:
-        return "\\exists {}.{}".format(rn, concept2string(d))
+        return f"\\exists {rn}.{concept2string(d)}"
 
 
 def concept2string(concept: ELConcept) -> str:
@@ -233,7 +233,7 @@ def concept_depth(c: None | ELConcept) -> int:
 
 def structure2concept_rec(s: Structure, i: int) -> ELConcept:
     res: ELConcept = frozenset()
-    for cn in s.cn_ext.keys():
+    for cn in s.cn_ext:
         if i in s.cn_ext[cn]:
             res = res | {(cn, None)}
 
@@ -261,7 +261,7 @@ def concept2structure(c: ELConcept) -> Structure:
 
         for r, c2 in c:
             if c2 is None:
-                if r not in res.cn_ext.keys():
+                if r not in res.cn_ext:
                     res.cn_ext[r] = set()
                 res.cn_ext[r].add(ind)
             else:
@@ -308,7 +308,7 @@ def get_reachable_inds(owlfile: str, starts: list[str]) -> list[str]:
 
 def run_robot_cmd(cmd: str):
     if not os.path.isfile(ROBOT_PATH):
-        print("robot cmd at {} not found".format(ROBOT_PATH))
+        print(f"robot cmd at {ROBOT_PATH} not found")
 
     import subprocess
 
@@ -448,12 +448,12 @@ def emit_sml_benchmark(
 ) -> None:
     import subprocess
 
-    print("== Creating benchmark directory at {}/{}".format(path, name))
-    example_dir = "{}/{}/owl/lp/1".format(path, name)
-    p_example_path = "{}/pos.txt".format(example_dir)
-    n_example_path = "{}/neg.txt".format(example_dir)
-    dll_conf_path = "{}/dllearner.conf".format(example_dir)
-    info_path = "{}/{}/benchmark-info.txt".format(path, name)
+    print(f"== Creating benchmark directory at {path}/{name}")
+    example_dir = f"{path}/{name}/owl/lp/1"
+    p_example_path = f"{example_dir}/pos.txt"
+    n_example_path = f"{example_dir}/neg.txt"
+    dll_conf_path = f"{example_dir}/dllearner.conf"
+    info_path = f"{path}/{name}/benchmark-info.txt"
 
     os.makedirs(example_dir, exist_ok=True)
 
@@ -478,31 +478,31 @@ def emit_sml_benchmark(
 
     with open(info_path, "w") as file:
         file.write("Benchmark is automatically generated for SPELL\n")
-        file.write("Number of positive examples: {}\n".format(len(P)))
-        file.write("Number of negative examples: {}\n".format(len(N)))
+        file.write(f"Number of positive examples: {len(P)}\n")
+        file.write(f"Number of negative examples: {len(N)}\n")
 
         for v in info:
             file.write(v + "\n")
 
-    owl_dir = "{}/{}/owl/data".format(path, name)
-    owl_path = "{}/{}.owl".format(owl_dir, name)
+    owl_dir = f"{path}/{name}/owl/data"
+    owl_path = f"{owl_dir}/{name}.owl"
 
     os.makedirs(owl_dir, exist_ok=True)
 
-    subprocess.run("cp {} {}".format(owlfile, owl_path), shell=True)
+    subprocess.run(f"cp {owlfile} {owl_path}", shell=True)
 
 
 def construct_sml_benchmark(
     path, name, owlfile, concept, weaken_steps=1, size_bound=50
 ):
-    print("== Generating benchmark {}".format(name))
-    print("== Saturating {} and creating cache for querying".format(owlfile))
+    print(f"== Generating benchmark {name}")
+    print(f"== Saturating {owlfile} and creating cache for querying")
 
     tdbdir = owlname2tdbname(owlfile)
 
     create_materialized_tdb_dir(owlfile, tdbdir)
 
-    print("== Querying {} using {}".format(owlfile, ROBOT_PATH))
+    print(f"== Querying {owlfile} using {ROBOT_PATH}")
     P, N = query_for_benchmark_examples(tdbdir, concept, weaken_steps, size_bound)
 
     tmp_owl = "tmp.owl"
@@ -510,7 +510,7 @@ def construct_sml_benchmark(
     print("== Collecting relevant individuals for this benchmark")
     relevant_inds = get_reachable_inds(owlfile, list(P) + list(N))
 
-    print("== Creating relevant subset of {}".format(owlfile))
+    print(f"== Creating relevant subset of {owlfile}")
     create_restricted_owl(owlfile, relevant_inds, tmp_owl)
 
     emit_sml_benchmark(
@@ -520,17 +520,15 @@ def construct_sml_benchmark(
         P,
         N,
         [
-            "Fragment of knowledge base: {}".format(owlfile),
-            "Total number of individuals: {}".format(len(relevant_inds)),
-            "Target query: {}".format(concept2string(concept)),
-            "Generalization steps: {}".format(weaken_steps),
+            f"Fragment of knowledge base: {owlfile}",
+            f"Total number of individuals: {len(relevant_inds)}",
+            f"Target query: {concept2string(concept)}",
+            f"Generalization steps: {weaken_steps}",
         ],
     )
 
     print(
-        "== Successfully generated benchmark {} with {} + {} examples and {} individuals".format(
-            name, len(P), len(N), len(relevant_inds)
-        )
+        f"== Successfully generated benchmark {name} with {len(P)} + {len(N)} examples and {len(relevant_inds)} individuals"
     )
 
 
@@ -575,7 +573,7 @@ def parse_concept(concept_str: str) -> ELConcept:
 def verify_solution(owlfile, B, P, N, solution):
     claimed_acc, best_q = solution
 
-    print("== Querying {} with best solution".format(owlfile))
+    print(f"== Querying {owlfile} with best solution")
 
     A = structure_from_owl(owlfile)
     construct_owl_from_structure("tmp.owl", A)
@@ -605,21 +603,21 @@ def verify_solution(owlfile, B, P, N, solution):
 
     real_acc = tp + tn
 
-    print("== Real accuracy {}/{} {}/{}".format(tp, len(P), tn, len(N)))
+    print(f"== Real accuracy {tp}/{len(P)} {tn}/{len(N)}")
     assert real_acc == claimed_acc
 
 
 def load_sml_tasks(path: str, task: str):
-    basepath = "{}/{}".format(path, task)
-    owlpath = "{}/owl/data/{}.owl".format(basepath, task)
+    basepath = f"{path}/{task}"
+    owlpath = f"{basepath}/owl/data/{task}.owl"
 
-    print("== Loading {} for benchmark {}".format(owlpath, task))
+    print(f"== Loading {owlpath} for benchmark {task}")
     A = structure_from_owl(owlpath)
 
     res: dict[str, tuple[str, Structure, list[int], list[int]]] = {}
-    for lp in os.listdir("{}/owl/lp".format(basepath)):
-        pospath = "{}/owl/lp/{}/pos.txt".format(basepath, lp)
-        negpath = "{}/owl/lp/{}/neg.txt".format(basepath, lp)
+    for lp in os.listdir(f"{basepath}/owl/lp"):
+        pospath = f"{basepath}/owl/lp/{lp}/pos.txt"
+        negpath = f"{basepath}/owl/lp/{lp}/neg.txt"
 
         with open(pospath, encoding="UTF-8") as file:
             P = [map_ind_name(A, line.rstrip()) for line in file.readlines()]
@@ -632,8 +630,8 @@ def load_sml_tasks(path: str, task: str):
 
 
 def generate_benchmark_collection(path, prefix, owlfile, concepts, size_bound: int):
-    print("== Generating benchmark {}".format(prefix))
-    print("== Saturating {} and creating cache for querying".format(owlfile))
+    print(f"== Generating benchmark {prefix}")
+    print(f"== Saturating {owlfile} and creating cache for querying")
 
     tdbdir = owlname2tdbname(owlfile)
 
@@ -647,16 +645,16 @@ def generate_benchmark_collection(path, prefix, owlfile, concepts, size_bound: i
 
     examples = {}
     for info, pC, nCs in concepts:
-        name = "{}-{}-{}".format(prefix, info, size_bound)
+        name = f"{prefix}-{info}-{size_bound}"
         benchmarks.add(name)
 
-        print("Query {}/{}".format(current_query, total_queries))
+        print(f"Query {current_query}/{total_queries}")
         P = query_tdbdir(tdbdir, concept2sparql(pC))
         current_query += 1
         relevant_inds |= set(P[0:size_bound])
         Ns = []
         for nC in nCs:
-            print("Query {}/{}".format(current_query, total_queries))
+            print(f"Query {current_query}/{total_queries}")
             N = query_tdbdir(tdbdir, concept2sparql(nC))
             current_query += 1
             N = list(set(N) - set(P))
@@ -673,7 +671,7 @@ def generate_benchmark_collection(path, prefix, owlfile, concepts, size_bound: i
     print("== Collecting reachable individuals")
     relevant_inds = get_reachable_inds(owlfile, list(relevant_inds))
 
-    print("== Creating reachable fragment of {}".format(owlfile))
+    print(f"== Creating reachable fragment of {owlfile}")
     tmp_owl = "temp.owl"
     create_restricted_owl(owlfile, relevant_inds, tmp_owl)
 
@@ -683,9 +681,7 @@ def generate_benchmark_collection(path, prefix, owlfile, concepts, size_bound: i
         )
 
     print(
-        "== Successfully generated benchmark collection {} with {} benchmarks".format(
-            prefix, len(concepts)
-        )
+        f"== Successfully generated benchmark collection {prefix} with {len(concepts)} benchmarks"
     )
 
 
@@ -698,7 +694,7 @@ def encode(s) -> str:
 
 @functools.cache
 def class_string(cn: str) -> str:
-    return '    <rdf:type rdf:resource="{}"/>\n'.format(encode(cn))
+    return f'    <rdf:type rdf:resource="{encode(cn)}"/>\n'
 
 
 def construct_owl_from_structure(filename: str, A: Structure):
@@ -720,25 +716,23 @@ def construct_owl_from_structure(filename: str, A: Structure):
         file.write('<?xml version="1.0"?> \n <rdf:RDF ')
         for key, ns in A.nsmap.items():
             if key is None:
-                file.write('    xmlns="{}"\n'.format(ns))
+                file.write(f'    xmlns="{ns}"\n')
             else:
-                file.write('    xmlns:{}="{}"\n'.format(key, ns))
+                file.write(f'    xmlns:{key}="{ns}"\n')
         file.write(">\n")
         file.write(
             '<owl:Ontology rdf:about="{}"/>\n'.format(A.nsmap[None].replace("#", ""))
         )
 
         for cn in sigma.conceptnames:
-            file.write('<owl:Class rdf:about="{}"/>\n'.format(encode(cn)))
+            file.write(f'<owl:Class rdf:about="{encode(cn)}"/>\n')
 
         for rn in sigma.rolenames:
-            file.write('<owl:ObjectProperty rdf:about="{}"/>\n'.format(encode(rn)))
+            file.write(f'<owl:ObjectProperty rdf:about="{encode(rn)}"/>\n')
 
         for a in ind(A):
             file.write(
-                '<owl:NamedIndividual rdf:about="{}">\n'.format(
-                    encode(reverse_indmap[a])
-                )
+                f'<owl:NamedIndividual rdf:about="{encode(reverse_indmap[a])}">\n'
             )
 
             for cn in rev_cns[a]:
@@ -746,13 +740,11 @@ def construct_owl_from_structure(filename: str, A: Structure):
 
             for b, r in A.rn_ext[a]:
                 for ns, key in reverse_nsmap.items():
-                    r = r.replace(ns, "{}:".format(key))
+                    r = r.replace(ns, f"{key}:")
                 if A.nsmap[None] in r:
                     r = r.replace(A.nsmap[None], "")
 
-                file.write(
-                    '    <{} rdf:resource="{}"/>\n'.format(r, encode(reverse_indmap[b]))
-                )
+                file.write(f'    <{r} rdf:resource="{encode(reverse_indmap[b])}"/>\n')
 
             file.write("</owl:NamedIndividual>\n")
 
@@ -780,50 +772,40 @@ def construct_owl_from_concepts(
         )
 
         for cn in sigma.conceptnames:
-            file.write(
-                '<owl:Class rdf:about="http://example.com/test#{}"/>\n'.format(cn)
-            )
+            file.write(f'<owl:Class rdf:about="http://example.com/test#{cn}"/>\n')
 
         for rn in sigma.rolenames:
             file.write(
-                '<owl:ObjectProperty rdf:about="http://example.com/test#{}"/>\n'.format(
-                    rn
-                )
+                f'<owl:ObjectProperty rdf:about="http://example.com/test#{rn}"/>\n'
             )
 
         maxind = 0
         queue: list[tuple[ELConcept, int]] = []
         for p in ps:
             queue.append((p, maxind))
-            pos_inds.append("http://example.com/test#a{}".format(maxind))
+            pos_inds.append(f"http://example.com/test#a{maxind}")
             maxind += 1
 
         for n in ns:
             queue.append((n, maxind))
-            neg_inds.append("http://example.com/test#a{}".format(maxind))
+            neg_inds.append(f"http://example.com/test#a{maxind}")
             maxind += 1
 
         while len(queue) > 0:
             c, i = queue.pop(0)
 
             file.write(
-                '<owl:NamedIndividual rdf:about="http://example.com/test#a{}">\n'.format(
-                    i
-                )
+                f'<owl:NamedIndividual rdf:about="http://example.com/test#a{i}">\n'
             )
 
             for r, c2 in c:
                 if c2 is None:
                     file.write(
-                        '    <rdf:type rdf:resource="http://example.com/test#{}"/>\n'.format(
-                            r
-                        )
+                        f'    <rdf:type rdf:resource="http://example.com/test#{r}"/>\n'
                     )
                 if c2 is not None:
                     file.write(
-                        '    <test:{} rdf:resource="http://example.com/test#a{}"/>\n'.format(
-                            r, maxind
-                        )
+                        f'    <test:{r} rdf:resource="http://example.com/test#a{maxind}"/>\n'
                     )
                     queue.append((c2, maxind))
                     maxind += 1
@@ -948,7 +930,7 @@ def distance_from_top(c: ELConcept) -> int:
         c = g.__next__()
         sz = number_of_vars(c)
         if sz > largest:
-            print("{} {}".format(res, number_of_vars(c)))
+            print(f"{res} {number_of_vars(c)}")
             largest = sz
         if res > 10000:
             return res
@@ -1004,10 +986,10 @@ def remove_random_atom(c: ELConcept) -> ELConcept:
     A = concept2structure(c)
 
     atoms = []
-    for cn in A.cn_ext.keys():
+    for cn in A.cn_ext:
         for i in range(len(A.cn_ext[cn])):
             atoms.append(cn)
-    for a in A.rn_ext.keys():
+    for a in A.rn_ext:
         for i in range(len(A.rn_ext[a])):
             atoms.append(a)
 
@@ -1016,10 +998,10 @@ def remove_random_atom(c: ELConcept) -> ELConcept:
         return c
 
     atom = random.choice(atoms)
-    if atom in A.cn_ext.keys():
+    if atom in A.cn_ext:
         elem = random.choice(list(A.cn_ext[atom]))
         A.cn_ext[atom].remove(elem)
-    elif atom in A.rn_ext.keys():
+    elif atom in A.rn_ext:
         elem = random.choice(list(A.rn_ext[atom]))
         A.rn_ext[atom].remove(elem)
 
@@ -1034,7 +1016,7 @@ def execute_sml_bench(path, task):
 
     time_parsed = time.process_time()
     for lpname, (owlfile, A, P, N) in tasks.items():
-        print("== Starting incremental solving of {} {}".format(task, lpname))
+        print(f"== Starting incremental solving of {task} {lpname}")
         time_start_solve = time.process_time()
 
         _ = solve_incr(A, P, N, mode.exact)
@@ -1042,9 +1024,7 @@ def execute_sml_bench(path, task):
         time_solved = time.process_time()
 
         print(
-            "== Took {:.2f}s for reading input and {:.3f}s for solving".format(
-                time_parsed - time_start, time_solved - time_start_solve
-            )
+            f"== Took {time_parsed - time_start:.2f}s for reading input and {time_solved - time_start_solve:.3f}s for solving"
         )
 
         # verify_solution(owlfile, P, N, indmap, res)

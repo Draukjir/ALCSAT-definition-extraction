@@ -47,15 +47,15 @@ class ALC_Concept:
         if self.sym == CN:
             return str(self.c1)
         if self.sym == OP.AND:
-            return "({} AND {})".format(self.c1, self.c2)
+            return f"({self.c1} AND {self.c2})"
         if self.sym == OP.OR:
-            return "({} OR {})".format(self.c1, self.c2)
+            return f"({self.c1} OR {self.c2})"
         if self.sym == OP.NEG:
-            return "NEG {}".format(self.c1)
+            return f"NEG {self.c1}"
         if self.sym == OP.EX:
-            return "∃.{} {}".format(self.rn, self.c1)
+            return f"∃.{self.rn} {self.c1}"
         if self.sym == OP.ALL:
-            return "∀.{} {}".format(self.rn, self.c1)
+            return f"∀.{self.rn} {self.c1}"
         assert False
 
 

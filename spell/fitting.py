@@ -357,7 +357,7 @@ def create_coverage_formula(
 
 
 def non_empty_symbols(A: Structure) -> Signature:
-    cns = [cn for cn in A.cn_ext.keys() if A.cn_ext[cn]]
+    cns = [cn for cn in A.cn_ext if A.cn_ext[cn]]
     rns: set[str] = set()
     for a in ind(A):
         for _, rn in A.rn_ext[a]:
@@ -481,9 +481,7 @@ def solve(
         print(solution2sparql(best_q))
 
         print(
-            "== Coverage: {}/{} == Accuracy: {}".format(
-                coverage_lb, coverage_ub, coverage_lb / coverage_ub
-            )
+            f"== Coverage: {coverage_lb}/{coverage_ub} == Accuracy: {coverage_lb / coverage_ub}"
         )
         coverage_lb = coverage_lb + 1
         dt = time.process_time() - time_start
@@ -513,7 +511,7 @@ def solve_incr(
         and i <= max_size
         and (dt < timeout or timeout == -1)
     ):
-        print("== Searching for a fitting query of size {}".format(i))
+        print(f"== Searching for a fitting query of size {i}")
         if m == mode.exact:
             sol = solve(i, A, P, N, len(P) + len(N), True, timeout - dt)
         elif m == mode.neg_approx:
@@ -525,8 +523,6 @@ def solve_incr(
         i += 1
         dt = time.process_time() - time_start
 
-    print(
-        "== Best query found with coverage {}/{}".format(best_coverage, len(P) + len(N))
-    )
+    print(f"== Best query found with coverage {best_coverage}/{len(P) + len(N)}")
     print(solution2sparql(best_q))
     return (best_coverage, best_q)

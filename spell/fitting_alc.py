@@ -1066,11 +1066,7 @@ class FittingALC:
                     remaining_time = None
 
                 progress = 0
-                print(
-                    "Searching with k = {}, progress {}/{}".format(
-                        k, progress, len(tasks)
-                    )
-                )
+                print(f"Searching with k = {k}, progress {progress}/{len(tasks)}")
                 try:
                     for ft in concurrent.futures.as_completed(
                         fts, timeout=remaining_time
@@ -1079,9 +1075,7 @@ class FittingALC:
                         progress += 1
 
                         print(
-                            "Searching with k = {}, progress {}/{}".format(
-                                k, progress, len(tasks)
-                            )
+                            f"Searching with k = {k}, progress {progress}/{len(tasks)}"
                         )
 
                         if k_acc > best_acc:

@@ -153,7 +153,7 @@ class ObjectProperty(Property):
 
     def __str__(self):
         if self.identifier is None and self.inverse_of is not None:
-            return "{}-".format(self.inverse_of)
+            return f"{self.inverse_of}-"
         return self.identifier
 
 
@@ -420,7 +420,7 @@ class Complement(Expression):
         # raise FeatureNotSupported('complement')
 
     def __str__(self):
-        return "not {}".format(str(self.child))
+        return f"not {str(self.child)}"
 
 
 class OneOf(Expression):
@@ -446,7 +446,7 @@ class Quantifier(object):
 
 class HasSelf(Quantifier):
     def to_string(self, prop):
-        return "hasSelf {}".format(prop)
+        return f"hasSelf {prop}"
 
     def normalize_rhs(self):
         return self, []

@@ -155,9 +155,7 @@ def bisimulation_reduction(inst: Instance, max_k: int) -> Instance:
             B.rn_ext[ca].add((cb, r))
 
     print(
-        "== Bisimulation reduction reduced from size {} to size {}".format(
-            A.max_ind, B.max_ind
-        )
+        f"== Bisimulation reduction reduced from size {A.max_ind} to size {B.max_ind}"
     )
 
     return Instance(
@@ -174,7 +172,7 @@ def bisimulation_reduction(inst: Instance, max_k: int) -> Instance:
 def restrict_to_neighborhood(
     k: int, A: Structure, starts: list[int]
 ) -> tuple[Structure, dict[int, int]]:
-    cns = [cn for cn in A.cn_ext.keys() if A.cn_ext[cn]]
+    cns = [cn for cn in A.cn_ext if A.cn_ext[cn]]
 
     # This has its own distance calculation to avoid computing the distance
     # for the entirety of A

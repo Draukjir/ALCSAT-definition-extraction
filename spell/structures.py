@@ -64,14 +64,13 @@ def expand_namespace(namespace: str, item: str):
 @functools.cache
 def tag2name(tag: str):
     q = etree.QName(tag)
-    res = "{}{}".format(q.namespace, q.localname)
-    return res
+    return f"{q.namespace}{q.localname}"
 
 
 def name2sparql(name: str):
     name = name.replace("{", "")
     name = name.replace("}", "")
-    return "<{}>".format(name)
+    return f"<{name}>"
 
 
 def expand_curie(curie, nsmap):
@@ -166,8 +165,6 @@ class ABoxBuilder:
         else:
             print(f"Unknown datatype: {type}")
 
-        pass
-
 
 tag_onto = expand_namespace("owl", "Ontology")
 tag_ni = expand_namespace("owl", "NamedIndividual")
@@ -199,7 +196,7 @@ def load_owl(file: str) -> tuple[Ontology, ABoxBuilder]:
     nsmap = {}
     abox = ABoxBuilder()
     num = len(abox.indmap)
-    print("Loaded {} individuals".format(num), end="\r")
+    print(f"Loaded {num} individuals", end="\r")
 
     abox.declare_cn("http://www.w3.org/2002/07/owl#NamedIndividual")
 
@@ -237,7 +234,7 @@ def load_owl(file: str) -> tuple[Ontology, ABoxBuilder]:
 
             num = len(abox.indmap)
             if num % 100000 == 0:
-                print("\rLoaded {} individuals".format(num), end="\r")
+                print(f"\rLoaded {num} individuals", end="\r")
 
             for child in elem:
                 if child.tag in tag_type:
@@ -265,9 +262,7 @@ def load_owl(file: str) -> tuple[Ontology, ABoxBuilder]:
     num = len(abox.indmap)
     abox.A.nsmap = nsmap
     print(
-        "\rLoaded {} individuals, {} object properties, and {} data properties".format(
-            num, facts, datavs
-        )
+        f"\rLoaded {num} individuals, {facts} object properties, and {datavs} data properties"
     )
     return onto, abox
 
@@ -317,13 +312,13 @@ class EL_TBox:
         self.register_rn(tag2name(expand_namespace("owl", "sameAs")))
 
     def non_empty_conjs(self):
-        return {A for A in self.conjs.keys() if len(self.conjs[A]) > 0}
+        return {A for A in self.conjs if len(self.conjs[A]) > 0}
 
     def non_empty_lhs(self):
-        return {A for A in self.rBlhs.keys() if len(self.rBlhs[A]) > 0}
+        return {A for A in self.rBlhs if len(self.rBlhs[A]) > 0}
 
     def non_empty_rhs(self):
-        return {A for A in self.rBrhs.keys() if len(self.rBrhs[A]) > 0}
+        return {A for A in self.rBrhs if len(self.rBrhs[A]) > 0}
 
     def register_cn(self, A: str):
         if A not in self.cns:
@@ -375,7 +370,7 @@ class EL_TBox:
 
     def fresh_cn(self) -> str:
         self.range_cn_ctr += 1
-        name = "Fresh#R{}".format(self.range_cn_ctr)
+        name = f"Fresh#R{self.range_cn_ctr}"
         self.fresh_names.add(name)
         return name
 
@@ -422,7 +417,7 @@ class EL_TBox:
         for A, S in list(self.rBrhs.items()):
             to_add = set()
             for r, B in S:
-                if r not in self.ranges.keys():
+                if r not in self.ranges:
                     continue
                 X = self.fresh_cn()
                 self.add_axiom1(X, B)
@@ -501,7 +496,6 @@ def construct_normalized_tbox(onto: Ontology) -> EL_TBox:
                 else:
                     ignored_rules += 1
                     # print("Ignoring tbox rule with rhs {}".format(rule.object))
-                    pass
                     # TODO handle inverse roles here
 
         elif type(rule.subject) is Restriction:
@@ -554,28 +548,18 @@ def construct_normalized_tbox(onto: Ontology) -> EL_TBox:
             continue
         t.add_range_restriction(a, b.identifier)
     if ignored_rules > 0:
-        print(
-            "Ignoring {} TBox statements due to unsupported features".format(
-                ignored_rules
-            )
-        )
+        print(f"Ignoring {ignored_rules} TBox statements due to unsupported features")
     if ignored_domain > 0:
         print(
-            "Ignoring {} domain restrictions due to unsupported features".format(
-                ignored_domain
-            )
+            f"Ignoring {ignored_domain} domain restrictions due to unsupported features"
         )
     if ignored_range > 0:
         print(
-            "Ignoring {} range restrictions due to unsupported features".format(
-                ignored_range
-            )
+            f"Ignoring {ignored_range} range restrictions due to unsupported features"
         )
 
     print(
-        "Loaded {} concept names, {} role names, {} concept inclusions".format(
-            len(t.cns), len(t.rns), cis
-        )
+        f"Loaded {len(t.cns)} concept names, {len(t.rns)} role names, {cis} concept inclusions"
     )
     return t
 
@@ -586,7 +570,7 @@ def compact_canonical_model(abox: ABoxBuilder, tbox: EL_TBox):
         abox.declare_cn(cn)
 
     # Saturate concept names in ABox
-    for A in tbox.implic.keys():
+    for A in tbox.implic:
         for B in tbox.implic[A]:
             if A == B:
                 continue
@@ -598,7 +582,7 @@ def compact_canonical_model(abox: ABoxBuilder, tbox: EL_TBox):
     # Apply range restrictions to ABox
     for a in ind(abox.A):
         for b, r in abox.A.rn_ext[a]:
-            if r in tbox.ranges.keys():
+            if r in tbox.ranges:
                 for B in tbox.ranges[r]:
                     abox.concept_assertion(b, B)
 
@@ -659,13 +643,13 @@ def structure_to_dot(A: Structure, indmap: dict[str, int]):
         if "#" in name:
             print('N{} [label="{}"];'.format(val, name.split("#")[1]))
         else:
-            print('N{} [label="{}"];'.format(val, name))
+            print(f'N{val} [label="{name}"];')
 
     for a in ind(A):
         for b, r in A.rn_ext[a]:
             if "#" in r:
                 r = r.split("#")[1]
-            print('N{} -> N{} [label="{}"];'.format(a, b, r))
+            print(f'N{a} -> N{b} [label="{r}"];')
     print("}")
 
 
@@ -677,11 +661,11 @@ def solution2sparql(q: Structure):
     clauses: list[str] = []
 
     for a in ind(q):
-        for cn in q.cn_ext.keys():
+        for cn in q.cn_ext:
             if a in q.cn_ext[cn] and not_owl_thing(name2sparql(cn)):
-                clauses.append("?{} a {} .".format(a, name2sparql(cn)))
+                clauses.append(f"?{a} a {name2sparql(cn)} .")
         for b, rn in q.rn_ext[a]:
-            clauses.append("?{} {} ?{} .".format(a, name2sparql(rn), b))
+            clauses.append(f"?{a} {name2sparql(rn)} ?{b} .")
 
     if len(clauses) == 0:
         clauses.append("?0 a <http://www.w3.org/2002/07/owl#Thing> .")
