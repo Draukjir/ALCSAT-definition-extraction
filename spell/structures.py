@@ -48,6 +48,15 @@ def conceptname_ext(A: Structure, cn: str) -> set[int]:
     return A.cn_ext[cn]
 
 
+def entire_signature(A: Structure) -> Signature:
+    cns = list(A.cn_ext.keys())
+    cns.sort()
+
+    rns = list({r for a in ind(A) for (b, r) in A.rn_ext[a]})
+    rns.sort()
+    return Signature(cns, rns)
+
+
 def expand_namespace(namespace: str, item: str):
     return "{%s}%s" % (namespaces.get(namespace), item)
 
@@ -320,7 +329,7 @@ class EL_TBox:
         if A not in self.cns:
             assert "{" not in A
             self.cns.add(A)
-            self.implic[A] = set([A, self.top])
+            self.implic[A] = {A, self.top}
             self.conjs[A] = set()
             self.rBrhs[A] = set()
             self.rBlhs[A] = set()
@@ -329,7 +338,7 @@ class EL_TBox:
         if r not in self.rns:
             self.rns.add(r)
             self.ranges[r] = set()
-            self.role_incs[r] = set([r])
+            self.role_incs[r] = {r}
 
     def add_axiom1(self, A: str, B: str):
         self.register_cn(A)

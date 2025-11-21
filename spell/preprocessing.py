@@ -92,7 +92,7 @@ def encode_dataproperties(inst: Instance) -> tuple[Instance, dict[str, ALCConcep
 def color_refinement(
     A: Structure, sigma: Signature, alc_q: bool, iterations: int
 ) -> dict[int, int]:
-    color: dict[int, int] = {a: 0 for a in range(A.max_ind)}
+    color: dict[int, int] = dict.fromkeys(range(A.max_ind), 0)
 
     local_types: dict[int, list[tuple[int, str]]] = {a: [] for a in range(A.max_ind)}
     for cn in sigma.conceptnames:
@@ -179,7 +179,7 @@ def restrict_to_neighborhood(
     # This has its own distance calculation to avoid computing the distance
     # for the entirety of A
     inds = set(starts)
-    dist = {a: 0 for a in starts}
+    dist = dict.fromkeys(starts, 0)
     for r in range(k):
         step = set()
         for i1 in inds:

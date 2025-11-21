@@ -434,7 +434,7 @@ class OWLReader(object):
         rdf_resource = self.expand_namespace("rdf", "resource")
 
         if "Description" in element.tag:
-            options = dict()
+            options = {}
         else:
             # Get the property options - very important to make a copy!
             options = dict(self.property_types[element.tag])

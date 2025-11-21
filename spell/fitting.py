@@ -378,8 +378,8 @@ def determine_relevant_symbols(
     cns = sigma.conceptnames
     rns = sigma.rolenames
 
-    count = {cn: 0 for cn in cns}
-    countr = {rn: 0 for rn in rns}
+    count = dict.fromkeys(cns, 0)
+    countr = dict.fromkeys(rns, 0)
 
     for p in P:
         cns2: set[str] = set()
@@ -405,8 +405,8 @@ def determine_relevant_symbols(
         for rn in rns2:
             countr[rn] += 1
 
-    cns = list(cn for (cn, c) in count.items() if c >= minP)
-    rns = list(rn for (rn, c) in countr.items() if c >= minP)
+    cns = [cn for (cn, c) in count.items() if c >= minP]
+    rns = [rn for (rn, c) in countr.items() if c >= minP]
     cns.sort(key="{}".format)
     rns.sort(key="{}".format)
 

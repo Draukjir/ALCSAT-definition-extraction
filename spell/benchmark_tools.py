@@ -151,7 +151,7 @@ def weaken_drop_root_subtrees(c: ELConcept, succs: int) -> list[ELConcept]:
     r1 = frontier(c)
 
     while len(r1[0]) > succs:
-        r1 = list(set([d for c in r1 for d in drop_root_subtree(c)]))
+        r1 = list({d for c in r1 for d in drop_root_subtree(c)})
 
     return list(set(r1))
 
@@ -211,7 +211,7 @@ def conj2string(rn: str, d: None | ELConcept) -> str:
 def concept2string(concept: ELConcept) -> str:
     if len(concept) == 0:
         return "\\top"
-    sub_concepts = list(conj2string(rn, d) for (rn, d) in concept)
+    sub_concepts = [conj2string(rn, d) for (rn, d) in concept]
     sub_concepts.sort()
     return " \\sqcap ".join(sub_concepts)
 
