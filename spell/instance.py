@@ -67,6 +67,11 @@ class ALCConcept:
     def to_tree(self) -> str:
         return "\n".join(self.to_tree_int())
 
+    def size(self) -> int:
+        #TODO: do we need to refine this?
+        return 1 + sum(c.size() for c in self.children)
+        
+
     def mc(self, A: Structure, a: int) -> bool:
         assert a in ind(A)
 
