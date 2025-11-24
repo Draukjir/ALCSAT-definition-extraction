@@ -931,7 +931,7 @@ class ALCSATEncoding:
                         return (OP.LE, q, r)
         if OP.GE in self.inst.op:
             for r in self.inst.sigma.rolenames:
-                for q in range(1, self.inst.max_q + 1):
+                for q in range(2, self.inst.max_q + 1):
                     if (self.vars[X, OP.GE, r, q] + i) in m:
                         return (OP.GE, q, r)
         assert False
