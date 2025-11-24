@@ -1,3 +1,4 @@
+from collections import defaultdict
 import json
 import os
 import random
@@ -12,12 +13,13 @@ from rdflib import Graph
 
 from spell.benchmark_tools import construct_owl_from_structure
 from spell.fitting_alc import FittingALC
-from spell.structures import map_ind_name, structure_from_owl
+from spell.structures import Signature, Structure, map_ind_name, structure_from_owl
 from spell.instance import ALC_OP, OP
+from spell.preprocessing import color_refinement
 
 from spell.preprocessing import restrict_to_neighborhood
 
-from .ontolearn_benchmark import run_evo
+#from .ontolearn_benchmark import run_evo
 
 CELOE_PATH = ""
 SPARCEL_PATH = ""
@@ -524,9 +526,62 @@ def convertCsv(files):
         data.at[t, "n_evo"] = n_evo
     data.to_csv("data_graph.csv")
 
+def alcq_examples_from_bisim(A : Structure, pos_len = -1):
+    sr = set([ t[1] for s in A.rn_ext.values() for t in s])
+    sigma = Signature(A.cn_ext.keys(), sr)
+    color_alc = color_refinement(A, sigma, False, -1)
+    color_alcq = color_refinement(A, sigma, True, -1)
+    classes_alc : defaultdict[int,list[int]] = defaultdict(list)
+    classes_alcq : defaultdict[int,list[int]] = defaultdict(list)    
+    for a in range(A.max_ind):
+        classes_alc[color_alc[a]].append(a)
+        classes_alcq[color_alcq[a]].append(a)
+    exs = []
+    for k,v in classes_alc.items():
+        for a in v:
+            e = []
+            for b in v:
+                if a != b and color_alcq[a] != color_alcq[b]:
+                        e.append(b)
+            if len(e) != 0:
+                if pos_len != -1 and len(e) > pos_len:
+                    e = random.sample(e, pos_len)            
+                yield e,[a]
+
+def reduce_size_by_examples2(A : Structure, P, N, k, dest = None):    
+    P = list(map(lambda n: map_ind_name(A, n), P))
+    N = list(map(lambda n: map_ind_name(A, n), N))
+    B, m = restrict_to_neighborhood(k - 1, A, P + N)
+    if dest:
+        construct_owl_from_structure(dest, B)
+    return B
+
+def write_examples(P,N,path):
+    with open(os.path.join(path, 'pos.txt'), 'w') as f:
+        f.writelines(map(lambda x : f"{x}\n",P))        
+    with open(os.path.join(path, 'neg.txt'), 'w') as f:
+        f.writelines(map(lambda x : f"{x}\n",N))
+
+def examples_from_bisim(kb_path, output_dir):
+    A = structure_from_owl(kb_path)
+    ind_map_inv = {v:k for k,v in A.indmap.items()}
+    for i,(P,N) in enumerate(alcq_examples_from_bisim(A, pos_len=1)):
+        f = FittingALC(A,12,P,N, op = frozenset([OP.ALL, OP.EX, OP.OR, OP.AND, OP.NEG, OP.LE, OP.GE]), workers = 8)
+        a,k,sol = f.solve_incr(12)
+        if a > 0 and k > 6:
+            P_s = [ind_map_inv[x] for x in P]
+            N_s = [ind_map_inv[x] for x in N]
+            dest_dir =  os.path.join(output_dir, f"{str(i)}_k{k}")
+            os.mkdir(dest_dir)
+            write_examples(P_s,N_s,dest_dir)
+            reduce_size_by_examples2(A,P_s,N_s,k,dest = os.path.join(dest_dir, 'kb_reduced'))
+            with open(os.path.join(dest_dir, 'fitting_concept.txt'), 'w') as f:
+                f.write(sol.to_tree())
 
 def main():
-    benchmark_run(sys.argv[1])
+    examples_from_bisim(sys.argv[1],sys.argv[1])
+    
+            
 
 
 if __name__ == "__main__":
