@@ -1,7 +1,7 @@
 from spell.fitting_alc import FittingALC, all_trees
 from spell.structures import Structure, Signature
-from spell.instance import OP
-from spell.preprocessing import color_refinement
+from spell.instance import ALC_OP, OP, ALCConcept, Instance
+from spell.preprocessing import bisimulation_reduction, color_refinement
 
 
 def test_trees():
@@ -17,17 +17,48 @@ def test_color_refinement():
     cn2 = {"A": {6}}
     A2 = Structure(7, cn2, rn2, {i: set() for i in range(6)}, {}, {})
 
-    colors_alcq = color_refinement(A2, Signature(["A"], ["r"]), True, 10)
+    colors_alcq, _ = color_refinement(A2, Signature(["A"], ["r"]), True, 10)
 
     assert colors_alcq[0] != colors_alcq[2]
     assert colors_alcq[0] != colors_alcq[5]
     assert colors_alcq[2] != colors_alcq[5]
     assert colors_alcq[1] == colors_alcq[3]
 
-    colors_alc = color_refinement(A2, Signature(["A"], ["r"]), False, 10)
+    colors_alc, _ = color_refinement(A2, Signature(["A"], ["r"]), False, 10)
     assert colors_alc[0] == colors_alc[2]
     assert colors_alc[0] != colors_alc[5]
     assert colors_alc[1] == colors_alc[3]
+
+
+def test_alcq_filtration():
+    rn2 = {i: {} for i in range(7)}
+    rn2[0] = {(1, "r"), (2, "r")}
+    A2 = Structure(3, {}, rn2, {i: set() for i in range(6)}, {}, {})
+
+    inst = Instance(A2, [0], [0], Signature([], ["r"]), ALC_OP)
+    inst = bisimulation_reduction(inst, 10)
+
+    c = ALCConcept(OP.GE, "r", 2, [ALCConcept(OP.TOP, "", 0, [])])
+
+    assert c.mc(inst.A, inst.P[0])
+
+
+def test_alcq_filtration2():
+    rn2 = {i: {} for i in range(7)}
+    rn2[0] = {(2, "r")}
+    rn2[1] = {(3, "r"), (4, "r")}
+    rn2[2] = {(5, "r")}
+    rn2[3] = {(5, "r")}
+    rn2[4] = {(5, "r")}
+    A2 = Structure(6, {}, rn2, {i: set() for i in range(6)}, {}, {})
+
+    inst = Instance(A2, [1], [0], Signature([], ["r"]), ALC_OP)
+    inst = bisimulation_reduction(inst, 10)
+
+    c = ALCConcept(OP.GE, "r", 2, [ALCConcept(OP.TOP, "", 0, [])])
+
+    assert c.mc(inst.A, inst.P[0])
+    assert not c.mc(inst.A, inst.N[0])
 
 
 def test1():

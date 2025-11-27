@@ -1,3 +1,4 @@
+from collections import defaultdict
 from typing import Any
 from spell.instance import ALCConcept, Instance, OP
 from spell.structures import Signature, Structure
@@ -89,21 +90,41 @@ def encode_dataproperties(inst: Instance) -> tuple[Instance, dict[str, ALCConcep
     return Instance(B, inst.P, inst.N, sigma, inst.op, inst.max_q), reverse_mapping
 
 
+def compute_multiplicities(
+    color_register: dict[tuple[tuple[int, str], ...], int],
+) -> tuple[dict[int, int], dict[tuple[int, int, str], int]]:
+    color_multiplicities: dict[int, int] = defaultdict(lambda: 1)
+    edge_multiplicities: dict[tuple[int, int, str], int] = defaultdict(int)
+
+    for desc, c in color_register.items():
+        for d, r in desc:
+            if d != -1:
+                edge_multiplicities[(c, d, r)] += 1
+
+    for c, d, r in edge_multiplicities:
+        color_multiplicities[d] = max(
+            color_multiplicities[d], edge_multiplicities[(c, d, r)]
+        )
+
+    return color_multiplicities, edge_multiplicities
+
+
 def color_refinement(
     A: Structure, sigma: Signature, alc_q: bool, iterations: int
-) -> dict[int, int]:
+) -> tuple[dict[int, int], dict[tuple[tuple[int, str], ...], int]]:
     color: dict[int, int] = dict.fromkeys(range(A.max_ind), 0)
+    color_register: dict[tuple[tuple[int, str], ...], int] = {}
 
     local_types: dict[int, list[tuple[int, str]]] = {a: [] for a in range(A.max_ind)}
     for cn in sigma.conceptnames:
         for a in A.cn_ext[cn]:
-            local_types[a].append((0, cn))
+            local_types[a].append((-1, cn))
 
     i = 0
-    while i < iterations or iterations == -1:
+    while i <= iterations or iterations == -1:
         i += 1
         ncolor: dict[int, int] = {}
-        color_register: dict[tuple[tuple[int, str], ...], int] = {}
+        color_register = {}
 
         for a in range(A.max_ind):
             tp2 = list(local_types[a])
@@ -120,39 +141,49 @@ def color_refinement(
 
         if color == ncolor:
             # No change happened
-            return color
+            return color, color_register
 
         color = ncolor
 
-    return color
+    return color, color_register
 
 
 def bisimulation_reduction(inst: Instance, max_k: int) -> Instance:
-    color = color_refinement(inst.A, inst.sigma, True, max_k)
+    color, color_register = color_refinement(inst.A, inst.sigma, True, max_k)
+
+    color_multiplicities, edge_multiplicities = compute_multiplicities(color_register)
 
     A = inst.A
     sigma = inst.sigma
 
-    color2class: dict[int, int] = {}
+    color2ind: dict[tuple[int, int], int] = {}
     for a in range(A.max_ind):
-        if color[a] not in color2class:
-            color2class[color[a]] = len(color2class)
+        c = color[a]
+        for i in range(color_multiplicities[c]):
+            if (c, i) not in color2ind:
+                color2ind[(c, i)] = len(color2ind)
 
-    B = Structure(len(color2class), {}, {}, {}, {}, A.nsmap)
+    B = Structure(len(color2ind), {}, {}, {}, {}, A.nsmap)
 
     for cn in sigma.conceptnames:
         B.cn_ext[cn] = set()
         for a in A.cn_ext[cn]:
-            B.cn_ext[cn].add(color2class[color[a]])
+            for i in range(color_multiplicities[color[a]]):
+                B.cn_ext[cn].add(color2ind[(color[a], i)])
 
-    for a in range(A.max_ind):
-        ca = color2class[color[a]]
-        if ca not in B.rn_ext:
-            B.rn_ext[ca] = set()
-            B.dp_ext[ca] = []
-        for b, r in A.rn_ext[a]:
-            cb = color2class[color[b]]
-            B.rn_ext[ca].add((cb, r))
+    for c in color.values():
+        for i in range(color_multiplicities[c]):
+            ca = color2ind[(c, i)]
+            if ca not in B.rn_ext:
+                B.rn_ext[ca] = set()
+                B.dp_ext[ca] = []
+
+    for (c, d, r), n in edge_multiplicities.items():
+        for i in range(color_multiplicities[c]):
+            ca = color2ind[(c, i)]
+            for j in range(n):
+                cb = color2ind[(d, j)]
+                B.rn_ext[ca].add((cb, r))
 
     print(
         f"== Bisimulation reduction reduced from size {A.max_ind} to size {B.max_ind}"
@@ -160,8 +191,8 @@ def bisimulation_reduction(inst: Instance, max_k: int) -> Instance:
 
     return Instance(
         B,
-        [color2class[color[p]] for p in inst.P],
-        [color2class[color[n]] for n in inst.N],
+        [color2ind[(color[p], 0)] for p in inst.P],
+        [color2ind[(color[n], 0)] for n in inst.N],
         sigma,
         inst.op,
     )
