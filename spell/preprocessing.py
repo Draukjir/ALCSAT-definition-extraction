@@ -1,7 +1,7 @@
 from collections import defaultdict
 from typing import Any
 from spell.instance import ALCConcept, Instance, OP
-from spell.structures import Signature, Structure
+from spell.structures import Signature, Structure, ind
 
 
 def prune_conceptnames(inst: Instance) -> Instance:
@@ -256,3 +256,20 @@ def restrict_neighborhood(inst: Instance, k: int) -> Instance:
     P2 = [mapping[a] for a in inst.P]
     N2 = [mapping[a] for a in inst.N]
     return Instance(A, P2, N2, inst.sigma, inst.op, inst.max_q)
+
+
+def determine_max_q_per_relation(inst: Instance) -> dict[str, int]:
+    result: defaultdict[str, int] = defaultdict(int)
+
+    A = inst.A
+    sigma = inst.sigma
+
+    for a in ind(A):
+        local_outdegree: defaultdict[str, int] = defaultdict(int)
+        for b, r in A.rn_ext[a]:
+            local_outdegree[r] += 1
+
+        for rn in sigma.rolenames:
+            result[rn] = max(result[rn], local_outdegree[rn])
+
+    return dict(result)

@@ -12,6 +12,7 @@ from spell.instance import ALC_OP, OP, ALCConcept, Instance
 from spell.preprocessing import (
     bisimulation_reduction,
     decode_dataproperties,
+    determine_max_q_per_relation,
     encode_dataproperties,
     prune_conceptnames,
     restrict_neighborhood,
@@ -84,6 +85,10 @@ class ALCSATEncoding:
         self.max_var: int = 0
         self.types: set[frozenset[str]] = set()
         self.clauses: list[Iterable[int]] = []
+        self.max_q_per_r: dict[str, int] = {
+            r: min(q, self.inst.max_q)
+            for r, q in determine_max_q_per_relation(instance).items()
+        }
 
     def add_clause(self, c: Iterable[int]):
         self.clauses.append(c)
@@ -109,16 +114,16 @@ class ALCSATEncoding:
                 d[X, OP.ALL, c] = i * self.k + 1
                 i += 1
         if OP.LE in self.inst.op_q():
-            for q in range(1, self.inst.max_q + 1):
-                for r in self.inst.sigma.rolenames:
+            for r in self.inst.sigma.rolenames:
+                for q in range(1, self.max_q_per_r[r] + 1):
                     d[X, OP.LE, r, q] = i * self.k + 1
                     i += 1
                     for a in range(self.inst.A.max_ind):
                         d[H, OP.LE, r, q, a] = i * self.k + 1
                         i += 1
         if OP.GE in self.inst.op_q():
-            for q in range(2, self.inst.max_q + 1):
-                for r in self.inst.sigma.rolenames:
+            for r in self.inst.sigma.rolenames:
+                for q in range(2, self.max_q_per_r[r] + 1):
                     d[X, OP.GE, r, q] = i * self.k + 1
                     i += 1
                     for a in range(self.inst.A.max_ind):
@@ -190,7 +195,7 @@ class ALCSATEncoding:
                         self.vars[X, op, r, q] + i
                         for op in self.inst.op_q()
                         for r in self.inst.sigma.rolenames
-                        for q in range(1, self.inst.max_q + 1)
+                        for q in range(1, self.max_q_per_r[r] + 1)
                         if op != OP.GE or q != 1
                     ]
                 )
@@ -554,7 +559,7 @@ class ALCSATEncoding:
 
                 if OP.LE in self.inst.op_q() and len(tree[i]) == 1:
                     for r in self.inst.sigma.rolenames:
-                        for q in range(1, self.inst.max_q + 1):
+                        for q in range(1, self.max_q_per_r[r] + 1):
                             successors = [
                                 b for (b, p) in self.inst.A.rn_ext[a] if p == r
                             ]
@@ -605,7 +610,7 @@ class ALCSATEncoding:
 
                 if OP.GE in self.inst.op_q() and len(tree[i]) == 1:
                     for r in self.inst.sigma.rolenames:
-                        for q in range(2, self.inst.max_q + 1):
+                        for q in range(2, self.max_q_per_r[r] + 1):
                             successors = [
                                 b for (b, p) in self.inst.A.rn_ext[a] if p == r
                             ]
@@ -923,12 +928,12 @@ class ALCSATEncoding:
                     return (OP.ALL, 0, r)
         if OP.LE in self.inst.op:
             for r in self.inst.sigma.rolenames:
-                for q in range(1, self.inst.max_q + 1):
+                for q in range(1, self.max_q_per_r[r] + 1):
                     if (self.vars[X, OP.LE, r, q] + i) in m:
                         return (OP.LE, q, r)
         if OP.GE in self.inst.op:
             for r in self.inst.sigma.rolenames:
-                for q in range(2, self.inst.max_q + 1):
+                for q in range(2, self.max_q_per_r[r] + 1):
                     if (self.vars[X, OP.GE, r, q] + i) in m:
                         return (OP.GE, q, r)
         assert False
