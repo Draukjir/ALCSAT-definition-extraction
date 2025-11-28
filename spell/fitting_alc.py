@@ -1001,13 +1001,13 @@ class FittingALC:
         max_k: int,
         P: list[int],
         N: list[int],
-        op: frozenset[OP] = ALC_OP,
+        op: Iterable[OP] = ALC_OP,
         workers: int = 1,
         max_q: int = 2,
     ):
         sigma: Signature = determine_relevant_symbols(A, P + N, 1, max_k - 1)
         self.max_k: int = max_k
-        self.inst: Instance = Instance(A, P, N, sigma, op, max_q=max_q)
+        self.inst: Instance = Instance(A, P, N, sigma, frozenset(op), max_q=max_q)
         self.workers: int = workers
 
     def solve(self):

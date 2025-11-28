@@ -52,7 +52,7 @@ def entire_signature(A: Structure) -> Signature:
     cns = list(A.cn_ext.keys())
     cns.sort()
 
-    rns = list({r for a in ind(A) for (b, r) in A.rn_ext[a]})
+    rns = list({r for a in ind(A) for (_, r) in A.rn_ext[a]})
     rns.sort()
     return Signature(cns, rns)
 
@@ -73,7 +73,7 @@ def name2sparql(name: str):
     return f"<{name}>"
 
 
-def expand_curie(curie, nsmap):
+def expand_curie(curie: str, nsmap: dict[str | None, str]):
     assert ":" in curie
     s = curie.split(":")
     assert s[0] in nsmap
@@ -193,7 +193,7 @@ def load_owl(file: str) -> tuple[Ontology, ABoxBuilder]:
 
     facts = 0
     datavs = 0
-    nsmap = {}
+    nsmap: dict[str | None, str] = {}
     abox = ABoxBuilder()
     num = len(abox.indmap)
     print(f"Loaded {num} individuals", end="\r")
@@ -384,13 +384,13 @@ class EL_TBox:
             change = False
 
             for r in self.rns:
-                toAdd = set()
+                toAddRns: set[str] = set()
                 for s in self.role_incs[r]:
                     for t in self.role_incs[s]:
                         if t not in self.role_incs[r]:
                             change = True
-                            toAdd.add(t)
-                self.role_incs[r] |= toAdd
+                            toAddRns.add(t)
+                self.role_incs[r] |= toAddRns
 
         # Add implied range restrictions
         for r in self.rns:
@@ -400,12 +400,12 @@ class EL_TBox:
 
         # Add implied domain restrictions
         for B in self.cns:
-            toAdd = set()
+            toAddDR: set[tuple[str, str]] = set()
             for r, A in self.rBlhs[B]:
                 for s in self.rns:
                     if r != s and r in self.role_incs[s]:
-                        toAdd.add((s, A))
-            self.rBlhs[B] |= toAdd
+                        toAddDR.add((s, A))
+            self.rBlhs[B] |= toAddDR
 
     def saturate(self):
         self.saturate_role_incs()
@@ -415,7 +415,7 @@ class EL_TBox:
         # It follows that
         # A \sqsubseteq \exists r.X and X \sqsubseteq B \sqcap C
         for A, S in list(self.rBrhs.items()):
-            to_add = set()
+            to_add_ax3: set[tuple[str, str]] = set()
             for r, B in S:
                 if r not in self.ranges:
                     continue
@@ -423,8 +423,8 @@ class EL_TBox:
                 self.add_axiom1(X, B)
                 for C in self.ranges[r]:
                     self.add_axiom1(X, C)
-                to_add.add((r, X))
-            for r, X in to_add:
+                to_add_ax3.add((r, X))
+            for r, X in to_add_ax3:
                 self.add_axiom3(A, r, X)
 
         # TODO: implement faster algorithm
@@ -434,14 +434,14 @@ class EL_TBox:
 
             # CR3
             for A1 in self.cns:
-                add = set()
+                add_implic: set[str] = set()
                 for A2 in self.implic[A1]:
                     for A3 in self.implic[A2]:
                         if A3 not in self.implic[A1]:
-                            add.add(A3)
-                if len(add) > 0:
+                            add_implic.add(A3)
+                if len(add_implic) > 0:
                     change = True
-                    self.implic[A1] |= add
+                    self.implic[A1] |= add_implic
             # CR4
             for B in self.non_empty_conjs():
                 for A in self.cns:
@@ -625,7 +625,7 @@ def compact_canonical_model(abox: ABoxBuilder, tbox: EL_TBox):
 
     # Saturate with role inclusions
     for a in ind(abox.A):
-        toadd = set()
+        toadd: set[tuple[int, str]] = set()
         for b, r in abox.A.rn_ext[a]:
             for s in tbox.role_incs[r]:
                 toadd.add((b, s))
@@ -653,7 +653,7 @@ def structure_to_dot(A: Structure, indmap: dict[str, int]):
     print("}")
 
 
-def not_owl_thing(cn):
+def not_owl_thing(cn: str):
     return "/Thing>" not in cn and "#Thing>" not in cn
 
 
@@ -700,11 +700,11 @@ def next_rooted_tree(predecessor: list[int]):
 def levels_to_preds(layout: list[int]) -> list[int]:
     result = [0] * (len(layout) - 1)
 
-    stack = []
+    stack: list[int] = []
     for i in range(len(layout)):
         if stack:
             while layout[stack[-1]] >= layout[i]:
-                stack.pop()
+                _ = stack.pop()
             result[i - 1] = stack[-1]
         stack.append(i)
     return result

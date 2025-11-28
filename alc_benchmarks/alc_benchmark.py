@@ -532,7 +532,7 @@ def alcq_examples_from_bisim(A: Structure, pos_len=-1):
     sr = set([t[1] for s in A.rn_ext.values() for t in s])
     sigma = Signature(A.cn_ext.keys(), sr)
     color_alc, _ = color_refinement(A, sigma, False, -1)
-    color_alcq , _= color_refinement(A, sigma, True, -1)
+    color_alcq, _ = color_refinement(A, sigma, True, -1)
     classes_alc: defaultdict[int, list[int]] = defaultdict(list)
     classes_alcq: defaultdict[int, list[int]] = defaultdict(list)
     for a in range(A.max_ind):
