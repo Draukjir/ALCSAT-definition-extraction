@@ -67,10 +67,15 @@ class ALCConcept:
     def to_tree(self) -> str:
         return "\n".join(self.to_tree_int())
 
+    def evo_size(self) -> int:
+        if self.operation in {OP.ALL, OP.EX, OP.GE, OP.LE, OP.DGEQ}:
+            return 2 + sum(c.evo_size() for c in self.children)
+        else:
+            return 1 + sum(c.evo_size() for c in self.children)
+
     def size(self) -> int:
-        #TODO: do we need to refine this?
+        # TODO: do we need to refine this?
         return 1 + sum(c.size() for c in self.children)
-        
 
     def mc(self, A: Structure, a: int) -> bool:
         assert a in ind(A)
