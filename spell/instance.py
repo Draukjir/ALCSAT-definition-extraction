@@ -139,7 +139,7 @@ class ALCConcept:
             assert len(self.children) == 0
 
             val: None | Any = None
-            for v, t, r in A.dp_ext[a]:
+            for v, _, r in A.dp_ext[a]:
                 if r == self.name:
                     val = v
             if val is None:

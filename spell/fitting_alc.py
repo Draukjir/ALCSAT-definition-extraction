@@ -1,6 +1,5 @@
 import concurrent.futures
 from enum import StrEnum
-import random
 import time
 from collections.abc import Iterable
 from concurrent.futures import ProcessPoolExecutor
@@ -46,13 +45,11 @@ H = 7
 
 
 # Generate non-isomorphic trees of size n with at most binary outdegree
-def all_trees(
-    k: int, start: int = 0
-) -> list[list[tuple[int] | tuple[int, int] | tuple[()]]]:
+def all_trees(k: int, start: int = 0) -> list[list[tuple[int, ...]]]:
     if k == 1:
         return [[()]]
 
-    res = []
+    res: list[list[tuple[int, ...]]] = []
     for i in range(1, (k - 1) // 2 + 1):
         for idx_a, a in enumerate(all_trees(i, start + 2)):
             for idx_b, b in enumerate(all_trees((k - 1) - i, start + i + 1)):

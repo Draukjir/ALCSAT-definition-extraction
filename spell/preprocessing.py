@@ -30,7 +30,7 @@ def pick_data_thresholds(ranges: dict[str, set[Any]]) -> dict[str, set[Any]]:
         elif len(values) <= 10:
             result[p] = values
         else:
-            thresholds = set()
+            thresholds: set[Any] = set()
             vs = list(values)
             vs.sort()
             for i in range(20):
@@ -58,7 +58,7 @@ def encode_dataproperties(inst: Instance) -> tuple[Instance, dict[str, ALCConcep
     ranges: dict[str, set[Any]] = {}
 
     for a in range(A.max_ind):
-        for v, t, p in A.dp_ext[a]:
+        for v, _, p in A.dp_ext[a]:
             if p not in ranges:
                 ranges[p] = set()
             ranges[p].add(v)
@@ -77,7 +77,7 @@ def encode_dataproperties(inst: Instance) -> tuple[Instance, dict[str, ALCConcep
     reverse_mapping: dict[str, ALCConcept] = {}
 
     for a in range(A.max_ind):
-        for v, t, p in A.dp_ext[a]:
+        for v, _, p in A.dp_ext[a]:
             for r in thresholds[p]:
                 cn = f"{p}>={r}"
                 if cn not in B.cn_ext:
@@ -210,7 +210,7 @@ def restrict_to_neighborhood(
     inds = set(starts)
     dist = dict.fromkeys(starts, 0)
     for r in range(k):
-        step = set()
+        step: set[int] = set()
         for i1 in inds:
             for i2, rn in A.rn_ext[i1]:
                 step.add(i2)
@@ -233,7 +233,7 @@ def restrict_to_neighborhood(
         max_ind=len(inds),
         cn_ext={cn: set() for cn in cns},
         rn_ext={a: set() for a in range(len(inds))},
-        dp_ext={a: set() for a in range(len(inds))},
+        dp_ext={a: [] for a in range(len(inds))},
         indmap=n_indmap,
         nsmap=A.nsmap,
     )
