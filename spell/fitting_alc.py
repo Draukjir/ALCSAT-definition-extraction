@@ -1108,7 +1108,7 @@ def chunks(lst: list[int], n: int):
         yield lst[i : i + n]
 
 
-def kfold(inst: Instance, folds: int = 5, max_k = 10, timeout: float = 30):
+def kfold(inst: Instance, folds: int = 5, max_k=10, timeout: float = 30):
     all_p = list(inst.P)
     all_n = list(inst.N)
 
@@ -1159,7 +1159,7 @@ def kfold(inst: Instance, folds: int = 5, max_k = 10, timeout: float = 30):
 
     avg_acc = sum(accuracies) / len(accuracies)
     print(f"Average accuracy on training data: {avg_acc:.4f}")
-    
+
     avg_size = sum(sizes) / len(sizes)
     print(f"Average size of concept: {avg_size:.4f}")
 
