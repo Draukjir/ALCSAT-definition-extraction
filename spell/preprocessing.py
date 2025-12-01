@@ -21,7 +21,7 @@ def prune_conceptnames(inst: Instance) -> Instance:
     return Instance(A, inst.P, inst.N, sigma, inst.op, inst.max_q)
 
 
-def pick_data_thresholds(ranges: dict[str, set[Any]]) -> dict[str, set[Any]]:
+def pick_data_thresholds(ranges: dict[str, set[Any]], max_thresholds: int) -> dict[str, set[Any]]:
     result: dict[str, set[Any]] = {}
 
     for p, values in ranges.items():
@@ -33,8 +33,8 @@ def pick_data_thresholds(ranges: dict[str, set[Any]]) -> dict[str, set[Any]]:
             thresholds: set[Any] = set()
             vs = list(values)
             vs.sort()
-            for i in range(20):
-                thresholds.add(vs[int(len(vs) / 20 * i) - 1])
+            for i in range(max_thresholds):
+                thresholds.add(vs[int(len(vs) / max_thresholds * i) - 1])
             result[p] = thresholds
 
     return result
@@ -63,7 +63,7 @@ def encode_dataproperties(inst: Instance) -> tuple[Instance, dict[str, ALCConcep
                 ranges[p] = set()
             ranges[p].add(v)
 
-    thresholds = pick_data_thresholds(ranges)
+    thresholds = pick_data_thresholds(ranges, 20)
 
     B = Structure(A.max_ind, {}, {}, {}, {}, A.nsmap)
 
