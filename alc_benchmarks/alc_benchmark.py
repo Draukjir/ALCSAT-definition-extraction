@@ -626,21 +626,12 @@ def kfold(inst: Instance, folds: int = 5, max_k=10, timeout: float = 30):
     p_chunks = list(chunks(all_p, len(all_p) // folds))
     n_chunks = list(chunks(all_n, len(all_n) // folds))
 
-    accuracies: list[float] = []
-    accuracies2: list[float] = []
-    f1scores2: list[float] = []
-    sizes: list[float] = []
-    sizes_evo: list[float] = []
-
     for i in range(folds):
         this_p = [p for j in range(folds) for p in p_chunks[j] if j != i]
         this_n = [n for j in range(folds) for n in n_chunks[j] if j != i]
 
         f = FittingALC(inst.A, max_k, this_p, this_n, inst.op, 8, 2)
         (acc, n, concept) = f.solve_incr_approx(max_k, timeout=timeout)
-        accuracies.append(acc)
-        sizes.append(concept.size())
-        sizes_evo.append(concept.evo_size())
 
         other_p = p_chunks[i]
         other_n = n_chunks[i]
@@ -663,30 +654,15 @@ def kfold(inst: Instance, folds: int = 5, max_k=10, timeout: float = 30):
 
         acc2 = (tp + tn) / (tp + fn + fp + tn)
         f1 = (2 * tp) / (2 * tp + fp + fn)
-        f1scores2.append(f1)
-        accuracies2.append(acc2)
 
-    avg_acc = sum(accuracies) / len(accuracies)
-    print(f"Average accuracy on training data: {avg_acc:.4f}")
+        yield (i, concept, acc2, f1)
 
-    avg_size = sum(sizes) / len(sizes)
-    print(f"Average size of concept: {avg_size:.4f}")
 
-    avg_evo_size = sum(sizes_evo) / len(sizes_evo)
-    print(f"Average evolearner size of concept: {avg_evo_size:.4f}")
-
-    avg_acc2 = sum(accuracies2) / len(accuracies2)
-    print(f"Average accuracy on test data: {avg_acc2:.4f}")
-
-    avg_f1 = sum(f1scores2) / len(f1scores2)
-    print(f"Average F1score on test data: {avg_f1:.4f}")
-
-    return (avg_acc2, avg_f1, avg_size, avg_evo_size)
 
 
 def sml_benchmark_cross_validate(resultpath: str):
     with open(resultpath, mode="w") as outfile:
-        _ = outfile.write("bench, acc, f1, size, evo_size\n")
+        _ = outfile.write("bench, fold, acc, f1, size, evo_size, concept\n")
         for bench in [
             "carcinogenesis",
             "hepatitis",
@@ -739,17 +715,18 @@ def sml_benchmark_cross_validate(resultpath: str):
                 frozenset([OP.ALL, OP.EX, OP.OR, OP.AND, OP.NEG, OP.LE, OP.GE]),
                 2,
             )
-            (avg_acc, avg_f1, avg_size, avg_evo_size) = kfold(
-                inst, 10, max_k=10, timeout=300
-            )
-            _ = outfile.write(
-                f"{bench}, {avg_acc}, {avg_f1}, {avg_size}, {avg_evo_size} \n"
-            )
+            for (fold, concept, acc, f1) in kfold( inst, 10, max_k=10, timeout=300):
+                _ = outfile.write(
+                    f"{bench}, {fold}, {acc}, {f1}, {concept.size()}, {concept.evo_size()}, {concept.to_dl_concept()} \n"
+                )
+                outfile.flush()
 
 
 def main():
     examples_from_bisim(sys.argv[1], sys.argv[2])
     #examples_from_bisim_evo(sys.argv[1])
+
+    sml_benchmark_cross_validate("out.txt")
 
 if __name__ == "__main__":
     main()
