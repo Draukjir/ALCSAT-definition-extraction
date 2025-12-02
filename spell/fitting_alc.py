@@ -115,7 +115,7 @@ class ALCSATEncoding:
                 i += 1
         if OP.LE in self.inst.op_q():
             for r in self.inst.sigma.rolenames:
-                for q in range(1, self.max_q_per_r[r] + 1):
+                for q in range(1, self.max_q_per_r[r] + 2):
                     d[X, OP.LE, r, q] = i * self.k + 1
                     i += 1
                     for a in range(self.inst.A.max_ind):
@@ -123,7 +123,7 @@ class ALCSATEncoding:
                         i += 1
         if OP.GE in self.inst.op_q():
             for r in self.inst.sigma.rolenames:
-                for q in range(2, self.max_q_per_r[r] + 1):
+                for q in range(2, self.max_q_per_r[r] + 2):
                     d[X, OP.GE, r, q] = i * self.k + 1
                     i += 1
                     for a in range(self.inst.A.max_ind):
@@ -195,7 +195,7 @@ class ALCSATEncoding:
                         self.vars[X, op, r, q] + i
                         for op in self.inst.op_q()
                         for r in self.inst.sigma.rolenames
-                        for q in range(1, self.max_q_per_r[r] + 1)
+                        for q in range(1, self.max_q_per_r[r] + 2)
                         if op != OP.GE or q != 1
                     ]
                 )
@@ -559,7 +559,7 @@ class ALCSATEncoding:
 
                 if OP.LE in self.inst.op_q() and len(tree[i]) == 1:
                     for r in self.inst.sigma.rolenames:
-                        for q in range(1, self.max_q_per_r[r] + 1):
+                        for q in range(1, self.max_q_per_r[r] + 2):
                             successors = [
                                 b for (b, p) in self.inst.A.rn_ext[a] if p == r
                             ]
@@ -610,11 +610,11 @@ class ALCSATEncoding:
 
                 if OP.GE in self.inst.op_q() and len(tree[i]) == 1:
                     for r in self.inst.sigma.rolenames:
-                        for q in range(2, self.max_q_per_r[r] + 1):
+                        for q in range(2, self.max_q_per_r[r] + 2):
                             successors = [
                                 b for (b, p) in self.inst.A.rn_ext[a] if p == r
                             ]
-                            if len(successors) == 0 or len(successors) <= q:
+                            if len(successors) == 0 or len(successors) < q:
                                 # Optimization: most individuals don't have successors
                                 self.add_clause(
                                     (
@@ -928,12 +928,12 @@ class ALCSATEncoding:
                     return (OP.ALL, 0, r)
         if OP.LE in self.inst.op:
             for r in self.inst.sigma.rolenames:
-                for q in range(1, self.max_q_per_r[r] + 1):
+                for q in range(1, self.max_q_per_r[r] + 2):
                     if (self.vars[X, OP.LE, r, q] + i) in m:
                         return (OP.LE, q, r)
         if OP.GE in self.inst.op:
             for r in self.inst.sigma.rolenames:
-                for q in range(2, self.max_q_per_r[r] + 1):
+                for q in range(2, self.max_q_per_r[r] + 2):
                     if (self.vars[X, OP.GE, r, q] + i) in m:
                         return (OP.GE, q, r)
         assert False
