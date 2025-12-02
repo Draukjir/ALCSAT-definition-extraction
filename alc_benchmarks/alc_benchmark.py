@@ -20,7 +20,7 @@ from spell.preprocessing import color_refinement
 
 from spell.preprocessing import restrict_to_neighborhood
 
-# from .ontolearn_benchmark import run_evo
+from .ontolearn_benchmark import run_evo
 
 CELOE_PATH = ""
 SPARCEL_PATH = ""
@@ -528,6 +528,7 @@ def convertCsv(files):
     data.to_csv("data_graph.csv")
 
 
+
 def alcq_examples_from_bisim(A: Structure, pos_len=-1):
     sr = set([t[1] for s in A.rn_ext.values() for t in s])
     sigma = Signature(A.cn_ext.keys(), sr)
@@ -570,7 +571,8 @@ def write_examples(P, N, path):
 def examples_from_bisim(kb_path, output_dir):
     A = structure_from_owl(kb_path)
     ind_map_inv = {v: k for k, v in A.indmap.items()}
-    for i, (P, N) in enumerate(alcq_examples_from_bisim(A, pos_len=1)):
+    for i, (P, N) in enumerate(alcq_examples_from_bisim(A, pos_len=100)):
+        print(i)
         f = FittingALC(
             A,
             12,
@@ -578,20 +580,35 @@ def examples_from_bisim(kb_path, output_dir):
             N,
             op=frozenset([OP.ALL, OP.EX, OP.OR, OP.AND, OP.NEG, OP.LE, OP.GE]),
             workers=8,
+            max_q=5
         )
         a, k, sol = f.solve_incr(12)
-        if a > 0 and k > 6:
+        if a > 0 and k > 3:
             P_s = [ind_map_inv[x] for x in P]
             N_s = [ind_map_inv[x] for x in N]
             dest_dir = os.path.join(output_dir, f"{str(i)}_k{k}")
             os.mkdir(dest_dir)
             write_examples(P_s, N_s, dest_dir)
             reduce_size_by_examples2(
-                A, P_s, N_s, k, dest=os.path.join(dest_dir, "kb_reduced")
+                A, P_s+[ind_map_inv[x] for x in random.sample(range(A.max_ind),10)], N_s, k, dest=os.path.join(dest_dir, "kb_reduced.owl")
             )
             with open(os.path.join(dest_dir, "fitting_concept.txt"), "w") as f:
                 f.write(sol.to_tree())
 
+def examples_from_bisim_evo(dir_path):
+    def read_examples(path):
+        P,N = [],[]
+        with open(os.path.join(path, "pos.txt")) as f:
+            P = list(map(lambda s: s[:-2],f.readlines()))
+        with open(os.path.join(path, "neg.txt")) as f:
+            N = list(map(lambda s: s[:-2],f.readlines()))
+        return P,N
+    
+    for d in filter(lambda s : not s.startswith("."),os.listdir(dir_path)):        
+        P,N = read_examples(os.path.join(dir_path,d))        
+        run_evo(os.path.join(dir_path,d,"kb_reduced.owl"),P,N)        
+            
+        
 
 def chunks(lst: list[int], n: int):
     for i in range(0, len(lst), n):
@@ -731,8 +748,8 @@ def sml_benchmark_cross_validate(resultpath: str):
 
 
 def main():
-    examples_from_bisim(sys.argv[1], sys.argv[1])
-
+    examples_from_bisim(sys.argv[1], sys.argv[2])
+    #examples_from_bisim_evo(sys.argv[1])
 
 if __name__ == "__main__":
     main()
