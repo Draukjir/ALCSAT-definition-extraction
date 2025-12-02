@@ -539,8 +539,14 @@ def alcq_examples_from_bisim(A: Structure, pos_len=-1):
     for a in range(A.max_ind):
         classes_alc[color_alc[a]].append(a)
         classes_alcq[color_alcq[a]].append(a)
+
+    classes = list(classes_alc.keys())
+
+    random.shuffle(classes)
+
     exs = []
-    for k, v in classes_alc.items():
+    for k in classes:
+        v = classes_alc[k]
         for a in v:
             e = []
             for b in v:
@@ -726,7 +732,7 @@ def main():
     examples_from_bisim(sys.argv[1], sys.argv[2])
     #examples_from_bisim_evo(sys.argv[1])
 
-    sml_benchmark_cross_validate("out.txt")
+    #sml_benchmark_cross_validate("out.txt")
 
 if __name__ == "__main__":
     main()
