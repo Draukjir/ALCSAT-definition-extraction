@@ -590,7 +590,7 @@ def examples_from_bisim(kb_path, output_dir):
             os.mkdir(dest_dir)
             write_examples(P_s, N_s, dest_dir)
             reduce_size_by_examples2(
-                A, P_s+[ind_map_inv[x] for x in random.sample(range(A.max_ind),10)], N_s, k, dest=os.path.join(dest_dir, "kb_reduced.owl")
+                A, P_s, N_s, k, dest=os.path.join(dest_dir, "kb_reduced.owl")
             )
             with open(os.path.join(dest_dir, "fitting_concept.txt"), "w") as f:
                 f.write(sol.to_tree())
