@@ -67,6 +67,22 @@ class ALCConcept:
     def to_tree(self) -> str:
         return "\n".join(self.to_tree_int())
 
+
+    def to_dl_concept(self) -> str:
+        if self.operation == OP.CN:
+            return self.name
+        if self.operation in {OP.ALL, OP.EX}:
+            return f"{d_op[self.operation]}.{self.name} {self.children[0].to_dl_concept()}"
+        if self.operation in {OP.GE, OP.LE}:
+            return f"{d_op[self.operation]}{self.value}.{self.name} {self.children[0].to_dl_concept()}"
+        if self.operation in {OP.DGEQ}:
+            return f"({self.name} >= {self.value})"
+        if self.operation in {OP.NEG}:
+            return f"NEG {self.children[0].to_dl_concept()}"
+        if self.operation in {OP.AND, OP.OR}:
+            return f"({self.children[0].to_dl_concept()} {d_op[self.operation]} {self.children[1].to_dl_concept()})"
+        return d_op[self.operation]
+
     def evo_size(self) -> int:
         if self.operation in {OP.ALL, OP.EX, OP.GE, OP.LE, OP.DGEQ}:
             return 2 + sum(c.evo_size() for c in self.children)
