@@ -13,7 +13,7 @@ from ontolearn.refinement_operators import ModifiedCELOERefinement
 from owlapy.owl_individual import IRI, OWLNamedIndividual
 from owlapy.render import DLSyntaxObjectRenderer
 
-from alc_benchmarks.alc_benchmark import instance_to_dllearner
+# from alc_benchmarks.alc_benchmark import instance_to_dllearner
 
 # from alc_benchmark import instance_to_dllearner
 
@@ -22,12 +22,13 @@ def ontolearn_examples_to_dllearner(kb_path, ont_examples, dest, file_name_prefi
     with open(ont_examples) as f:
         d = json.load(f)
         for p in d["problems"]:
-            instance_to_dllearner(
-                kb_path,
-                d["problems"][p]["positive_examples"],
-                d["problems"][p]["negative_examples"],
-                os.path.join(dest, f"{file_name_prefix}_{p}"),
-            )
+            pass
+            # instance_to_dllearner(
+            #     kb_path,
+            #     d["problems"][p]["positive_examples"],
+            #     d["problems"][p]["negative_examples"],
+            #     os.path.join(dest, f"{file_name_prefix}_{p}"),
+            # )
 
 
 def ontolearn_examples_to_flat_json(ont_examples, dest):

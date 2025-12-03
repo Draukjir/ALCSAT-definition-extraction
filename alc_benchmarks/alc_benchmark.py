@@ -605,11 +605,12 @@ def examples_from_bisim_evo(dir_path):
     def read_examples(path):
         P,N = [],[]
         with open(os.path.join(path, "pos.txt")) as f:
-            P = list(map(lambda s: s[:-2],f.readlines()))
+            P = list(map(lambda s: s.rstrip(),f.readlines()))
         with open(os.path.join(path, "neg.txt")) as f:
-            N = list(map(lambda s: s[:-2],f.readlines()))
+            N = list(map(lambda s: s.rstrip(),f.readlines()))
         return P,N
-    
+
+
     for d in filter(lambda s : not s.startswith("."),os.listdir(dir_path)):        
         P,N = read_examples(os.path.join(dir_path,d))        
         run_evo(os.path.join(dir_path,d,"kb_reduced.owl"),P,N)        
