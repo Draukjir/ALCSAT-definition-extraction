@@ -162,6 +162,9 @@ class ABoxBuilder:
         elif type == "http://www.w3.org/2001/XMLSchema#date":
             # As an approximation, compare dates as strings
             self.A.dp_ext[idx1].append((text, type, property))
+        elif type == "http://www.w3.org/2001/XMLSchema#dateTime":
+            # As an approximation, compare dates as strings
+            self.A.dp_ext[idx1].append((text, type, property))
         else:
             print(f"Unknown datatype: {type}")
 
