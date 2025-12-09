@@ -700,6 +700,8 @@ def class_string(cn: str) -> str:
 def construct_owl_from_structure(filename: str, A: Structure):
     sigma: Signature = non_empty_symbols(A)
 
+    dps = set(dp for a in range(A.max_ind) for (_, _, dp) in A.dp_ext[a])
+
     reverse_indmap = {
         n: name
         for (name, n) in A.indmap.items()
@@ -730,6 +732,9 @@ def construct_owl_from_structure(filename: str, A: Structure):
         for rn in sigma.rolenames:
             file.write(f'<owl:ObjectProperty rdf:about="{encode(rn)}"/>\n')
 
+        for dp in dps:
+            file.write(f'<owl:DatatypeProperty rdf:about="{encode(dp)}"/>\n')
+
         for a in ind(A):
             file.write(
                 f'<owl:NamedIndividual rdf:about="{encode(reverse_indmap[a])}">\n'
@@ -745,6 +750,15 @@ def construct_owl_from_structure(filename: str, A: Structure):
                     r = r.replace(A.nsmap[None], "")
 
                 file.write(f'    <{r} rdf:resource="{encode(reverse_indmap[b])}"/>\n')
+
+            for v, t, dp in A.dp_ext[a]:
+                for ns, key in reverse_nsmap.items():
+                    dp = dp.replace(ns, f"{key}:")
+                if A.nsmap[None] in dp:
+                    dp = dp.replace(A.nsmap[None], "")
+                file.write(f'    <{dp} rdf:datatype="{encode(t)}">{v}</{dp}>\n')
+
+
 
             file.write("</owl:NamedIndividual>\n")
 
