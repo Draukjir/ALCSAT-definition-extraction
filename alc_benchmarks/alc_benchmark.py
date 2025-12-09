@@ -527,36 +527,57 @@ def convertCsv(files):
         data.at[t, "n_evo"] = n_evo
     data.to_csv("data_graph.csv")
 
+def components(v : set[int], e : set[int,int]):
+    components = []
+    while v:
+        c = set()
+        x = v.pop()
+        c.add(x)
+        for y,z in e:
+            if x == y:
+                if z in v:                
+                    v.remove(z)
+                c.add(z)
+        components.append(c)
+    return components
 
-
-def alcq_examples_from_bisim(A: Structure, pos_len=-1):
+def alcq_examples_from_bisim(A: Structure, n_ex=10):
     sr = set([t[1] for s in A.rn_ext.values() for t in s])
     sigma = Signature(A.cn_ext.keys(), sr)
     color_alc, _ = color_refinement(A, sigma, False, -1)
     color_alcq, _ = color_refinement(A, sigma, True, -1)
     classes_alc: defaultdict[int, list[int]] = defaultdict(list)
-    classes_alcq: defaultdict[int, list[int]] = defaultdict(list)
+    #classes_alcq: defaultdict[int, list[int]] = defaultdict(list)
     for a in range(A.max_ind):
         classes_alc[color_alc[a]].append(a)
-        classes_alcq[color_alcq[a]].append(a)
+    #    classes_alcq[color_alcq[a]].append(a)
 
     classes = list(classes_alc.keys())
 
     random.shuffle(classes)
 
     exs = []
+    # for k in classes:
+    #     v = classes_alc[k]
+    #     for a in v:
+    #         e = []
+    #         for b in v:
+    #             if a != b and color_alcq[a] != color_alcq[b]:
+    #                 e.append(b)
+    #         if len(e) != 0:
+    #             if pos_len != -1 and len(e) > pos_len:
+    #                 e = random.sample(e, pos_len)
+    #             yield e, [a]
+
     for k in classes:
         v = classes_alc[k]
-        for a in v:
-            e = []
-            for b in v:
-                if a != b and color_alcq[a] != color_alcq[b]:
-                    e.append(b)
-            if len(e) != 0:
-                if pos_len != -1 and len(e) > pos_len:
-                    e = random.sample(e, pos_len)
-                yield e, [a]
-
+        vert = set(v)
+        edg = set([(x,y) for x in v for y in v if color_alcq[x] == color_alcq[y]])
+        comp = components(vert, edg)
+        P = [x.pop() for i,x in enumerate(comp[:len(comp)//2]) if i < n_ex]
+        N = [x.pop() for i,x in enumerate(comp[len(comp)//2:]) if i < n_ex]
+        if len(P) > 0 and len(N) > 0:
+            yield P,N
 
 def reduce_size_by_examples2(A: Structure, P, N, k, dest=None):
     P = list(map(lambda n: map_ind_name(A, n), P))
@@ -574,22 +595,24 @@ def write_examples(P, N, path):
         f.writelines(map(lambda x: f"{x}\n", N))
 
 
-def examples_from_bisim(kb_path, output_dir):
-    A = structure_from_owl(kb_path)
-    ind_map_inv = {v: k for k, v in A.indmap.items()}
-    for i, (P, N) in enumerate(alcq_examples_from_bisim(A, pos_len=100)):
-        print(i)
+def examples_from_bisim(kb_path, output_dir, n_ex = 10):
+    A = structure_from_owl(kb_path)    
+    ind_map_inv = {v: k for k, v in A.indmap.items()}  
+    i=1
+    for P, N in alcq_examples_from_bisim(A, n_ex=n_ex):        
+        if i > 75:
+            break
         f = FittingALC(
             A,
             12,
             P,
             N,
             op=frozenset([OP.ALL, OP.EX, OP.OR, OP.AND, OP.NEG, OP.LE, OP.GE]),
-            workers=8,
+            workers=10,
             max_q=5
         )
         a, k, sol = f.solve_incr(12)
-        if a > 0 and k > 3:
+        if a > 0 and k > 5:
             P_s = [ind_map_inv[x] for x in P]
             N_s = [ind_map_inv[x] for x in N]
             dest_dir = os.path.join(output_dir, f"{str(i)}_k{k}")
@@ -599,10 +622,10 @@ def examples_from_bisim(kb_path, output_dir):
                 A, P_s, N_s, k, dest=os.path.join(dest_dir, "kb_reduced.owl")
             )
             with open(os.path.join(dest_dir, "fitting_concept.txt"), "w") as f:
-                f.write(sol.to_tree())
+                f.write(sol.to_tree())            
+            i+=1
 
-def examples_from_bisim_evo(dir_path):
-    def read_examples(path):
+def read_examples(path):
         P,N = [],[]
         with open(os.path.join(path, "pos.txt")) as f:
             P = list(map(lambda s: s.rstrip(),f.readlines()))
@@ -610,12 +633,41 @@ def examples_from_bisim_evo(dir_path):
             N = list(map(lambda s: s.rstrip(),f.readlines()))
         return P,N
 
+def examples_from_bisim_evo(dir_path):    
 
     for d in filter(lambda s : not s.startswith("."),os.listdir(dir_path)):        
-        P,N = read_examples(os.path.join(dir_path,d))        
-        run_evo(os.path.join(dir_path,d,"kb_reduced.owl"),P,N)        
-            
-        
+        kb_path = os.path.join(dir_path,d,"kb_reduced.owl")
+        jd = {}
+        P,N = read_examples(os.path.join(dir_path,d))
+        start = time.time()
+        quality, c = run_evo(kb_path,P,N, timeout=300)
+        end = time.time()                
+        jd["Evolearner"] = {"concept" : c, "accuracy" : quality, "time" : end-start}
+        start = time.time()
+        A = structure_from_owl(kb_path)
+        P_i = [A.indmap[x] for x in P]
+        N_i = [A.indmap[x] for x in N]
+        f = FittingALC(A, 16, P_i,N_i, op=frozenset([OP.ALL, OP.EX, OP.OR, OP.AND, OP.NEG, OP.LE, OP.GE]),workers=8, max_q=5)
+        a, k, sol = f.solve_incr(16)
+        end = time.time()
+        jd["ALCSAT"] = {"concept" : sol.to_dl_concept(), "accuracy" : a, "time" : end-start}
+        f = open(os.path.join(dir_path, d, "results.json"), "w")
+        json.dump(jd, f)
+        f.close() 
+
+def alcq_benchmarks_to_csv(dir_path):
+    rows = []
+    for d in filter(lambda s : not s.startswith("."),os.listdir(dir_path)):            
+        P,N = read_examples(os.path.join(dir_path,d))
+        m = len(P) + len(N)
+        os.path.join(dir_path, d, "results.json")
+        f = open(os.path.join(dir_path, d, "results.json"),'r')
+        d = json.load(f)
+        rows.append([m, d["ALCSAT"]["accuracy"], d["Evolearner"]["accuracy"], d["ALCSAT"]["time"], d["Evolearner"]["time"]])
+        f.close()
+
+    df = pd.DataFrame(rows,columns = ['k', 'a_alcsat', 'a_evo', 't_alcsat', 't_evo'])
+    df.to_csv(os.path.join(dir_path, "data.csv"))
 
 def chunks(lst: list[int], n: int):
     for i in range(0, len(lst), n):
@@ -728,11 +780,23 @@ def sml_benchmark_cross_validate(resultpath: str):
                 )
                 outfile.flush()
 
+def test_evo_data_properties_write_file():
+    kb_path = os.path.join(os.path.dirname(__file__), "tmp.owl")
+    A = Structure(4, {"A" : {0,1,2,3}}, {0 : {(1,'r')},1 : {},2 : {(3,'r')}, 3 : {}}, {0 : [], 1 : [(2, "http://www.w3.org/2001/XMLSchema#int", "T")], 2 : {}, 3 : [(3, "http://www.w3.org/2001/XMLSchema#int", "T")]}, {
+        'http://yago-knowledge.org/resource/ʻElisiva_Fusipala_Taukiʻonetuku' : 0,
+        'http://yago-knowledge.org/resource/ʻAnaseini_Takipō' : 1,
+        'http://yago-knowledge.org/resource/ʻEtuate_Lavulavu' : 2,
+        'http://yago-knowledge.org/resource/ʻAkosita_Lavulavu' : 3
+    } ,{None: 'http://www.w3.org/2002/07/owl#', 'owl': 'http://www.w3.org/2002/07/owl#', 'rdf': 'http://www.w3.org/1999/02/22-rdf-syntax-ns#', 'xsd': 'http://www.w3.org/2001/XMLSchema#', 'rdfs': 'http://www.w3.org/2000/01/rdf-schema#', 'shacl': 'http://www.w3.org/ns/shacl#', 'schema': 'http://schema.org/', 'schema1': 'http://yago-knowledge.org/schema#'})
+    construct_owl_from_structure(kb_path, A)
+    #quality, c = run_evo(kb_path,P,N, timeout=60)
+
 
 def main():
-    examples_from_bisim(sys.argv[1], sys.argv[2])
-    #examples_from_bisim_evo(sys.argv[1])
-
+    examples_from_bisim(sys.argv[1], sys.argv[2], n_ex = 100)
+    examples_from_bisim_evo(sys.argv[2])
+    alcq_benchmarks_to_csv(sys.argv[2])
+    #test_evo_data_properties_write_file()
     #sml_benchmark_cross_validate("out.txt")
 
 if __name__ == "__main__":

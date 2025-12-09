@@ -83,31 +83,22 @@ def run_celoe(kb_path, P, N):
     return prediction.quality, rdr.render(prediction.concept)
 
 
-def run_evo(kb_path, P, N):
-    start = time.time()
+def run_evo(kb_path, P, N, timeout = 10):    
     kb = KnowledgeBase(path=kb_path)
     typed_pos = set(map(OWLNamedIndividual, map(IRI.create, P)))
     typed_neg = set(map(OWLNamedIndividual, map(IRI.create, N)))
-    lp = PosNegLPStandard(pos=typed_pos, neg=typed_neg)
-    end = time.time()
-    kb_parse_time = end - start
-    print(f"KB parsed after {kb_parse_time} seconds, starting EvoLearner next.")
-    start = time.time()
-
+    lp = PosNegLPStandard(pos=typed_pos, neg=typed_neg)        
     model = EvoLearner(
         knowledge_base=kb,
-        max_runtime=None,
+        max_runtime=timeout,
         num_generations=2000,
-        use_card_restrictions=False,
+        use_card_restrictions=True,
         use_data_properties=False,
     )
     model.fit(lp, verbose=True)
 
     prediction = model.best_hypotheses(1, return_node=True)
     rdr = DLSyntaxObjectRenderer()
-    end = time.time()
-    print(f"Time for running EvoLearner : {end - start}")
-    print(f"Total time: {end - start + kb_parse_time} seconds")
     return prediction.quality, rdr.render(prediction.concept)
 
 
