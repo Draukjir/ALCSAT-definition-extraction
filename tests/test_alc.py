@@ -232,6 +232,53 @@ def testAll():
     assert f2.solve()
 
 
+def testInv1():
+    A = Structure(
+        3,
+        {},
+        {0: {}, 1: {}, 2: {(0, "r")}},
+        {i: set() for i in range(6)},
+        {},
+        {},
+    )
+
+    i = (A, 2, [0], [1])
+    f = FittingALC(*i, op={OP.EX, OP.INV, OP.NEG})
+    assert f.solve()
+
+    i = (A, 2, [1], [0])
+    f = FittingALC(*i, op={OP.ALL, OP.INV})
+    assert f.solve()
+
+
+def testInv2():
+    A = Structure(
+        8,
+        {},
+        {
+            0: {},
+            1: {(4, "r")},
+            2: {(4, "r")},
+            3: {(4, "r")},
+            4: {},
+            5: {(7, "r")},
+            6: {(7, "r")},
+            7: {},
+        },
+        {i: set() for i in range(8)},
+        {},
+        {},
+    )
+
+    i = (A, 3, [1], [5])
+    f = FittingALC(*i, op={OP.EX, OP.GE, OP.INV}, max_q=3)
+    assert f.solve()
+
+    i = (A, 3, [5], [1])
+    f = FittingALC(*i, op={OP.EX, OP.LE, OP.INV}, max_q=3)
+    assert f.solve()
+
+
 def testSize():
     k = 10
     # TODO: the SAT formula for this takes a surprising amount of time to solve

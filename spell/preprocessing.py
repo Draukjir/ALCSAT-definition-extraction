@@ -21,7 +21,9 @@ def prune_conceptnames(inst: Instance) -> Instance:
     return Instance(A, inst.P, inst.N, sigma, inst.op, inst.max_q)
 
 
-def pick_data_thresholds(ranges: dict[str, set[Any]], max_thresholds: int) -> dict[str, set[Any]]:
+def pick_data_thresholds(
+    ranges: dict[str, set[Any]], max_thresholds: int
+) -> dict[str, set[Any]]:
     result: dict[str, set[Any]] = {}
 
     for p, values in ranges.items():
@@ -88,6 +90,59 @@ def encode_dataproperties(inst: Instance) -> tuple[Instance, dict[str, ALCConcep
                     B.cn_ext[cn].add(a)
 
     return Instance(B, inst.P, inst.N, sigma, inst.op, inst.max_q), reverse_mapping
+
+
+def encode_inverses(inst: Instance) -> tuple[Instance, dict[str, str]]:
+    assert OP.INV in inst.op
+
+    from_inverse: dict[str, str] = {}
+    to_inverse: dict[str, str] = {}
+
+    A = inst.A
+    sigma = Signature(list(inst.sigma.conceptnames), list(inst.sigma.rolenames))
+
+    rns = list(sigma.rolenames)
+    for rn in rns:
+        inv_rn = f"inv({rn})"
+        sigma.rolenames.append(inv_rn)
+        from_inverse[inv_rn] = rn
+        to_inverse[rn] = inv_rn
+
+    B = Structure(A.max_ind, {}, {}, {}, {}, A.nsmap)
+
+    for cn in sigma.conceptnames:
+        B.cn_ext[cn] = set(A.cn_ext[cn])
+
+    for a in range(A.max_ind):
+        B.rn_ext[a] = set(A.rn_ext[a])
+        B.dp_ext[a] = list(A.dp_ext[a])
+
+    for a in range(A.max_ind):
+        for b, r in A.rn_ext[a]:
+            if r in sigma.rolenames:
+                B.rn_ext[b].add((a, to_inverse[r]))
+
+    return Instance(
+        B, inst.P, inst.N, sigma, inst.op.difference({OP.INV}), inst.max_q
+    ), from_inverse
+
+
+def decode_inverses(c: ALCConcept, from_inverse: dict[str, str]) -> ALCConcept:
+    if c.operation in {OP.ALL, OP.EX, OP.LE, OP.GE} and c.name in from_inverse:
+        return ALCConcept(
+            c.operation,
+            from_inverse[c.name],
+            c.value,
+            [decode_inverses(child, from_inverse) for child in c.children],
+            inverse=True,
+        )
+
+    return ALCConcept(
+        c.operation,
+        c.name,
+        c.value,
+        [decode_inverses(child, from_inverse) for child in c.children],
+    )
 
 
 def compute_multiplicities(

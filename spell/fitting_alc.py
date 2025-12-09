@@ -12,18 +12,22 @@ from spell.instance import ALC_OP, OP, ALCConcept, Instance
 from spell.preprocessing import (
     bisimulation_reduction,
     decode_dataproperties,
+    decode_inverses,
     determine_max_q_per_relation,
     encode_dataproperties,
+    encode_inverses,
     prune_conceptnames,
     restrict_neighborhood,
 )
 
 from .fitting import (
     determine_relevant_symbols,
+    non_empty_symbols,
 )
 from .structures import (
     Signature,
     Structure,
+    entire_signature,
 )
 
 
@@ -1010,9 +1014,10 @@ class FittingALC:
         workers: int = 1,
         max_q: int = 2,
     ):
-        sigma: Signature = determine_relevant_symbols(A, P + N, 1, max_k - 1)
         self.max_k: int = max_k
-        self.inst: Instance = Instance(A, P, N, sigma, frozenset(op), max_q=max_q)
+        self.inst: Instance = Instance(
+            A, P, N, non_empty_symbols(A), frozenset(op), max_q=max_q
+        )
         self.workers: int = workers
 
     def solve(self):
@@ -1033,6 +1038,15 @@ class FittingALC:
         best_sol: ALCConcept = ALCConcept(OP.TOP, "", 0, [])
         best_acc = 0
         dt = time.time() - time_start
+
+        if OP.INV in self.inst.op:
+            self.inst, reverse_inverse_mapping = encode_inverses(self.inst)
+        else:
+            reverse_inverse_mapping: dict[str, str] = {}
+
+        self.inst.sigma = determine_relevant_symbols(
+            self.inst.A, self.inst.P + self.inst.N, 1, max_k - 1
+        )
 
         self.inst = restrict_neighborhood(self.inst, max_k)
 
@@ -1101,5 +1115,8 @@ class FittingALC:
             p.shutdown(wait=False, cancel_futures=True)
 
         decoded_sol = decode_dataproperties(best_sol, reverse_data_mapping)
+
+        if OP.INV in self.inst.op:
+            decoded_sol = decode_inverses(decoded_sol, reverse_inverse_mapping)
 
         return best_acc, k, decoded_sol
