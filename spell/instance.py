@@ -17,6 +17,7 @@ class OP(IntEnum):
     LE = 7
     GE = 8
     DGEQ = 9
+    INV = 10
 
 
 ALC_OP = frozenset({OP.NEG, OP.AND, OP.OR, OP.EX, OP.ALL})
@@ -35,6 +36,7 @@ d_op = {
     7: "LE",
     8: "GE",
     9: "DGEQ",
+    10: "INV",
 }
 
 
@@ -44,15 +46,22 @@ class ALCConcept:
     name: str
     value: Any
     children: list["ALCConcept"]
+    inverse: bool = False
 
     def to_tree_int(self) -> list[str]:
         if self.operation == OP.CN:
             # concept name
             res = [self.name]
         elif self.operation in {OP.ALL, OP.EX}:
-            res = [f"{d_op[self.operation]}.{self.name}"]
+            if self.inverse:
+                res = [f"{d_op[self.operation]}.inv({self.name})"]
+            else:
+                res = [f"{d_op[self.operation]}.{self.name}"]
         elif self.operation in {OP.GE, OP.LE}:
-            res = [f"{d_op[self.operation]}{self.value} {self.name}"]
+            if self.inverse:
+                res = [f"{d_op[self.operation]}{self.value} inv({self.name})"]
+            else:
+                res = [f"{d_op[self.operation]}{self.value} {self.name}"]
         elif self.operation in {OP.DGEQ}:
             res = [f"({self.name} >= {self.value})"]
         else:
@@ -67,13 +76,18 @@ class ALCConcept:
     def to_tree(self) -> str:
         return "\n".join(self.to_tree_int())
 
-
     def to_dl_concept(self) -> str:
         if self.operation == OP.CN:
             return self.name
-        if self.operation in {OP.ALL, OP.EX}:
-            return f"{d_op[self.operation]}.{self.name} {self.children[0].to_dl_concept()}"
-        if self.operation in {OP.GE, OP.LE}:
+        if self.operation in {OP.ALL, OP.EX} and self.inverse:
+            return f"{d_op[self.operation]}.inv({self.name}) {self.children[0].to_dl_concept()}"
+        if self.operation in {OP.ALL, OP.EX} and not self.inverse:
+            return (
+                f"{d_op[self.operation]}.{self.name} {self.children[0].to_dl_concept()}"
+            )
+        if self.operation in {OP.GE, OP.LE} and self.inverse:
+            return f"{d_op[self.operation]}{self.value}.inv({self.name}) {self.children[0].to_dl_concept()}"
+        if self.operation in {OP.GE, OP.LE} and not self.inverse:
             return f"{d_op[self.operation]}{self.value}.{self.name} {self.children[0].to_dl_concept()}"
         if self.operation in {OP.DGEQ}:
             return f"({self.name} >= {self.value})"
@@ -90,7 +104,6 @@ class ALCConcept:
             return 1 + sum(c.evo_size() for c in self.children)
 
     def size(self) -> int:
-        # TODO: do we need to refine this?
         return 1 + sum(c.size() for c in self.children)
 
     def mc(self, A: Structure, a: int) -> bool:
@@ -111,7 +124,7 @@ class ALCConcept:
         if self.operation == OP.NEG:
             assert len(self.children) == 1
             return not self.children[0].mc(A, a)
-        if self.operation == OP.EX:
+        if self.operation == OP.EX and not self.inverse:
             assert len(self.children) == 1
             cnt = len(
                 [
@@ -121,7 +134,17 @@ class ALCConcept:
                 ]
             )
             return cnt >= 1
-        if self.operation == OP.ALL:
+        if self.operation == OP.EX and self.inverse:
+            assert len(self.children) == 1
+            cnt = len(
+                [
+                    b
+                    for b in ind(A)  # TODO: Inefficient
+                    if (a, self.name) in A.rn_ext[a] and self.children[0].mc(A, b)
+                ]
+            )
+            return cnt >= 1
+        if self.operation == OP.ALL and not self.inverse:
             assert len(self.children) == 1
             cnt = len(
                 [
@@ -131,7 +154,17 @@ class ALCConcept:
                 ]
             )
             return cnt == 0
-        if self.operation == OP.GE:
+        if self.operation == OP.ALL and self.inverse:
+            assert len(self.children) == 1
+            cnt = len(
+                [
+                    b
+                    for b in ind(A)  # TODO: Inefficient
+                    if (a, self.name) in A.rn_ext[a] and not self.children[0].mc(A, b)
+                ]
+            )
+            return cnt == 0
+        if self.operation == OP.GE and not self.inverse:
             assert len(self.children) == 1
             cnt = len(
                 [
@@ -141,13 +174,33 @@ class ALCConcept:
                 ]
             )
             return cnt >= self.value
-        if self.operation == OP.LE:
+        if self.operation == OP.GE and self.inverse:
+            assert len(self.children) == 1
+            cnt = len(
+                [
+                    b
+                    for b in ind(A)  # TODO: Inefficient
+                    if (a, self.name) in A.rn_ext[a] and self.children[0].mc(A, b)
+                ]
+            )
+            return cnt >= self.value
+        if self.operation == OP.LE and not self.inverse:
             assert len(self.children) == 1
             cnt = len(
                 [
                     b
                     for (b, r) in A.rn_ext[a]
                     if r == self.name and self.children[0].mc(A, b)
+                ]
+            )
+            return cnt <= self.value
+        if self.operation == OP.LE and self.inverse:
+            assert len(self.children) == 1
+            cnt = len(
+                [
+                    b
+                    for b in ind(A)  # TODO: Inefficient
+                    if (a, self.name) in A.rn_ext[a] and self.children[0].mc(A, b)
                 ]
             )
             return cnt <= self.value
