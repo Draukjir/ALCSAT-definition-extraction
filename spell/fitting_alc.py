@@ -1052,7 +1052,7 @@ class FittingALC:
 
         self.inst = restrict_neighborhood(self.inst, max_k)
 
-        self.inst, reverse_data_mapping = encode_dataproperties(self.inst, clustering = self.clustering)
+        self.inst, reverse_data_mapping = encode_dataproperties(self.inst, clustering = self.clustering, max_k = self.max_k)
 
         self.inst = bisimulation_reduction(self.inst, max_k)
 
