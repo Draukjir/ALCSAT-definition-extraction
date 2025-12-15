@@ -1013,12 +1013,14 @@ class FittingALC:
         op: Iterable[OP] = ALC_OP,
         workers: int = 1,
         max_q: int = 2,
+        clustering : int = -1
     ):
         self.max_k: int = max_k
         self.inst: Instance = Instance(
             A, P, N, non_empty_symbols(A), frozenset(op), max_q=max_q
         )
         self.workers: int = workers
+        self.clustering = clustering
 
     def solve(self):
         acc, _, _ = self.solve_incr(self.max_k, self.max_k)
@@ -1050,7 +1052,7 @@ class FittingALC:
 
         self.inst = restrict_neighborhood(self.inst, max_k)
 
-        self.inst, reverse_data_mapping = encode_dataproperties(self.inst)
+        self.inst, reverse_data_mapping = encode_dataproperties(self.inst, clustering = self.clustering)
 
         self.inst = bisimulation_reduction(self.inst, max_k)
 

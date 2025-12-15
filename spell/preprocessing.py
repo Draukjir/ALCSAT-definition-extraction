@@ -2,6 +2,8 @@ from collections import defaultdict
 from typing import Any
 from spell.instance import ALCConcept, Instance, OP
 from spell.structures import Signature, Structure, ind
+from scipy.cluster.vq import kmeans
+from numpy import array
 
 
 def prune_conceptnames(inst: Instance) -> Instance:
@@ -21,8 +23,40 @@ def prune_conceptnames(inst: Instance) -> Instance:
     return Instance(A, inst.P, inst.N, sigma, inst.op, inst.max_q)
 
 
+def neighborhoods(inst: Instance, max_k):        
+    N_p : dict[int, set[int]] = defaultdict(set)
+    N_n : dict[int, set[int]] = defaultdict(set)
+    N_p[0] = set(inst.P)
+    N_n[0] = set(inst.N)
+    for i in range(1,max_k):
+        for a in N_p[i-1]:
+            for b,r in inst.A.rn_ext[a]:
+                N_p[i].add(b)
+        for a in N_n[i-1]:
+            for b,r in inst.A.rn_ext[a]:
+                N_n[i].add(b)
+    return N_p, N_n
+
+def cluster_neighborhoods(inst: Instance, neighborhods : dict[int, set[int]], n_clusters = 10):
+    values : dict[str, list[set[float]]] = defaultdict(list)
+    result: dict[str, set[Any]] = defaultdict(set)
+    for i, ab in neighborhods.items():
+        values2 : dict[str, set[Any]] = defaultdict(set)
+        for a in ab:
+            for v, _, pp in inst.A.dp_ext[a]:
+                values2[pp].add(v)
+        for p, vs in values2.items():
+            values[p].append(vs)
+    for p,vss in values.items():
+        for vs in vss:
+            if len(vs) > n_clusters:                
+                centroids = sorted(kmeans(array(list(vs)), n_clusters)[0])
+                for i in range(len(centroids)-1):                
+                    result[p].add((centroids[i]+centroids[i+1])/2)
+    return result
+
 def pick_data_thresholds(
-    ranges: dict[str, set[Any]], max_thresholds: int
+    ranges: dict[str, set[Any]], max_thresholds: int, clustering : int = -1
 ) -> dict[str, set[Any]]:
     result: dict[str, set[Any]] = {}
 
@@ -31,6 +65,11 @@ def pick_data_thresholds(
             result[p] = {True}
         elif len(values) <= 10:
             result[p] = values
+        elif clustering == 0:            
+            centroids = sorted(kmeans(array(list(values)), 8)[0])            
+            for i in range(len(centroids)-1):
+                result[p] = set()
+                result[p].add((centroids[i]+centroids[i+1])/2)
         else:
             thresholds: set[Any] = set()
             vs = list(values)
@@ -38,7 +77,6 @@ def pick_data_thresholds(
             for i in range(max_thresholds):
                 thresholds.add(vs[int(len(vs) / max_thresholds * i) - 1])
             result[p] = thresholds
-
     return result
 
 
@@ -53,7 +91,7 @@ def decode_dataproperties(
     return ALCConcept(c.operation, c.name, c.value, nchildren)
 
 
-def encode_dataproperties(inst: Instance) -> tuple[Instance, dict[str, ALCConcept]]:
+def encode_dataproperties(inst: Instance, clustering = -1, max_k = 10) -> tuple[Instance, dict[str, ALCConcept]]:
     A = inst.A
     sigma = Signature(list(inst.sigma.conceptnames), list(inst.sigma.rolenames))
 
@@ -65,7 +103,19 @@ def encode_dataproperties(inst: Instance) -> tuple[Instance, dict[str, ALCConcep
                 ranges[p] = set()
             ranges[p].add(v)
 
-    thresholds = pick_data_thresholds(ranges, 20)
+    if clustering == 1:
+        N_p, N_n = neighborhoods(inst, max_k = max_k)
+        result1 = cluster_neighborhoods(inst, N_p)
+        result2 = cluster_neighborhoods(inst, N_n)        
+        for p, v in result2.items():
+            if p in result1:
+                result1[p].union(v)
+            else:
+                result1[p] = v
+        thresholds = result1
+    else:
+        thresholds = pick_data_thresholds(ranges, 20, clustering=clustering)    
+
 
     B = Structure(A.max_ind, {}, {}, {}, {}, A.nsmap)
 

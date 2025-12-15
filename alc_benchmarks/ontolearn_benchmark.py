@@ -84,16 +84,16 @@ def run_celoe(kb_path, P, N):
 
 
 def run_evo(kb_path, P, N, timeout = 10):    
-    kb = KnowledgeBase(path=kb_path)
+    kb = KnowledgeBase(path=kb_path)    
+    
     typed_pos = set(map(OWLNamedIndividual, map(IRI.create, P)))
     typed_neg = set(map(OWLNamedIndividual, map(IRI.create, N)))
     lp = PosNegLPStandard(pos=typed_pos, neg=typed_neg)        
     model = EvoLearner(
         knowledge_base=kb,
-        max_runtime=timeout,
-        num_generations=2000,
+        max_runtime=timeout,        
         use_card_restrictions=True,
-        use_data_properties=False,
+        use_data_properties=True,        
     )
     model.fit(lp, verbose=True)
 

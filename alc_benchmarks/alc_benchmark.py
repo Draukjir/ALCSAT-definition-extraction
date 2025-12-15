@@ -666,7 +666,7 @@ def alcq_benchmarks_to_csv(dir_path):
         rows.append([m, d["ALCSAT"]["accuracy"], d["Evolearner"]["accuracy"], d["ALCSAT"]["time"], d["Evolearner"]["time"]])
         f.close()
 
-    df = pd.DataFrame(rows,columns = ['k', 'a_alcsat', 'a_evo', 't_alcsat', 't_evo'])
+    df = pd.DataFrame(rows,columns = ['m', 'a_alcsat', 'a_evo', 't_alcsat', 't_evo'])
     df.to_csv(os.path.join(dir_path, "data.csv"))
 
 def chunks(lst: list[int], n: int):
@@ -782,16 +782,33 @@ def sml_benchmark_cross_validate(resultpath: str):
 
 def test_evo_data_properties_write_file():
     kb_path = os.path.join(os.path.dirname(__file__), "tmp.owl")
-    A = Structure(4, {"A" : {0,1,2,3}}, {0 : {(1,'r')},1 : {},2 : {(3,'r')}, 3 : {}}, {0 : [], 1 : [(2, "http://www.w3.org/2001/XMLSchema#int", "T")], 2 : {}, 3 : [(3, "http://www.w3.org/2001/XMLSchema#int", "T")]}, {
+    A = Structure(4, {"A" : {0,1,2,3}}, {0 : {(1,'r')},1 : {},2 : {(3,'r')}, 3 : {}}, {0 : [], 1 : [(2.0, "http://www.w3.org/2001/XMLSchema#double", "T")], 2 : [], 3 : [(40.0, "http://www.w3.org/2001/XMLSchema#double", "T")]}, {
         'http://yago-knowledge.org/resource/ʻElisiva_Fusipala_Taukiʻonetuku' : 0,
         'http://yago-knowledge.org/resource/ʻAnaseini_Takipō' : 1,
         'http://yago-knowledge.org/resource/ʻEtuate_Lavulavu' : 2,
         'http://yago-knowledge.org/resource/ʻAkosita_Lavulavu' : 3
     } ,{None: 'http://www.w3.org/2002/07/owl#', 'owl': 'http://www.w3.org/2002/07/owl#', 'rdf': 'http://www.w3.org/1999/02/22-rdf-syntax-ns#', 'xsd': 'http://www.w3.org/2001/XMLSchema#', 'rdfs': 'http://www.w3.org/2000/01/rdf-schema#', 'shacl': 'http://www.w3.org/ns/shacl#', 'schema': 'http://schema.org/', 'schema1': 'http://yago-knowledge.org/schema#'})
-    construct_owl_from_structure(kb_path, A)
-    #quality, c = run_evo(kb_path,P,N, timeout=60)
+    #construct_owl_from_structure(kb_path, A)
+    P = ['http://yago-knowledge.org/resource/ʻElisiva_Fusipala_Taukiʻonetuku']
+    N = ['http://yago-knowledge.org/resource/ʻEtuate_Lavulavu']
+    P = ['http://yago-knowledge.org/resource/ʻAnaseini_Takipō']
+    N = ['http://yago-knowledge.org/resource/ʻAkosita_Lavulavu']
+    quality, c = run_evo(kb_path,P,N, timeout=60)
+    print(f'Evolearner Accuracy: {quality}')
+    print(f'Evolearner concept: {c}')
+    f = FittingALC(A, 16, [0],[2], op=frozenset([OP.ALL, OP.EX, OP.OR, OP.AND, OP.NEG, OP.LE, OP.GE]),workers=8, max_q=5)
+    a, k, sol = f.solve_incr(16)
+    print(f'ALCSAT: {a}')
+    print(f'ALCSAT {sol.to_dl_concept()}')
 
-
+def test_clustering():
+    A = structure_from_owl(sys.argv[1])
+    P, N = read_examples(sys.argv[2])
+    P = list(map(lambda n: map_ind_name(A, n), P))
+    N = list(map(lambda n: map_ind_name(A, n), N))
+    f = FittingALC(A, 16, P,N, op=frozenset([OP.ALL, OP.EX, OP.OR, OP.AND, OP.NEG, OP.LE, OP.GE]),workers=8, max_q=5, clustering = 1)
+    a, k, sol = f.solve_incr_approx(7)
+    
 def main():
     examples_from_bisim(sys.argv[1], sys.argv[2], n_ex = 100)
     examples_from_bisim_evo(sys.argv[2])
