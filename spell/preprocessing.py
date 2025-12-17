@@ -147,6 +147,8 @@ def encode_dataproperties(
             else:
                 result1[p] = v
         thresholds = result1
+    else:
+        raise ValueError('A very specific bad thing happened.')
 
     B = Structure(A.max_ind, {}, {}, {}, {}, A.nsmap)
 

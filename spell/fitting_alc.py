@@ -17,7 +17,7 @@ from spell.preprocessing import (
     encode_dataproperties,
     encode_inverses,
     prune_conceptnames,
-    restrict_neighborhood,
+    restrict_neighborhood, ThresholdMethod,
 )
 
 from .fitting import (
@@ -39,7 +39,6 @@ class FittingMode(StrEnum):
 X = 0
 Z = 1
 V = 2
-H = 3
 
 
 # Generate non-isomorphic trees of size n with at most binary outdegree
@@ -115,17 +114,11 @@ class ALCSATEncoding:
                 for q in range(1, self.max_q_per_r[r] + 2):
                     d[X, OP.LE, r, q] = i * self.k + 1
                     i += 1
-                    for a in range(self.inst.A.max_ind):
-                        d[H, OP.LE, r, q, a] = i * self.k + 1
-                        i += 1
         if OP.GE in self.inst.op_q():
             for r in self.inst.sigma.rolenames:
                 for q in range(2, self.max_q_per_r[r] + 2):
                     d[X, OP.GE, r, q] = i * self.k + 1
                     i += 1
-                    for a in range(self.inst.A.max_ind):
-                        d[H, OP.GE, r, q, a] = i * self.k + 1
-                        i += 1
         for a in range(self.inst.A.max_ind):
             d[Z, a] = i * self.k + 1
             i += 1
@@ -697,7 +690,7 @@ class FittingALC:
         op: Iterable[OP] = ALC_OP,
         workers: int = 1,
         max_q: int = 2,
-        clustering: int = -1,
+        clustering: ThresholdMethod = ThresholdMethod.INTERVALS,
     ):
         self.max_k: int = max_k
         self.inst: Instance = Instance(
@@ -736,9 +729,10 @@ class FittingALC:
 
         self.inst = restrict_neighborhood(self.inst, max_k)
 
-        self.inst, reverse_data_mapping = encode_dataproperties(
-            self.inst, clustering=self.clustering, max_k=self.max_k
-        )
+        if OP.DGEQ in self.inst.op:
+            self.inst, reverse_data_mapping = encode_dataproperties(
+                self.inst, clustering=self.clustering, max_k=self.max_k
+            )
 
         self.inst = bisimulation_reduction(self.inst, max_k)
 
@@ -798,7 +792,10 @@ class FittingALC:
                 proc.terminate()
             p.shutdown(wait=False, cancel_futures=True)
 
-        decoded_sol = decode_dataproperties(best_sol, reverse_data_mapping)
+        decoded_sol = best_sol 
+
+        if OP.DGEQ in self.inst.op:
+            decoded_sol = decode_dataproperties(best_sol, reverse_data_mapping)
 
         if OP.INV in self.inst.op:
             decoded_sol = decode_inverses(decoded_sol, reverse_inverse_mapping)
