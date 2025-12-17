@@ -431,19 +431,10 @@ class ALCSATEncoding:
 
                 if OP.LE in self.inst.op_q() and len(tree[i]) == 1:
                     for r in self.inst.sigma.rolenames:
+                        successors = [b for (b, p) in self.inst.A.rn_ext[a] if p == r]
                         for q in range(1, self.max_q_per_r[r] + 2):
-                            successors = [
-                                b for (b, p) in self.inst.A.rn_ext[a] if p == r
-                            ]
-                            if len(successors) == 0:
+                            if len(successors) <= q:
                                 # Optimization: most individuals don't have successors
-                                self.add_clause(
-                                    (
-                                        -(self.vars[X, OP.LE, r, q] + i),
-                                        (self.vars[Z, a] + i),
-                                    )
-                                )
-                            elif len(successors) <= q:
                                 self.add_clause(
                                     (
                                         -(self.vars[X, OP.LE, r, q] + i),
@@ -482,10 +473,8 @@ class ALCSATEncoding:
 
                 if OP.GE in self.inst.op_q() and len(tree[i]) == 1:
                     for r in self.inst.sigma.rolenames:
+                        successors = [b for (b, p) in self.inst.A.rn_ext[a] if p == r]
                         for q in range(2, self.max_q_per_r[r] + 2):
-                            successors = [
-                                b for (b, p) in self.inst.A.rn_ext[a] if p == r
-                            ]
                             if len(successors) == 0 or len(successors) < q:
                                 # Optimization: most individuals don't have successors
                                 self.add_clause(
@@ -660,7 +649,7 @@ class ALCSATEncoding:
         return ALCConcept(op, r, q, children)
 
 
-ApproxTask = tuple[ALCSATEncoding, int, int, list[int]]
+ApproxTask = tuple[ALCSATEncoding, int, int, int]
 
 
 def solve_approx(task: ApproxTask):
@@ -675,9 +664,8 @@ def solve_approx(task: ApproxTask):
     enc.types = cn_types(enc.inst.A, enc.inst.sigma)
     enc.create_vars()
 
-    assert len(tt) == 1
-    enc.syn_tree_encoding(tt[0])
-    enc.evaluation_constraints(tt[0])
+    enc.syn_tree_encoding(tt)
+    enc.evaluation_constraints(tt)
     enc.symmetry_breaking()
 
     enc.solver = Solver(name="g4", incr=True, bootstrap_with=enc.clauses)
@@ -765,13 +753,9 @@ class FittingALC:
                 enc = ALCSATEncoding(self.inst)
                 enc.k = k
 
-                # if self.workers > 1:
-                # tree_k = min(k, TREE_TEMPLATE_LIMIT)
                 tasks: list[ApproxTask] = [
-                    (enc, k, n, [tt]) for tt in range(len(all_trees(k)))
+                    (enc, k, n, tt) for tt in range(len(all_trees(k)))
                 ]
-                # else:
-                #     tasks = [(enc, k, n, [])]
 
                 fts = [p.submit(solve_approx, task) for task in tasks]
 
