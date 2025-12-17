@@ -160,7 +160,7 @@ class ALCSATEncoding:
 
         self.vars = d
 
-    def syn_tree_encoding2(self, tt: int):
+    def syn_tree_encoding(self, tt: int):
         tree = all_trees(self.k)[tt]
 
         for i in range(self.k):
@@ -227,91 +227,6 @@ class ALCSATEncoding:
                     self.add_clause([-1])
             else:
                 assert False
-
-    def syn_tree_encoding(self):
-        for i in range(self.k):
-            x_vars = (
-                [self.vars[X, o] + i for o in self.inst.op_b()]
-                + [
-                    self.vars[X, o, r] + i
-                    for o in self.inst.op_r()
-                    for r in self.inst.sigma.rolenames
-                ]
-                + [self.vars[X, cn] + i for cn in self.inst.sigma.conceptnames]
-                + [self.vars[X, OP.TOP] + i, self.vars[X, OP.BOT] + i]
-            )
-
-            for clause in CardEnc.equals(lits=x_vars, encoding=EncType.pairwise):
-                self.add_clause(clause)
-
-        for i in range(self.k):
-            v_vars = [self.vars[V, 1, i] + j for j in range(i + 1, self.k)] + [
-                self.vars[V, 2, i] + j for j in range(i + 1, self.k - 1)
-            ]
-
-            # At most one of the y-vars
-            for clause in CardEnc.atmost(lits=v_vars, encoding=EncType.pairwise):
-                self.add_clause(clause)
-
-            for r in self.inst.sigma.rolenames:
-                for op in self.inst.op_r():
-                    self.add_clause(
-                        [-(self.vars[X, op, r] + i)]
-                        + [self.vars[V, 1, i] + j for j in range(i + 1, self.k)]
-                    )
-                    for j in range(i + 1, self.k - 1):
-                        self.add_clause(
-                            [-(self.vars[X, op, r] + i), -(self.vars[V, 2, i] + j)]
-                        )
-
-            if OP.NEG in self.inst.op_b():
-                self.add_clause(
-                    [-(self.vars[X, OP.NEG] + i)]
-                    + [self.vars[V, 1, i] + j for j in range(i + 1, self.k)]
-                )
-                for j in range(i + 1, self.k):
-                    self.add_clause(
-                        [-(self.vars[X, OP.NEG] + i), -(self.vars[V, 2, i] + j)]
-                    )
-
-            for op in self.inst.op_b() - {OP.NEG}:
-                self.add_clause(
-                    [-(self.vars[X, op] + i)]
-                    + [self.vars[V, 2, i] + j for j in range(i + 1, self.k - 1)]
-                )
-                for j in range(i + 1, self.k):
-                    self.add_clause(
-                        [-(self.vars[X, op] + i), -(self.vars[V, 1, i] + j)]
-                    )
-
-            for cn in self.inst.sigma.conceptnames:
-                # Is a leaf
-                self.add_clause((-(self.vars[X, cn] + i), (self.vars[L] + i)))
-
-            for j in range(i + 1, self.k):
-                for cn in self.inst.sigma.conceptnames:
-                    self.add_clause(
-                        (-(self.vars[X, cn] + i), -(self.vars[V, 1, i] + j))
-                    )
-                    self.add_clause(
-                        (-(self.vars[X, cn] + i), -(self.vars[V, 2, i] + j))
-                    )
-
-                for b in {OP.TOP, OP.BOT}:
-                    self.add_clause((-(self.vars[X, b] + i), -(self.vars[V, 1, i] + j)))
-                    self.add_clause((-(self.vars[X, b] + i), -(self.vars[V, 2, i] + j)))
-
-            # Exactly one predecessor
-            possible_preds = (
-                [self.vars[V, 1, j] + i for j in range(0, i)]
-                + [self.vars[V, 2, j] + i for j in range(0, i)]
-                + [self.vars[V, 2, j] + i - 1 for j in range(0, i - 1)]
-            )
-            if len(possible_preds) > 0:
-                for clause in CardEnc.equals(
-                    lits=possible_preds, encoding=EncType.pairwise
-                ):
-                    self.add_clause(clause)
 
     def symmetry_breaking(self):
         # Symmetry breaking: associativity of sqcap and sqcup
@@ -442,7 +357,7 @@ class ALCSATEncoding:
                             (-tree_vars[idx], (self.vars[V, 2, i] + t[i][0]))
                         )
 
-    def evaluation_constraints2(self, tt: int):
+    def evaluation_constraints(self, tt: int):
         tree = all_trees(self.k)[tt]
 
         for a in range(self.inst.A.max_ind):
@@ -696,173 +611,6 @@ class ALCSATEncoding:
                     )
                 )
 
-    def evaluation_constraints(self):
-        for a in range(self.inst.A.max_ind):
-            for i in range(self.k):
-                if OP.NEG in self.inst.op_b():
-                    for j in range(i + 1, self.k):
-                        self.add_clause(
-                            (
-                                -(self.vars[X, OP.NEG] + i),
-                                -(self.vars[Z, a] + i),
-                                -(self.vars[V, 1, i] + j),
-                                -(self.vars[Z, a] + j),
-                            )
-                        )
-                        self.add_clause(
-                            (
-                                -(self.vars[X, OP.NEG] + i),
-                                (self.vars[Z, a] + i),
-                                -(self.vars[V, 1, i] + j),
-                                (self.vars[Z, a] + j),
-                            )
-                        )
-
-                if OP.AND in self.inst.op_b():
-                    for j in range(i + 1, self.k - 1):
-                        self.add_clause(
-                            (
-                                -(self.vars[X, OP.AND] + i),
-                                -(self.vars[Z, a] + i),
-                                -(self.vars[V, 2, i] + j),
-                                self.vars[Z, a] + j,
-                            )
-                        )
-                        self.add_clause(
-                            (
-                                -(self.vars[X, OP.AND] + i),
-                                -(self.vars[Z, a] + i),
-                                -(self.vars[V, 2, i] + j),
-                                self.vars[Z, a] + j + 1,
-                            )
-                        )
-                        self.add_clause(
-                            (
-                                -(self.vars[X, OP.AND] + i),
-                                (self.vars[Z, a] + i),
-                                -(self.vars[V, 2, i] + j),
-                                -(self.vars[Z, a] + j + 1),
-                                -(self.vars[Z, a] + j),
-                            )
-                        )
-
-                if OP.OR in self.inst.op_b():
-                    for j in range(i + 1, self.k - 1):
-                        self.add_clause(
-                            (
-                                -(self.vars[X, OP.OR] + i),
-                                (self.vars[Z, a] + i),
-                                -(self.vars[V, 2, i] + j),
-                                -(self.vars[Z, a] + j),
-                            )
-                        )
-                        self.add_clause(
-                            (
-                                -(self.vars[X, OP.OR] + i),
-                                (self.vars[Z, a] + i),
-                                -(self.vars[V, 2, i] + j),
-                                -(self.vars[Z, a] + j + 1),
-                            )
-                        )
-                        self.add_clause(
-                            (
-                                -(self.vars[X, OP.OR] + i),
-                                -(self.vars[Z, a] + i),
-                                -(self.vars[V, 2, i] + j),
-                                (self.vars[Z, a] + j + 1),
-                                (self.vars[Z, a] + j),
-                            )
-                        )
-
-                if OP.ALL in self.inst.op_r():
-                    for r in self.inst.sigma.rolenames:
-                        successors = [b for (b, p) in self.inst.A.rn_ext[a] if p == r]
-                        if len(successors) == 0:
-                            # Optimization: most individuals don't have successors
-                            self.add_clause(
-                                (-(self.vars[X, OP.ALL, r] + i), (self.vars[Z, a] + i))
-                            )
-                        else:
-                            for j in range(i + 1, self.k):
-                                self.add_clause(
-                                    [
-                                        -(self.vars[X, OP.ALL, r] + i),
-                                        (self.vars[Z, a] + i),
-                                        -(self.vars[V, 1, i] + j),
-                                    ]
-                                    + [-(self.vars[Z, b] + j) for b in successors]
-                                )
-                                for b in successors:
-                                    self.add_clause(
-                                        (
-                                            -(self.vars[X, OP.ALL, r] + i),
-                                            -(self.vars[Z, a] + i),
-                                            -(self.vars[V, 1, i] + j),
-                                            self.vars[Z, b] + j,
-                                        )
-                                    )
-
-                if OP.EX in self.inst.op_r():
-                    for r in self.inst.sigma.rolenames:
-                        successors = [b for (b, p) in self.inst.A.rn_ext[a] if p == r]
-                        if len(successors) == 0:
-                            # Optimization: most individuals don't have successors
-                            self.add_clause(
-                                (-(self.vars[X, OP.EX, r] + i), -(self.vars[Z, a] + i))
-                            )
-                        else:
-                            for j in range(i + 1, self.k):
-                                self.add_clause(
-                                    [
-                                        -(self.vars[X, OP.EX, r] + i),
-                                        -(self.vars[Z, a] + i),
-                                        -(self.vars[V, 1, i] + j),
-                                    ]
-                                    + [(self.vars[Z, b] + j) for b in successors]
-                                )
-                                for b in successors:
-                                    self.add_clause(
-                                        (
-                                            -(self.vars[X, OP.EX, r] + i),
-                                            (self.vars[Z, a] + i),
-                                            -(self.vars[V, 1, i] + j),
-                                            -(self.vars[Z, b] + j),
-                                        )
-                                    )
-
-                self.add_clause((-(self.vars[X, OP.TOP] + i), (self.vars[Z, a] + i)))
-                self.add_clause((-(self.vars[X, OP.BOT] + i), -(self.vars[Z, a] + i)))
-
-        for i in range(self.k):
-            for tp in self.types:
-                for cn in self.inst.sigma.conceptnames:
-                    if cn in tp:
-                        self.add_clause((-(self.vars[X, cn] + i), self.vars[X, tp] + i))
-                    if cn not in tp:
-                        self.add_clause(
-                            (-(self.vars[X, cn] + i), -(self.vars[X, tp] + i))
-                        )
-
-        for a in range(self.inst.A.max_ind):
-            tp = frozenset(
-                {
-                    cn
-                    for cn in self.inst.sigma.conceptnames
-                    if a in self.inst.A.cn_ext[cn]
-                }
-            )
-            assert tp in self.types
-            for i in range(self.k):
-                self.add_clause((-(self.vars[X, tp] + i), self.vars[Z, a] + i))
-                # Problem: the following should only happen for CONCEPT NAME NODES. We thus need an additional variable that is true iff a node is a concept name node
-                self.add_clause(
-                    (
-                        (self.vars[X, tp] + i),
-                        -(self.vars[Z, a] + i),
-                        -(self.vars[L] + i),
-                    )
-                )
-
     def fitting_constraints_approximate(self, n: int):
         assert self.solver
         lits = [self.vars[Z, a] for a in self.inst.P] + [
@@ -975,10 +723,8 @@ def solve_approx(task: ApproxTask):
     enc.create_vars()
 
     assert len(tt) == 1
-    enc.syn_tree_encoding2(tt[0])
-    # enc.syn_tree_encoding()
-    enc.evaluation_constraints2(tt[0])
-    # enc.evaluation_constraints()
+    enc.syn_tree_encoding(tt[0])
+    enc.evaluation_constraints(tt[0])
     enc.symmetry_breaking()
 
     if len(tt) > 0:
