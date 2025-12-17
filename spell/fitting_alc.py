@@ -36,17 +36,10 @@ class FittingMode(StrEnum):
     APPROX = "approx"
 
 
-# There should be 2079 trees with 13 nodes. Seems like a sensible limit
-# BUT: experiments suggest that when finding a single path of size k, there is a slowdown for 11 and above
-# Indeed, 10 seems to be a local minimum
-TREE_TEMPLATE_LIMIT = 10
-
 X = 0
-Z = 2
-V = 4
-L = 5
-T = 6
-H = 7
+Z = 1
+V = 2
+H = 3
 
 
 # Generate non-isomorphic trees of size n with at most binary outdegree
@@ -147,16 +140,7 @@ class ALCSATEncoding:
             d[X, tp] = i * self.k + 1
             i += 1
 
-        # For leaves
-        d[L] = i * self.k + 1
-        i += 1
-
         self.max_var = i * self.k + 1
-
-        tree_k = self.k
-        for idx, _ in enumerate(all_trees(tree_k, 0)):
-            d[T, idx] = self.max_var
-            self.max_var += 1
 
         self.vars = d
 
@@ -325,37 +309,6 @@ class ALCSATEncoding:
                             -(self.vars[X, OP.BOT] + j + 1),
                         )
                     )
-
-        if False:
-            tree_k = min(self.k, TREE_TEMPLATE_LIMIT)
-
-            tree_vars = []
-            for idx, _ in enumerate(all_trees(tree_k)):
-                tree_vars.append(self.vars[T, idx])
-
-            for clause in CardEnc.equals(lits=tree_vars, encoding=EncType.pairwise):
-                self.add_clause(clause)
-
-            for idx, t in enumerate(all_trees(tree_k)):
-                for i in range(tree_k):
-                    # Only restrict leaves if the tree template is not a prefix
-                    if len(t[i]) == 0 and tree_k == self.k:
-                        for j in range(i + 1, tree_k):
-                            self.add_clause(
-                                (-tree_vars[idx], -(self.vars[V, 1, i] + j))
-                            )
-                            self.add_clause(
-                                (-tree_vars[idx], -(self.vars[V, 2, i] + j))
-                            )
-
-                    if len(t[i]) == 1:
-                        self.add_clause(
-                            (-tree_vars[idx], (self.vars[V, 1, i] + t[i][0]))
-                        )
-                    if len(t[i]) == 2:
-                        self.add_clause(
-                            (-tree_vars[idx], (self.vars[V, 2, i] + t[i][0]))
-                        )
 
     def evaluation_constraints(self, tt: int):
         tree = all_trees(self.k)[tt]
@@ -726,9 +679,6 @@ def solve_approx(task: ApproxTask):
     enc.syn_tree_encoding(tt[0])
     enc.evaluation_constraints(tt[0])
     enc.symmetry_breaking()
-
-    if len(tt) > 0:
-        enc.add_clause([enc.vars[T, t] for t in tt])
 
     enc.solver = Solver(name="g4", incr=True, bootstrap_with=enc.clauses)
 
