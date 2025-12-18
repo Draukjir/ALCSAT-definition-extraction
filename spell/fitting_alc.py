@@ -303,51 +303,6 @@ class ALCSATEncoding:
                         )
                     )
 
-
-    def custom_count_ge(self, vars: list[int], bound: int):
-        assert len(vars) >= 1
-
-        mx = self.max_var + 1
-
-        c = [[mx + (bound * i) + j for j in range(bound)] for i in range(len(vars))]
-
-
-        self.max_var = mx + bound * (len(vars)) + 2
-
-        true_var = self.max_var - 1
-
-        def always_false(i, j):
-            return j > i
-
-        res = []
-        for i in range(len(vars)):
-            if i == 0:
-                res.append((-c[0][0], vars[0]))
-                res.append((c[0][0], -vars[0]))
-            if i > 0: 
-                for j in range(0, min(i + 1, bound)):
-                    if not always_false(i - 1, j):
-                        res.append((- c[i - 1][j], c[i][j]))
-
-                    if j == 0:
-                        res.append((-vars[i], c[i][j]))
-                    else:
-                        res.append((- c[i - 1][j - 1], -vars[i], c[i][j]))
-
-                    res.append(( -c[i][j], c[i - 1][j], vars[i]))
-                    if j >= 1:
-                        res.append(( -c[i][j], c[i - 1][j], c[i - 1][j - 1]))
-            
-            for j in range(i + 1, bound):
-                #This cannot possibly be the case
-                res.append((-c[i][j],))
-
-        # Return value: v[q - 1] is true if and only if there are at least q vars that are true
-        return res, [c[len(vars) - 1][j] for j in range(bound)]
-
-
-
-
     def evaluation_constraints(self, tt: int):
         tree = all_trees(self.k)[tt]
 
@@ -467,86 +422,88 @@ class ALCSATEncoding:
                                     )
                                 )
 
-                if (OP.LE in self.inst.op_q() or OP.GE in self.inst.op_q()) and len(tree[i]) == 1:
+                if OP.LE in self.inst.op_q() and len(tree[i]) == 1:
                     for r in self.inst.sigma.rolenames:
                         successors = [b for (b, p) in self.inst.A.rn_ext[a] if p == r]
-                        bound = self.max_q_per_r[r] + 2
-
-                        if len(successors) == 0:
-                            if OP.LE in self.inst.op_q():
-                                for q in range(1, bound):
+                        for q in range(1, self.max_q_per_r[r] + 2):
+                            if len(successors) <= q:
+                                # Optimization: most individuals don't have successors
+                                self.add_clause(
+                                    (
+                                        -(self.vars[X, OP.LE, r, q] + i),
+                                        (self.vars[Z, a] + i),
+                                    )
+                                )
+                            else:
+                                enc = CardEnc.atmost(
+                                    [self.vars[Z, b] + tree[i][0] for b in successors],
+                                    bound=q,
+                                    top_id=self.max_var,
+                                )
+                                self.max_var = max(enc.nv, self.max_var)
+                                for cl in enc.clauses:
                                     self.add_clause(
-                                        (
+                                        [
+                                            -(self.vars[X, OP.LE, r, q] + i),
+                                            -(self.vars[Z, a] + i),
+                                        ]
+                                        + cl
+                                    )
+                                enc = CardEnc.atleast(
+                                    [self.vars[Z, b] + tree[i][0] for b in successors],
+                                    bound=q + 1,
+                                    top_id=self.max_var,
+                                )
+                                self.max_var = max(enc.nv, self.max_var)
+                                for cl in enc.clauses:
+                                    self.add_clause(
+                                        [
                                             -(self.vars[X, OP.LE, r, q] + i),
                                             (self.vars[Z, a] + i),
-                                        )
+                                        ]
+                                        + cl
                                     )
 
-                            if OP.GE in self.inst.op_q():
-                                for q in range(2, bound):
+                if OP.GE in self.inst.op_q() and len(tree[i]) == 1:
+                    for r in self.inst.sigma.rolenames:
+                        successors = [b for (b, p) in self.inst.A.rn_ext[a] if p == r]
+                        for q in range(2, self.max_q_per_r[r] + 2):
+                            if len(successors) == 0 or len(successors) < q:
+                                # Optimization: most individuals don't have successors
+                                self.add_clause(
+                                    (
+                                        -(self.vars[X, OP.GE, r, q] + i),
+                                        -(self.vars[Z, a] + i),
+                                    )
+                                )
+                            else:
+                                enc = CardEnc.atleast(
+                                    [self.vars[Z, b] + tree[i][0] for b in successors],
+                                    bound=q,
+                                    top_id=self.max_var,
+                                )
+                                self.max_var = max(enc.nv, self.max_var)
+                                for cl in enc.clauses:
                                     self.add_clause(
-                                        (
+                                        [
                                             -(self.vars[X, OP.GE, r, q] + i),
                                             -(self.vars[Z, a] + i),
-                                        )
+                                        ]
+                                        + cl
                                     )
-                            continue
-
-
-                        enc, vs = self.custom_count_ge([self.vars[Z, b] + tree[i][0] for b in successors], bound)
-                        for clause in enc:
-                            self.add_clause(clause)
-
-                        if OP.LE in self.inst.op_q():
-                            for q in range(1, bound):
-                                if len(successors) <= q:
-                                    # Optimization: most individuals don't have successors
+                                enc = CardEnc.atmost(
+                                    [self.vars[Z, b] + tree[i][0] for b in successors],
+                                    bound=q - 1,
+                                    top_id=self.max_var,
+                                )
+                                self.max_var = max(enc.nv, self.max_var)
+                                for cl in enc.clauses:
                                     self.add_clause(
-                                        (
-                                            -(self.vars[X, OP.LE, r, q] + i),
+                                        [
+                                            -(self.vars[X, OP.GE, r, q] + i),
                                             (self.vars[Z, a] + i),
-                                        )
-                                    )
-                                else:
-                                    self.add_clause(
-                                            [
-                                                -(self.vars[X, OP.LE, r, q] + i),
-                                                -(self.vars[Z, a] + i),
-                                                -(vs[q - 1])
-                                            ]
-                                    )
-                                    self.add_clause(
-                                            [
-                                                -(self.vars[X, OP.LE, r, q] + i),
-                                                (self.vars[Z, a] + i),
-                                                (vs[q])
-                                            ]
-                                    )
-
-                        if OP.GE in self.inst.op_q():
-                            for q in range(2, bound):
-                                if len(successors) < q:
-                                    # Optimization: most individuals don't have successors
-                                    self.add_clause(
-                                        (
-                                            -(self.vars[X, OP.GE, r, q] + i),
-                                            -(self.vars[Z, a] + i),
-                                        )
-                                    )
-                                else:
-                                    self.add_clause(
-                                            [
-                                                -(self.vars[X, OP.GE, r, q] + i),
-                                                -(self.vars[Z, a] + i),
-                                                (vs[q - 1])
-                                            ]
-                                    )
-                                    self.add_clause(
-                                            [
-                                                -(self.vars[X, OP.GE, r, q] + i),
-                                                (self.vars[Z, a] + i),
-                                                -(vs[q - 1])
-                                            ]
+                                        ]
+                                        + cl
                                     )
 
                 if len(tree[i]) == 0:
