@@ -690,6 +690,7 @@ class FittingALC:
         op: Iterable[OP] = ALC_OP,
         workers: int = 1,
         max_q: int = 2,
+        bisim_reduction: bool = True,
         clustering: ThresholdMethod = ThresholdMethod.INTERVALS,
     ):
         self.max_k: int = max_k
@@ -698,6 +699,7 @@ class FittingALC:
         )
         self.workers: int = workers
         self.clustering = clustering
+        self.bisim_reduction = bisim_reduction
 
     def solve(self):
         acc, _, _ = self.solve_incr(self.max_k, self.max_k)
@@ -734,7 +736,8 @@ class FittingALC:
                 self.inst, clustering=self.clustering, max_k=self.max_k
             )
 
-        self.inst = bisimulation_reduction(self.inst, max_k)
+        if self.bisim_reduction:
+            self.inst = bisimulation_reduction(self.inst, max_k)
 
         self.inst = prune_conceptnames(self.inst)
 

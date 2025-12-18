@@ -9,13 +9,16 @@ from spell.structures import structure_from_owl
 LANGUAGES = ["el", "el_alcsat", "fl0", "ex-or", "all-or", "elu", "alc", "alcq"]
 L_OP = {
     "el": [OP.EX, OP.AND],
+    "eli": [OP.EX, OP.AND, OP.INV],
     "el_alcsat": [OP.EX, OP.AND],
     "fl0": [OP.ALL, OP.AND],
     "ex-or": [OP.EX, OP.OR],
     "all-or": [OP.ALL, OP.OR],
     "elu": [OP.EX, OP.OR, OP.AND],
     "alc": [OP.ALL, OP.EX, OP.OR, OP.AND, OP.NEG],
+    "alci": [OP.ALL, OP.EX, OP.OR, OP.AND, OP.NEG, OP.INV],
     "alcq": [OP.ALL, OP.EX, OP.OR, OP.AND, OP.NEG, OP.LE, OP.GE],
+    "alcqi": [OP.ALL, OP.EX, OP.OR, OP.AND, OP.NEG, OP.LE, OP.GE, OP.INV],
 }
 
 

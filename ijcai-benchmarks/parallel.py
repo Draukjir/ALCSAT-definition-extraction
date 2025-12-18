@@ -8,7 +8,7 @@ from spell.fitting_alc import FittingALC
 def main():
     workers = [1, 2, 4, 8]
     runs = 3
-    benchmarks = ["hepatitis", "lymphography"]
+    benchmarks = ["mammographic", "hepatitis", "lymphography"]
 
     for benchmark in benchmarks:
         A = structure_from_owl(f"../sml-benchmarks/{benchmark}/{benchmark}.owl")
@@ -39,7 +39,7 @@ def main():
                     8,
                     P,
                     N,
-                    op=frozenset(L_OP["alcq"]),
+                    op=frozenset(L_OP["alc"]),
                     workers=w,
                     max_q=2,
                 )
