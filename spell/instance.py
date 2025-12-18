@@ -224,7 +224,7 @@ class Instance:
     N: list[int]
     sigma: Signature
     op: frozenset[OP]
-    max_q: int = 2
+    max_q: int
 
     def op_b(self):
         return self.op.intersection(ALC_OP_B)

@@ -333,6 +333,7 @@ def bisimulation_reduction(inst: Instance, max_k: int) -> Instance:
         [color2ind[(color[n], 0)] for n in inst.N],
         sigma,
         inst.op,
+        inst.max_q
     )
 
 
