@@ -334,9 +334,18 @@ class ALCSATEncoding:
                     else:
                         res.append((- c[i - 1][j - 1], -vars[i], c[i][j]))
 
-                    res.append(( -c[i][j], c[i - 1][j], vars[i]))
+                    if always_false(i - 1, j):
+                        res.append(( -c[i][j], vars[i]))
+                    else:
+                        res.append(( -c[i][j], c[i - 1][j], vars[i]))
+
                     if j >= 1:
-                        res.append(( -c[i][j], c[i - 1][j], c[i - 1][j - 1]))
+                        if always_false(i - 1, j):
+                            res.append((-c[i][j], c[i - 1][j - 1]))
+                        else:
+                            res.append(( -c[i][j], c[i - 1][j], c[i - 1][j - 1]))
+
+                        # res.append((-c[i][j], c[i][j - 1]))
             
             for j in range(i + 1, bound):
                 #This cannot possibly be the case
@@ -512,7 +521,7 @@ class ALCSATEncoding:
                                             [
                                                 -(self.vars[X, OP.LE, r, q] + i),
                                                 -(self.vars[Z, a] + i),
-                                                -(vs[q - 1])
+                                                -(vs[q])
                                             ]
                                     )
                                     self.add_clause(
