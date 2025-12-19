@@ -1,6 +1,6 @@
 from spell.fitting_alc import FittingALC, all_trees
 from spell.structures import Structure, Signature
-from spell.instance import ALC_OP, OP, ALCConcept, Instance
+from spell.instance import ALCQ_OP, OP, ALCConcept, Instance
 from spell.preprocessing import bisimulation_reduction, color_refinement
 
 
@@ -35,10 +35,10 @@ def test_alcq_filtration():
     rn2[0] = {(1, "r"), (2, "r")}
     A2 = Structure(3, {}, rn2, {i: set() for i in range(6)}, {}, {})
 
-    inst = Instance(A2, [0], [0], Signature([], ["r"]), ALC_OP)
+    inst = Instance(A2, [0], [0], Signature([], ["r"]), ALCQ_OP, max_q=4)
     inst = bisimulation_reduction(inst, 10)
 
-    c = ALCConcept(OP.GE, "r", 2, [ALCConcept(OP.TOP, "", 0, [])])
+    c = ALCConcept(OP.GE, "r", 2, (ALCConcept(OP.TOP, "", 0, tuple()),))
 
     assert c.mc(inst.A, inst.P[0])
 
@@ -52,10 +52,10 @@ def test_alcq_filtration2():
     rn2[4] = {(5, "r")}
     A2 = Structure(6, {}, rn2, {i: set() for i in range(6)}, {}, {})
 
-    inst = Instance(A2, [1], [0], Signature([], ["r"]), ALC_OP)
+    inst = Instance(A2, [1], [0], Signature([], ["r"]), ALCQ_OP, max_q=2)
     inst = bisimulation_reduction(inst, 10)
 
-    c = ALCConcept(OP.GE, "r", 2, [ALCConcept(OP.TOP, "", 0, [])])
+    c = ALCConcept(OP.GE, "r", 2, (ALCConcept(OP.TOP, "", 0, tuple()),))
 
     assert c.mc(inst.A, inst.P[0])
     assert not c.mc(inst.A, inst.N[0])

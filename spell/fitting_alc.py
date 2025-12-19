@@ -17,7 +17,8 @@ from spell.preprocessing import (
     encode_dataproperties,
     encode_inverses,
     prune_conceptnames,
-    restrict_neighborhood, ThresholdMethod,
+    restrict_neighborhood,
+    ThresholdMethod,
 )
 
 from .fitting import (
@@ -639,7 +640,7 @@ class ALCSATEncoding:
             if j < self.k - 1 and (self.vars[V, 2, i] + j) in m:
                 children.append(self.modelToTree(j))
                 children.append(self.modelToTree(j + 1))
-        return ALCConcept(op, r, q, children)
+        return ALCConcept(op, r, q, tuple(children))
 
 
 ApproxTask = tuple[ALCSATEncoding, int, int, int]
@@ -716,7 +717,7 @@ class FittingALC:
         time_start = time.time()
         k: int = start_k
         n: int = max(len(self.inst.P), len(self.inst.N), min_n)
-        best_sol: ALCConcept = ALCConcept(OP.TOP, "", 0, [])
+        best_sol: ALCConcept = ALCConcept(OP.TOP, "", 0, tuple())
         best_acc = 0
         dt = time.time() - time_start
 
@@ -795,7 +796,7 @@ class FittingALC:
                 proc.terminate()
             p.shutdown(wait=False, cancel_futures=True)
 
-        decoded_sol = best_sol 
+        decoded_sol = best_sol
 
         if OP.DGEQ in self.inst.op:
             decoded_sol = decode_dataproperties(best_sol, reverse_data_mapping)

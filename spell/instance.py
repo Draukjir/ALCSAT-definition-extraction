@@ -24,6 +24,7 @@ ALC_OP = frozenset({OP.NEG, OP.AND, OP.OR, OP.EX, OP.ALL})
 ALC_OP_B = frozenset({OP.NEG, OP.AND, OP.OR})
 ALC_OP_R = frozenset({OP.EX, OP.ALL})
 ALC_OP_Q = frozenset({OP.LE, OP.GE})
+ALCQ_OP = frozenset({OP.NEG, OP.AND, OP.OR, OP.EX, OP.ALL, OP.LE, OP.GE})
 
 d_op = {
     0: "TOP",
@@ -40,12 +41,12 @@ d_op = {
 }
 
 
-@dataclass(slots=True)
+@dataclass(slots=True, frozen=True)
 class ALCConcept:
     operation: OP
     name: str
     value: Any
-    children: list["ALCConcept"]
+    children: tuple["ALCConcept", ...]
     inverse: bool = False
 
     def to_tree_int(self) -> list[str]:

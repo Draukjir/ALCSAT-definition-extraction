@@ -114,7 +114,7 @@ def decode_dataproperties(
 
     nchildren = [decode_dataproperties(d, reverse_mapping) for d in c.children]
 
-    return ALCConcept(c.operation, c.name, c.value, nchildren)
+    return ALCConcept(c.operation, c.name, c.value, tuple(nchildren))
 
 
 def encode_dataproperties(
@@ -148,7 +148,7 @@ def encode_dataproperties(
                 result1[p] = v
         thresholds = result1
     else:
-        raise ValueError('A very specific bad thing happened.')
+        raise ValueError("A very specific bad thing happened.")
 
     B = Structure(A.max_ind, {}, {}, {}, {}, A.nsmap)
 
@@ -168,7 +168,7 @@ def encode_dataproperties(
                 if cn not in B.cn_ext:
                     B.cn_ext[cn] = set()
                     sigma.conceptnames.append(cn)
-                    reverse_mapping[cn] = ALCConcept(OP.DGEQ, p, r, [])
+                    reverse_mapping[cn] = ALCConcept(OP.DGEQ, p, r, tuple())
                 if v >= r:
                     B.cn_ext[cn].add(a)
 
@@ -216,7 +216,7 @@ def decode_inverses(c: ALCConcept, from_inverse: dict[str, str]) -> ALCConcept:
             c.operation,
             from_inverse[c.name],
             c.value,
-            [decode_inverses(child, from_inverse) for child in c.children],
+            tuple([decode_inverses(child, from_inverse) for child in c.children]),
             inverse=True,
         )
 
@@ -224,7 +224,7 @@ def decode_inverses(c: ALCConcept, from_inverse: dict[str, str]) -> ALCConcept:
         c.operation,
         c.name,
         c.value,
-        [decode_inverses(child, from_inverse) for child in c.children],
+        tuple([decode_inverses(child, from_inverse) for child in c.children]),
     )
 
 
@@ -287,7 +287,7 @@ def color_refinement(
 
 
 def bisimulation_reduction(inst: Instance, max_k: int) -> Instance:
-    use_q = (OP.LE in inst.op or OP.GE in inst.op)
+    use_q = OP.LE in inst.op or OP.GE in inst.op
 
     color, color_register = color_refinement(inst.A, inst.sigma, use_q, max_k)
 
@@ -335,7 +335,7 @@ def bisimulation_reduction(inst: Instance, max_k: int) -> Instance:
         [color2ind[(color[n], 0)] for n in inst.N],
         sigma,
         inst.op,
-        inst.max_q
+        inst.max_q,
     )
 
 
