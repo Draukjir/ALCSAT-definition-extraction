@@ -4,7 +4,6 @@ from spell.structures import structure_from_owl
 from spell.fitting_alc import FittingALC
 
 
-
 def main():
     workers = [8]
     runs = 3
@@ -32,7 +31,6 @@ def main():
                 ind = line.rstrip()
                 N.append(A.indmap[ind])
 
-
         for run in range(runs):
             start = time.perf_counter()
 
@@ -44,7 +42,7 @@ def main():
                 op=frozenset(L_OP[language]),
                 workers=8,
                 max_q=2,
-                bisim_reduction=False
+                bisim_reduction=False,
             )
 
             acc, _, _ = f.solve_incr_approx(max_k)
@@ -53,7 +51,7 @@ def main():
 
             print("==== TOOK {}".format(end - start))
             t1 = end - start
-            
+
             start = time.perf_counter()
             f = FittingALC(
                 A,
@@ -63,7 +61,7 @@ def main():
                 op=frozenset(L_OP[language]),
                 workers=8,
                 max_q=2,
-                bisim_reduction=True
+                bisim_reduction=True,
             )
 
             acc, _, _ = f.solve_incr_approx(max_k)
@@ -76,7 +74,7 @@ def main():
             factors[benchmark].append(t2 / t1)
 
     for benchmark in benchmarks:
-        print(f"Benchmark {benchmark} : {sum(factors[benchmark]) / runs}s " )
+        print(f"Benchmark {benchmark} : {sum(factors[benchmark]) / runs}s ")
 
 
 if __name__ == "__main__":

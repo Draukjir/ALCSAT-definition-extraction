@@ -4,7 +4,6 @@ from spell.structures import structure_from_owl
 from spell.fitting_alc import FittingALC
 
 
-
 def main():
     workers = [1, 2, 4, 8]
     runs = 3
@@ -50,7 +49,6 @@ def main():
 
                 print("==== TOOK {}".format(end - start))
                 times[w].append(end - start)
-
 
         for w in workers:
             print(f"Benchmark {benchmark}, Worker {w} : {sum(times[w]) / runs}s")
