@@ -287,7 +287,9 @@ def color_refinement(
 
 
 def bisimulation_reduction(inst: Instance, max_k: int) -> Instance:
-    color, color_register = color_refinement(inst.A, inst.sigma, True, max_k)
+    use_q = (OP.LE in inst.op or OP.GE in inst.op)
+
+    color, color_register = color_refinement(inst.A, inst.sigma, use_q, max_k)
 
     color_multiplicities, edge_multiplicities = compute_multiplicities(color_register)
 
