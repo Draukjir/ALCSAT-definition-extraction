@@ -1,7 +1,11 @@
 from spell.fitting_alc import FittingALC, all_trees
 from spell.structures import Structure, Signature
 from spell.instance import ALCQ_OP, OP, ALCConcept, Instance
-from spell.preprocessing import bisimulation_reduction, color_refinement
+from spell.preprocessing import (
+    bisimulation_reduction,
+    color_refinement,
+    extract_concept,
+)
 
 
 def test_trees():
@@ -10,12 +14,12 @@ def test_trees():
 
 
 def test_color_refinement():
-    rn2 = {i: {} for i in range(7)}
+    rn2 = {i: set() for i in range(7)}
     rn2[0] = {(1, "r")}
     rn2[2] = {(3, "r"), (4, "r")}
     rn2[5] = {(6, "r")}
     cn2 = {"A": {6}}
-    A2 = Structure(7, cn2, rn2, {i: set() for i in range(6)}, {}, {})
+    A2 = Structure(7, cn2, rn2, {i: list() for i in range(6)}, {}, {})
 
     colors_alcq, _ = color_refinement(A2, Signature(["A"], ["r"]), True, 10)
 
@@ -31,9 +35,9 @@ def test_color_refinement():
 
 
 def test_alcq_filtration():
-    rn2 = {i: {} for i in range(7)}
+    rn2 = {i: set() for i in range(7)}
     rn2[0] = {(1, "r"), (2, "r")}
-    A2 = Structure(3, {}, rn2, {i: set() for i in range(6)}, {}, {})
+    A2 = Structure(3, {}, rn2, {i: list() for i in range(6)}, {}, {})
 
     inst = Instance(A2, [0], [0], Signature([], ["r"]), ALCQ_OP, max_q=4)
     inst = bisimulation_reduction(inst, 10)
@@ -44,13 +48,13 @@ def test_alcq_filtration():
 
 
 def test_alcq_filtration2():
-    rn2 = {i: {} for i in range(7)}
+    rn2 = {i: set() for i in range(7)}
     rn2[0] = {(2, "r")}
     rn2[1] = {(3, "r"), (4, "r")}
     rn2[2] = {(5, "r")}
     rn2[3] = {(5, "r")}
     rn2[4] = {(5, "r")}
-    A2 = Structure(6, {}, rn2, {i: set() for i in range(6)}, {}, {})
+    A2 = Structure(6, {}, rn2, {i: list() for i in range(6)}, {}, {})
 
     inst = Instance(A2, [1], [0], Signature([], ["r"]), ALCQ_OP, max_q=2)
     inst = bisimulation_reduction(inst, 10)
@@ -65,8 +69,8 @@ def test1():
     A1 = Structure(
         3,
         {"A": {0, 1}, "B": {0, 2}},
-        {i: {} for i in range(3)},
-        {i: set() for i in range(6)},
+        {i: set() for i in range(3)},
+        {i: list() for i in range(6)},
         {},
         {},
     )
@@ -78,10 +82,10 @@ def test1():
 
 
 def test2():
-    rn2 = {i: {} for i in range(3)}
+    rn2 = {i: set() for i in range(3)}
     rn2[0] = {(2, "r")}
     cn2 = {"A": {0, 1, 2}, "B": {0, 1}}
-    A2 = Structure(3, cn2, rn2, {i: set() for i in range(6)}, {}, {})
+    A2 = Structure(3, cn2, rn2, {i: list() for i in range(6)}, {}, {})
     P2 = [0]
     N2 = [1]
     i = (A2, 3, P2, N2)
@@ -93,8 +97,8 @@ def test3():
     A3 = Structure(
         3,
         {"A": {1}, "B": {2}},
-        {i: {} for i in range(3)},
-        {i: set() for i in range(6)},
+        {i: set() for i in range(3)},
+        {i: list() for i in range(6)},
         {},
         {},
     )
@@ -111,7 +115,7 @@ def test4():
     rn4[1] = {(2, "r")}
     rn4[2] = {(3, "r")}
     rn4[3] = {}
-    A4 = Structure(4, {"A": {0}, "B": {3}}, rn4, {i: set() for i in range(6)}, {}, {})
+    A4 = Structure(4, {"A": {0}, "B": {3}}, rn4, {i: list() for i in range(6)}, {}, {})
 
     P4 = [1]
     N4 = [0]
@@ -124,8 +128,8 @@ def test5():
     A5 = Structure(
         2,
         {"A": {1}, "B": {1}},
-        {i: {} for i in range(2)},
-        {i: set() for i in range(6)},
+        {i: set() for i in range(2)},
+        {i: list() for i in range(6)},
         {},
         {},
     )
@@ -140,8 +144,8 @@ def test6():
     A6 = Structure(
         3,
         {"A": {1}, "B": {0, 1}},
-        {i: {} for i in range(3)},
-        {i: set() for i in range(6)},
+        {i: set() for i in range(3)},
+        {i: list() for i in range(6)},
         {},
         {},
     )
@@ -164,7 +168,7 @@ def test_alcq():
         11,
         {"A": {2, 8}, "B": {3, 9}, "C": {5, 10}, "D": {6, 11}},
         d,
-        {i: set() for i in range(12)},
+        {i: list() for i in range(12)},
         {},
         {},
     )
@@ -179,8 +183,15 @@ def testEx():
     A = Structure(
         5,
         {"A": {2, 4, 5}, "B": {3}},
-        {0: {(2, "r"), (3, "r")}, 1: {(4, "r"), (5, "r")}, 2: {}, 3: {}, 4: {}, 5: {}},
-        {i: set() for i in range(6)},
+        {
+            0: {(2, "r"), (3, "r")},
+            1: {(4, "r"), (5, "r")},
+            2: set(),
+            3: set(),
+            4: set(),
+            5: set(),
+        },
+        {i: list() for i in range(6)},
         {},
         {},
     )
@@ -199,7 +210,7 @@ def testAnd():
         5,
         {"A": {1, 2, 3}, "B": {1, 3, 4}, "C": {1, 2, 4}},
         {0: set(), 1: set(), 2: set(), 3: set(), 4: set()},
-        {i: set() for i in range(6)},
+        {i: list() for i in range(6)},
         {},
         {},
     )
@@ -217,8 +228,15 @@ def testAll():
     A = Structure(
         5,
         {"A": {2, 4, 5}, "B": {3}},
-        {0: {(2, "r"), (3, "r")}, 1: {(4, "r"), (5, "r")}, 2: {}, 3: {}, 4: {}, 5: {}},
-        {i: set() for i in range(6)},
+        {
+            0: {(2, "r"), (3, "r")},
+            1: {(4, "r"), (5, "r")},
+            2: set(),
+            3: set(),
+            4: set(),
+            5: set(),
+        },
+        {i: list() for i in range(6)},
         {},
         {},
     )
@@ -236,8 +254,8 @@ def testInv1():
     A = Structure(
         3,
         {},
-        {0: {}, 1: {}, 2: {(0, "r")}},
-        {i: set() for i in range(6)},
+        {0: set(), 1: set(), 2: {(0, "r")}},
+        {i: list() for i in range(6)},
         {},
         {},
     )
@@ -256,16 +274,16 @@ def testInv2():
         8,
         {},
         {
-            0: {},
+            0: set(),
             1: {(4, "r")},
             2: {(4, "r")},
             3: {(4, "r")},
-            4: {},
+            4: set(),
             5: {(7, "r")},
             6: {(7, "r")},
-            7: {},
+            7: set(),
         },
-        {i: set() for i in range(8)},
+        {i: list() for i in range(8)},
         {},
         {},
     )
@@ -291,10 +309,35 @@ def testSize():
         rn_ext={i: {(i + 1, "r")} for i in range(k - 1)},
         indmap={},
         nsmap={},
-        dp_ext={i: set() for i in range(k + 1)},
+        dp_ext={i: list() for i in range(k + 1)},
     )
     A.rn_ext[k - 1] = set()
 
     i = (A, k, [0], [1])
     f = FittingALC(*i, op={OP.EX, OP.AND})
     assert f.solve()
+
+
+def testExtraction():
+    rn2: dict[int, set[tuple[int, str]]] = {i: set() for i in range(7)}
+    rn2[0] = {(1, "r")}
+    rn2[2] = {(3, "r"), (4, "r")}
+    rn2[5] = {(6, "r")}
+    cn2 = {"A": {6}}
+    A2 = Structure(7, cn2, rn2, {i: [] for i in range(6)}, {}, {})
+
+    colors_alcq, cr = color_refinement(A2, Signature(["A"], ["r"]), True, -1)
+
+    for a in range(A2.max_ind):
+        for b in range(A2.max_ind):
+            if colors_alcq[a] != colors_alcq[b]:
+                res = extract_concept(cr, colors_alcq[a], colors_alcq[b])
+
+                assert res.mc(A2, a)
+                assert not res.mc(A2, b)
+
+    return
+
+
+if __name__ == "__main__":
+    testExtraction()

@@ -249,9 +249,9 @@ def compute_multiplicities(
 
 def color_refinement(
     A: Structure, sigma: Signature, alc_q: bool, iterations: int
-) -> tuple[dict[int, int], dict[tuple[tuple[int, str], ...], int]]:
+) -> tuple[dict[int, int], list[dict[tuple[tuple[int, str], ...], int]]]:
     color: dict[int, int] = dict.fromkeys(range(A.max_ind), 0)
-    color_register: dict[tuple[tuple[int, str], ...], int] = {}
+    color_register: list[dict[tuple[tuple[int, str], ...], int]] = []
 
     local_types: dict[int, list[tuple[int, str]]] = {a: [] for a in range(A.max_ind)}
     for cn in sigma.conceptnames:
@@ -262,7 +262,7 @@ def color_refinement(
     while i <= iterations or iterations == -1:
         i += 1
         ncolor: dict[int, int] = {}
-        color_register = {}
+        color_register.append({})
 
         for a in range(A.max_ind):
             tp2 = list(local_types[a])
@@ -273,9 +273,9 @@ def color_refinement(
             tp2.sort()
             tpf2 = tuple(tp2)
 
-            if tpf2 not in color_register:
-                color_register[tpf2] = len(color_register)
-            ncolor[a] = color_register[tpf2]
+            if tpf2 not in color_register[-1]:
+                color_register[-1][tpf2] = len(color_register[-1])
+            ncolor[a] = color_register[-1][tpf2]
 
         if color == ncolor:
             # No change happened
@@ -291,7 +291,9 @@ def bisimulation_reduction(inst: Instance, max_k: int) -> Instance:
 
     color, color_register = color_refinement(inst.A, inst.sigma, use_q, max_k)
 
-    color_multiplicities, edge_multiplicities = compute_multiplicities(color_register)
+    final_colors = color_register[-1]
+
+    color_multiplicities, edge_multiplicities = compute_multiplicities(final_colors)
 
     A = inst.A
     sigma = inst.sigma
@@ -414,3 +416,60 @@ def determine_max_q_per_relation(inst: Instance) -> dict[str, int]:
             result[rn] = max(result[rn], local_outdegree[rn])
 
     return dict(result)
+
+
+def merge_conj(conj: list[ALCConcept], op: OP) -> ALCConcept:
+    if len(conj) == 0 and op == OP.AND:
+        return ALCConcept(OP.TOP, "", None, tuple())
+    if len(conj) == 0 and op == OP.OR:
+        return ALCConcept(OP.BOT, "", None, tuple())
+
+    if len(conj) == 1:
+        return conj[0]
+
+    d1 = merge_conj(conj[: len(conj) // 2], op)
+    d2 = merge_conj(conj[len(conj) // 2 :], op)
+    return ALCConcept(op, name="", value=None, children=(d1, d2))
+
+
+def extract_concept(color_register, color_a, color_b) -> ALCConcept:
+    assert len(color_register) >= 1
+    assert color_a != color_b
+    assert color_a in color_register[-1].values()
+    assert color_b in color_register[-1].values()
+
+    rev = {id: c for (c, id) in color_register[-1].items()}
+    ca = rev[color_a]
+    cb = rev[color_b]
+
+    props = list(set(ca))
+    props.sort()
+
+    for c, r in props:
+        count_a = list(ca).count((c, r))
+        count_b = list(cb).count((c, r))
+
+        if count_a == count_b:
+            continue
+
+        if c == -1:
+            return ALCConcept(OP.CN, name=r, value=None, children=tuple())
+
+        conj = set()
+
+        for c2, s in cb:
+            if s != r or c == c2:
+                continue
+            d = extract_concept(color_register[0:-1], c, c2)
+            conj.add(d)
+
+        d = merge_conj(list(conj), OP.AND)
+
+        if count_a > count_b:
+            return ALCConcept(OP.GE, name=r, value=count_a, children=(d,))
+        else:
+            return ALCConcept(OP.LE, name=r, value=count_a, children=(d,))
+
+    # This must terminate as color_a and color_b are guaranteed to be different
+    c = extract_concept(color_register, color_b, color_a)
+    return ALCConcept(OP.NEG, name="", value=None, children=(c,))

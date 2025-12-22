@@ -19,6 +19,9 @@ from spell.preprocessing import (
     prune_conceptnames,
     restrict_neighborhood,
     ThresholdMethod,
+    color_refinement,
+    extract_concept,
+    merge_conj,
 )
 
 from .fitting import (
@@ -805,3 +808,50 @@ class FittingALC:
             decoded_sol = decode_inverses(decoded_sol, reverse_inverse_mapping)
 
         return best_acc, k, decoded_sol
+
+
+def perfect_fitting(inst: Instance) -> ALCConcept:
+    sig = inst.sigma
+    A = inst.A
+    P = inst.P
+    N = inst.N
+
+    colors_alcq, cr = color_refinement(A, sig, True, -1)
+
+    pos_colors = {}
+    neg_colors = {}
+    for p in P:
+        c = colors_alcq[p]
+        if c not in pos_colors:
+            pos_colors[c] = 0
+        pos_colors[c] += 1
+
+    for n in N:
+        c = colors_alcq[n]
+        if c not in neg_colors:
+            neg_colors[c] = 0
+        neg_colors[c] += 1
+
+    cache = {}
+
+    disj = set()
+    for cp in pos_colors.keys():
+        if cp in neg_colors and pos_colors[cp] < neg_colors[cp]:
+            # Including this positive example would include a lot of negative
+            # examples and thus not be beneficial for accuracy
+            continue
+
+        conj = set()
+        for cn in neg_colors.keys():
+            if cp == cn:
+                continue
+
+            res = extract_concept(cr, cp, cn)
+
+            conj.add(res)
+
+        d = merge_conj(list(conj), OP.AND)
+        disj.add(d)
+
+    c = merge_conj(list(disj), OP.OR)
+    return c
