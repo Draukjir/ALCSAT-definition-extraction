@@ -1,5 +1,10 @@
 from spell.fitting_alc import perfect_fitting
-from spell.preprocessing import encode_dataproperties, color_refinement
+from spell.preprocessing import (
+    encode_dataproperties,
+    color_refinement,
+    ThresholdMethod,
+    decode_dataproperties,
+)
 from spell.fitting import non_empty_symbols
 from spell.instance import ALCConcept, OP, Instance
 from spell.structures import Signature, Structure, structure_from_owl
@@ -29,7 +34,13 @@ def main():
 
         inst = Instance(A, P, N, sig, frozenset(), 2)
 
+        inst, back = encode_dataproperties(
+            inst, ThresholdMethod.INTERVALS, max_thresholds=100
+        )
+
         c = perfect_fitting(inst)
+
+        c = decode_dataproperties(c, back)
 
         print(c.to_tree())
         print(c.size())

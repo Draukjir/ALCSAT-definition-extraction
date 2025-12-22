@@ -331,7 +331,7 @@ def testExtraction():
     for a in range(A2.max_ind):
         for b in range(A2.max_ind):
             if colors_alcq[a] != colors_alcq[b]:
-                res = extract_concept(cr, colors_alcq[a], colors_alcq[b])
+                res = extract_concept(cr, colors_alcq[a], colors_alcq[b], A2)
 
                 assert res.mc(A2, a)
                 assert not res.mc(A2, b)

@@ -22,6 +22,8 @@ from spell.preprocessing import (
     color_refinement,
     extract_concept,
     merge_conj,
+    deduplicate,
+    simplify_conj,
 )
 
 from .fitting import (
@@ -839,16 +841,16 @@ def perfect_fitting(inst: Instance) -> ALCConcept:
             # examples and thus not be beneficial for accuracy
             continue
 
-        conj = set()
+        conj = list()
         for cn in neg_colors.keys():
             if cp == cn:
                 continue
 
-            res = extract_concept(cr, cp, cn)
+            res = extract_concept(cr, cp, cn, A)
+            conj.append(res)
 
-            conj.add(res)
-
-        d = merge_conj(list(conj), OP.AND)
+        conj = simplify_conj(conj, A)
+        d = merge_conj(deduplicate(conj), OP.AND)
         disj.add(d)
 
     c = merge_conj(list(disj), OP.OR)

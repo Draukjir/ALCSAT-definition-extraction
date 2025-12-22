@@ -118,7 +118,7 @@ def decode_dataproperties(
 
 
 def encode_dataproperties(
-    inst: Instance, clustering: ThresholdMethod, max_k=10
+    inst: Instance, clustering: ThresholdMethod, max_thresholds=100, max_k=10
 ) -> tuple[Instance, dict[str, ALCConcept]]:
     A = inst.A
     sigma = Signature(list(inst.sigma.conceptnames), list(inst.sigma.rolenames))
@@ -130,8 +130,6 @@ def encode_dataproperties(
             if p not in ranges:
                 ranges[p] = set()
             ranges[p].add(v)
-
-    max_thresholds = 10
 
     if clustering == ThresholdMethod.INTERVALS:
         thresholds = pick_data_intervals(ranges, max_thresholds)
@@ -442,7 +440,34 @@ def deduplicate(lst):
     return res
 
 
-def extract_concept(color_register, color_a, color_b) -> ALCConcept:
+def simplify_conj(conj: list[ALCConcept], A: Structure) -> list[ALCConcept]:
+    res = []
+    for i, c in enumerate(conj):
+        if c.operation != OP.CN:
+            res.append(c)
+            continue
+
+        found = False
+        for d in conj[i + 1 :]:
+            if d.operation != OP.CN:
+                continue
+            if A.cn_ext[c.name].issuperset(A.cn_ext[d.name]):
+                found = True
+                break
+
+        for d in res:
+            if d.operation != OP.CN:
+                continue
+            if A.cn_ext[c.name].issuperset(A.cn_ext[d.name]):
+                found = True
+                break
+
+        if not found:
+            res.append(c)
+    return res
+
+
+def extract_concept(color_register, color_a, color_b, A: Structure) -> ALCConcept:
     assert len(color_register) >= 1
     assert color_a != color_b
     assert color_a in color_register[-1].values()
@@ -470,9 +495,10 @@ def extract_concept(color_register, color_a, color_b) -> ALCConcept:
         for c2, s in cb:
             if s != r or c == c2:
                 continue
-            d = extract_concept(color_register[0:-1], c, c2)
+            d = extract_concept(color_register[0:-1], c, c2, A)
             conj.append(d)
 
+        conj = simplify_conj(conj, A)
         d = merge_conj(deduplicate(conj), OP.AND)
 
         if count_a > count_b:
@@ -481,5 +507,5 @@ def extract_concept(color_register, color_a, color_b) -> ALCConcept:
             return ALCConcept(OP.LE, name=r, value=count_a, children=(d,))
 
     # This must terminate as color_a and color_b are guaranteed to be different
-    c = extract_concept(color_register, color_b, color_a)
+    c = extract_concept(color_register, color_b, color_a, A)
     return ALCConcept(OP.NEG, name="", value=None, children=(c,))
