@@ -832,8 +832,6 @@ def perfect_fitting(inst: Instance) -> ALCConcept:
             neg_colors[c] = 0
         neg_colors[c] += 1
 
-    cache = {}
-
     disj = set()
     for cp in pos_colors.keys():
         if cp in neg_colors and pos_colors[cp] < neg_colors[cp]:

@@ -432,6 +432,16 @@ def merge_conj(conj: list[ALCConcept], op: OP) -> ALCConcept:
     return ALCConcept(op, name="", value=None, children=(d1, d2))
 
 
+def deduplicate(lst):
+    seen = set()
+    res = []
+    for a in lst:
+        if a not in seen:
+            seen.add(a)
+            res.append(a)
+    return res
+
+
 def extract_concept(color_register, color_a, color_b) -> ALCConcept:
     assert len(color_register) >= 1
     assert color_a != color_b
@@ -439,11 +449,11 @@ def extract_concept(color_register, color_a, color_b) -> ALCConcept:
     assert color_b in color_register[-1].values()
 
     rev = {id: c for (c, id) in color_register[-1].items()}
+    assert len(rev) == len(color_register[-1])
     ca = rev[color_a]
     cb = rev[color_b]
 
-    props = list(set(ca))
-    props.sort()
+    props = deduplicate(list(ca))
 
     for c, r in props:
         count_a = list(ca).count((c, r))
@@ -455,15 +465,15 @@ def extract_concept(color_register, color_a, color_b) -> ALCConcept:
         if c == -1:
             return ALCConcept(OP.CN, name=r, value=None, children=tuple())
 
-        conj = set()
+        conj = list()
 
         for c2, s in cb:
             if s != r or c == c2:
                 continue
             d = extract_concept(color_register[0:-1], c, c2)
-            conj.add(d)
+            conj.append(d)
 
-        d = merge_conj(list(conj), OP.AND)
+        d = merge_conj(deduplicate(conj), OP.AND)
 
         if count_a > count_b:
             return ALCConcept(OP.GE, name=r, value=count_a, children=(d,))

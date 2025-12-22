@@ -35,7 +35,7 @@ def main():
         print(c.size())
 
         ext: set[int] = set()
-        for a in range(A.max_ind):
+        for a in set(P).union(set(N)):
             if c.mc(A, a):
                 ext.add(a)
 
