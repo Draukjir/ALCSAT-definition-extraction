@@ -515,8 +515,6 @@ def extract_concept(color_register, color_a, color_b, A: Structure) -> ALCConcep
 
         if count_a > count_b:
             return ALCConcept(OP.GE, name=r, value=count_a, children=(d,))
-        else:
-            return ALCConcept(OP.LE, name=r, value=count_a, children=(d,))
 
     # This must terminate as color_a and color_b are guaranteed to be different
     c = extract_concept(color_register, color_b, color_a, A)
