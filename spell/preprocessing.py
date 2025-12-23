@@ -110,8 +110,8 @@ def pick_data_clusters(
         else:
             # TODO: does this handle dates?
             centroids = sorted(kmeans(array(list(values)), max_thresholds + 1)[0])
+            result[p] = set()
             for i in range(len(centroids) - 1):
-                result[p] = set()
                 result[p].add((centroids[i] + centroids[i + 1]) / 2)
     return result
 
