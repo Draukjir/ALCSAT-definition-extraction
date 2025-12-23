@@ -812,10 +812,13 @@ class FittingALC:
         return best_acc, k, decoded_sol
 
 
-def perfect_fitting(inst: Instance) -> ALCConcept:
-    inst, back = encode_dataproperties(
-        inst, ThresholdMethod.ALL_THRESHOLDS
-    )
+def perfect_fitting(
+    inst: Instance,
+    clustering: ThresholdMethod = ThresholdMethod.ALL_THRESHOLDS,
+    max_thresholds: int = 10,
+) -> tuple[float, int, ALCConcept]:
+    orig_inst = inst
+    inst, back = encode_dataproperties(inst, clustering, max_thresholds)
 
     sig = inst.sigma
     A = inst.A
@@ -838,7 +841,7 @@ def perfect_fitting(inst: Instance) -> ALCConcept:
             neg_colors[c] = 0
         neg_colors[c] += 1
 
-    disj = set()
+    disj = list()
     for cp in pos_colors.keys():
         if cp in neg_colors and pos_colors[cp] < neg_colors[cp]:
             # Including this positive example would include a lot of negative
@@ -851,14 +854,23 @@ def perfect_fitting(inst: Instance) -> ALCConcept:
                 continue
 
             res = extract_concept(cr, cp, cn, A)
+            for p in P:
+                if colors_alcq[p] == cp:
+                    assert res.mc(inst.A, p)
             conj.append(res)
 
         conj = simplify_conj(conj, A)
         d = merge_conj(deduplicate(conj), OP.AND)
-        disj.add(d)
+        disj.append(d)
 
-    c = merge_conj(list(disj), OP.OR)
-
+    c = merge_conj(deduplicate(disj), OP.OR)
     c = decode_dataproperties(c, back)
 
-    return c
+    ext: set[int] = set()
+    for a in P + N:
+        if c.mc(orig_inst.A, a):
+            ext.add(a)
+
+    acc = orig_inst.accuracy(frozenset[int](ext))
+
+    return acc, c.size(), c

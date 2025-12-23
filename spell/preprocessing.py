@@ -12,6 +12,7 @@ class ThresholdMethod(Enum):
     INTERVALS = -1
     NEIGHBOORHOOD_KMEANS = 1
     ALL_THRESHOLDS = 2
+    NONE = 3
 
 
 def prune_conceptnames(inst: Instance) -> Instance:
@@ -47,7 +48,7 @@ def neighborhoods(inst: Instance, max_k: int):
 
 
 def cluster_neighborhoods(
-    inst: Instance, neighborhods: dict[int, set[int]], n_clusters=10
+    inst: Instance, neighborhods: dict[int, set[int]], n_clusters
 ):
     values: dict[str, list[set[float]]] = defaultdict(list)
     result: dict[str, set[Any]] = defaultdict(set)
@@ -97,6 +98,7 @@ def pick_all_thresholds(
         result[p] = values
     return result
 
+
 def pick_data_clusters(
     ranges: dict[str, set[Any]], max_thresholds: int
 ) -> dict[str, set[Any]]:
@@ -108,7 +110,7 @@ def pick_data_clusters(
         elif len(values) <= 10:
             result[p] = values
         else:
-            # TODO: does this handle dates?
+            # TODO: does this handle dates? and strings
             centroids = sorted(kmeans(array(list(values)), max_thresholds + 1)[0])
             result[p] = set()
             for i in range(len(centroids) - 1):
@@ -128,7 +130,7 @@ def decode_dataproperties(
 
 
 def encode_dataproperties(
-    inst: Instance, clustering: ThresholdMethod, max_thresholds=100, max_k=10
+    inst: Instance, clustering: ThresholdMethod, max_thresholds=10, max_k=10
 ) -> tuple[Instance, dict[str, ALCConcept]]:
     A = inst.A
     sigma = Signature(list(inst.sigma.conceptnames), list(inst.sigma.rolenames))
@@ -141,7 +143,9 @@ def encode_dataproperties(
                 ranges[p] = set()
             ranges[p].add(v)
 
-    if clustering == ThresholdMethod.INTERVALS:
+    if clustering == ThresholdMethod.NONE:
+        return inst, {}
+    elif clustering == ThresholdMethod.INTERVALS:
         thresholds = pick_data_intervals(ranges, max_thresholds)
     elif clustering == ThresholdMethod.ALL_THRESHOLDS:
         thresholds = pick_all_thresholds(ranges, max_thresholds)
@@ -149,8 +153,8 @@ def encode_dataproperties(
         thresholds = pick_data_clusters(ranges, max_thresholds)
     elif clustering == ThresholdMethod.NEIGHBOORHOOD_KMEANS:
         N_p, N_n = neighborhoods(inst, max_k=max_k)
-        result1 = cluster_neighborhoods(inst, N_p)
-        result2 = cluster_neighborhoods(inst, N_n)
+        result1 = cluster_neighborhoods(inst, N_p, (max_thresholds + 1) // 2)
+        result2 = cluster_neighborhoods(inst, N_n, max_thresholds // 2)
         for p, v in result2.items():
             if p in result1:
                 result1[p].union(v)
@@ -160,7 +164,9 @@ def encode_dataproperties(
     else:
         raise ValueError("A very specific bad thing happened.")
 
-    B = Structure(A.max_ind, {}, {}, {}, {}, A.nsmap)
+    # print(f"=== I choose thresholds: {thresholds}")
+
+    B = Structure(A.max_ind, {}, {}, {}, A.indmap, A.nsmap)
 
     for cn in sigma.conceptnames:
         B.cn_ext[cn] = set(A.cn_ext[cn])
