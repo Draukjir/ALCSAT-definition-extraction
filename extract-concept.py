@@ -11,7 +11,7 @@ from spell.structures import Signature, Structure, structure_from_owl
 
 
 def main():
-    benchmarks = ["mammographic"]
+    benchmarks = ["carcinogenesis"]
 
     for benchmark in benchmarks:
         A = structure_from_owl(f"../sml-benchmarks/{benchmark}/{benchmark}.owl")
@@ -34,13 +34,9 @@ def main():
 
         inst = Instance(A, P, N, sig, frozenset(), 2)
 
-        inst, back = encode_dataproperties(
-            inst, ThresholdMethod.INTERVALS, max_thresholds=100
-        )
 
         c = perfect_fitting(inst)
 
-        c = decode_dataproperties(c, back)
 
         print(c.to_tree())
         print(c.size())

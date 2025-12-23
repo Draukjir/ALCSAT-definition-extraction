@@ -813,6 +813,10 @@ class FittingALC:
 
 
 def perfect_fitting(inst: Instance) -> ALCConcept:
+    inst, back = encode_dataproperties(
+        inst, ThresholdMethod.ALL_THRESHOLDS
+    )
+
     sig = inst.sigma
     A = inst.A
     P = inst.P
@@ -854,4 +858,7 @@ def perfect_fitting(inst: Instance) -> ALCConcept:
         disj.add(d)
 
     c = merge_conj(list(disj), OP.OR)
+
+    c = decode_dataproperties(c, back)
+
     return c

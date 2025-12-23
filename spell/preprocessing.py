@@ -11,6 +11,7 @@ class ThresholdMethod(Enum):
     KMEANS = 0
     INTERVALS = -1
     NEIGHBOORHOOD_KMEANS = 1
+    ALL_THRESHOLDS = 2
 
 
 def prune_conceptnames(inst: Instance) -> Instance:
@@ -87,6 +88,15 @@ def pick_data_intervals(
     return result
 
 
+def pick_all_thresholds(
+    ranges: dict[str, set[Any]], max_thresholds: int
+) -> dict[str, set[Any]]:
+    result: dict[str, set[Any]] = {}
+
+    for p, values in ranges.items():
+        result[p] = values
+    return result
+
 def pick_data_clusters(
     ranges: dict[str, set[Any]], max_thresholds: int
 ) -> dict[str, set[Any]]:
@@ -133,6 +143,8 @@ def encode_dataproperties(
 
     if clustering == ThresholdMethod.INTERVALS:
         thresholds = pick_data_intervals(ranges, max_thresholds)
+    elif clustering == ThresholdMethod.ALL_THRESHOLDS:
+        thresholds = pick_all_thresholds(ranges, max_thresholds)
     elif clustering == ThresholdMethod.KMEANS:
         thresholds = pick_data_clusters(ranges, max_thresholds)
     elif clustering == ThresholdMethod.NEIGHBOORHOOD_KMEANS:
