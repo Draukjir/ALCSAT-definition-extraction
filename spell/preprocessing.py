@@ -51,7 +51,7 @@ def cluster_neighborhoods(
     inst: Instance, neighborhoods: dict[int, set[int]], n_clusters
 ):
     values: dict[str, list[set[float]]] = defaultdict(list)
-    result: dict[str, set[Any]] = defaultdict(set)
+    result: dict[str, list[Any]] = defaultdict(list)
     for i, ab in neighborhoods.items():
         values2: dict[str, set[Any]] = defaultdict(set)
         for a in ab:
@@ -64,27 +64,29 @@ def cluster_neighborhoods(
             if len(vs) > n_clusters:
                 centroids = sorted(kmeans(array(list(vs)), n_clusters)[0])
                 for i in range(len(centroids) - 1):
-                    result[p].add((centroids[i] + centroids[i + 1]) / 2)
+                    result[p].append((centroids[i] + centroids[i + 1]) / 2)
     return result
 
 
 def pick_data_intervals(
     ranges: dict[str, set[Any]], max_thresholds: int
-) -> dict[str, set[Any]]:
-    result: dict[str, set[Any]] = {}
+) -> dict[str, list[Any]]:
+    result: dict[str, list[Any]] = {}
 
     for p, values in ranges.items():
         if values == {True, False}:
-            result[p] = {True}
+            result[p] = [True]
         elif len(values) <= 10:
-            result[p] = values
+            result[p] = list(values)
         else:
-            thresholds: set[Any] = set()
+            thresholds: list[Any] = list()
             vs = list(values)
             vs.sort()
-            # TODO: fix last value
+
+            step = len(vs) // max_thresholds
+
             for i in range(max_thresholds):
-                thresholds.add(vs[int(len(vs) / max_thresholds * i) - 1])
+                thresholds.append(vs[step * i])
             result[p] = thresholds
     return result
 
@@ -101,20 +103,21 @@ def pick_all_thresholds(
 
 def pick_data_clusters(
     ranges: dict[str, set[Any]], max_thresholds: int
-) -> dict[str, set[Any]]:
-    result: dict[str, set[Any]] = {}
+) -> dict[str, list[Any]]:
+    result: dict[str, list[Any]] = {}
 
     for p, values in ranges.items():
         if values == {True, False}:
-            result[p] = {True}
+            result[p] = [True]
         elif len(values) <= 10:
-            result[p] = values
+            result[p] = list(values)
         else:
             # TODO: does this handle dates? and strings
-            centroids = sorted(kmeans(array(list(values)), max_thresholds + 1)[0])
-            result[p] = set()
+            centroids = sorted(kmeans(array(list(values)), max_thresholds)[0])
+            result[p] = list()
+            result[p].append(min(values))
             for i in range(len(centroids) - 1):
-                result[p].add((centroids[i] + centroids[i + 1]) / 2)
+                result[p].append((centroids[i] + centroids[i + 1]) / 2)
     return result
 
 
