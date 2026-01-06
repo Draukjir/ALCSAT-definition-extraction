@@ -48,11 +48,11 @@ def neighborhoods(inst: Instance, max_k: int):
 
 
 def cluster_neighborhoods(
-    inst: Instance, neighborhods: dict[int, set[int]], n_clusters
+    inst: Instance, neighborhoods: dict[int, set[int]], n_clusters
 ):
     values: dict[str, list[set[float]]] = defaultdict(list)
     result: dict[str, set[Any]] = defaultdict(set)
-    for i, ab in neighborhods.items():
+    for i, ab in neighborhoods.items():
         values2: dict[str, set[Any]] = defaultdict(set)
         for a in ab:
             for v, _, pp in inst.A.dp_ext[a]:
