@@ -153,8 +153,8 @@ def encode_dataproperties(
         thresholds = pick_data_clusters(ranges, max_thresholds)
     elif clustering == ThresholdMethod.NEIGHBOORHOOD_KMEANS:
         N_p, N_n = neighborhoods(inst, max_k=max_k)
-        result1 = cluster_neighborhoods(inst, N_p, (max_thresholds + 1) // 2)
-        result2 = cluster_neighborhoods(inst, N_n, max_thresholds // 2)
+        result1 = cluster_neighborhoods(inst, N_p, (max_thresholds) // 2 + 1)
+        result2 = cluster_neighborhoods(inst, N_n, max_thresholds // 2 + 1)
         for p, v in result2.items():
             if p in result1:
                 result1[p].union(v)
