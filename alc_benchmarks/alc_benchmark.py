@@ -796,7 +796,7 @@ def test_evo_data_properties_write_file():
     quality, c = run_evo(kb_path,P,N, timeout=60)
     print(f'Evolearner Accuracy: {quality}')
     print(f'Evolearner concept: {c}')
-    f = FittingALC(A, 16, [0],[2], op=frozenset([OP.ALL, OP.EX, OP.OR, OP.AND, OP.NEG, OP.LE, OP.GE]),workers=8, max_q=5)
+    f = FittingALC(A, 16, [0],[2], op=frozenset([OP.ALL, OP.EX, OP.OR, OP.AND, OP.NEG, OP.LE, OP.GE, OP.DGEQ]),workers=8, max_q=5)
     a, k, sol = f.solve_incr(16)
     print(f'ALCSAT: {a}')
     print(f'ALCSAT {sol.to_dl_concept()}')
@@ -806,7 +806,7 @@ def test_clustering():
     P, N = read_examples(sys.argv[2])
     P = list(map(lambda n: map_ind_name(A, n), P))
     N = list(map(lambda n: map_ind_name(A, n), N))
-    f = FittingALC(A, 16, P,N, op=frozenset([OP.ALL, OP.EX, OP.OR, OP.AND, OP.NEG, OP.LE, OP.GE]),workers=8, max_q=5, clustering = 1)
+    f = FittingALC(A, 16, P,N, op=frozenset([OP.ALL, OP.EX, OP.OR, OP.AND, OP.NEG, OP.LE, OP.GE, OP.DGEQ]),workers=8, max_q=5, clustering = 1)
     a, k, sol = f.solve_incr_approx(7)
     
 def main():
