@@ -16,7 +16,7 @@ from spell.fitting import determine_relevant_symbols
 from spell.fitting_alc import FittingALC
 from spell.structures import Signature, Structure, map_ind_name, structure_from_owl
 from spell.instance import ALC_OP, OP, Instance
-from spell.preprocessing import color_refinement
+from spell.preprocessing import color_refinement, ThresholdMethod
 
 from spell.preprocessing import restrict_to_neighborhood
 
@@ -674,7 +674,7 @@ def chunks(lst: list[int], n: int):
         yield lst[i : i + n]
 
 
-def kfold(inst: Instance, folds: int = 5, max_k=10, timeout: float = 30):
+def kfold(inst: Instance, folds: int = 10, max_k=10, timeout: float = 30):
     all_p = list(inst.P)
     all_n = list(inst.N)
 
@@ -689,7 +689,7 @@ def kfold(inst: Instance, folds: int = 5, max_k=10, timeout: float = 30):
         this_p = [p for j in range(folds) for p in p_chunks[j] if j != i]
         this_n = [n for j in range(folds) for n in n_chunks[j] if j != i]
 
-        f = FittingALC(inst.A, max_k, this_p, this_n, inst.op, 8, 2)
+        f = FittingALC(inst.A, max_k, this_p, this_n, inst.op, 8, 2, clustering= ThresholdMethod.KMEANS)
         (acc, n, concept) = f.solve_incr_approx(max_k, timeout=timeout)
 
         other_p = p_chunks[i]
@@ -771,7 +771,7 @@ def sml_benchmark_cross_validate(resultpath: str):
                 P,
                 N,
                 sigma,
-                frozenset([OP.ALL, OP.EX, OP.OR, OP.AND, OP.NEG, OP.LE, OP.GE]),
+                frozenset([OP.ALL, OP.EX, OP.OR, OP.AND, OP.NEG, OP.LE, OP.GE, OP.DGEQ]),
                 2,
             )
             for (fold, concept, acc, f1) in kfold( inst, 10, max_k=10, timeout=300):
