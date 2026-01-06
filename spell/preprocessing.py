@@ -112,6 +112,10 @@ def pick_data_clusters(
         elif len(values) <= 10:
             result[p] = list(values)
         else:
+            vs = list(values)
+            if not isinstance(vs[0], int) and not isinstance(vs[0], float):
+                continue
+
             # TODO: does this handle dates? and strings
             centroids = sorted(kmeans(array(list(values)), max_thresholds)[0])
             result[p] = list()
