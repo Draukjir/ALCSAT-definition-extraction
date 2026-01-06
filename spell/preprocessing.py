@@ -114,6 +114,7 @@ def pick_data_clusters(
         else:
             vs = list(values)
             if not isinstance(vs[0], int) and not isinstance(vs[0], float):
+                result[p] = list()
                 continue
 
             # TODO: does this handle dates? and strings
