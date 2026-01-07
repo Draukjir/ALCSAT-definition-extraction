@@ -1,6 +1,6 @@
 from ontolearn.metrics import F1
 from ontolearn.concept_learner import EvoLearner
-from owlapy.render import DLSyntaxObjectRenderer
+from owlapy.render import DLSyntaxObjectRenderer, ManchesterOWLSyntaxOWLObjectRenderer
 from owlapy.owl_individual import OWLNamedIndividual
 from ontolearn.learning_problem import PosNegLPStandard
 from sklearn.model_selection import StratifiedKFold
@@ -16,6 +16,13 @@ from spell.preprocessing import ThresholdMethod
 import random
 from spell.instance import Instance, OP
 import numpy as np
+
+
+def size(concept) -> int:
+    rd = ManchesterOWLSyntaxOWLObjectRenderer()
+    s = rd.render(concept)
+    return len(s.split()) - s.count("[")
+
 
 
 def sml_benchmark_cross_validate(resultpath: str):
@@ -36,13 +43,6 @@ def sml_benchmark_cross_validate(resultpath: str):
             neg_path = f"../sml-benchmarks/{bench}/full/neg.txt"
 
             kb = KnowledgeBase(path=owlfile)
-
-            tdl = TDL(
-                knowledge_base=kb,
-                kwargs_classifier={"random_state": 1},
-                max_runtime=300,
-                verbose=1,
-            )
 
             data = dict()
 
@@ -129,20 +129,20 @@ def sml_benchmark_cross_validate(resultpath: str):
                 render = DLSyntaxObjectRenderer()
 
                 _ = outfile.write(
-                    f"{bench}, {ith}, {0}, {train_f1_evo}, {0}, {0}, {render.render(pred_evo)} \n"
+                    f"{bench}, {ith}, {0}, {train_f1_evo}, {size(pred_evo)}, {size(pred_evo)}, {render.render(pred_evo)} \n"
                 )
                 outfile.flush()
 
                 data.setdefault("Train-F1-Evo", []).append(train_f1_evo)
                 data.setdefault("Test-F1-Evo", []).append(test_f1_evo)
                 data.setdefault("RT-TDL", []).append(rt_evo)
-                print(f"TDL Train Quality: {train_f1_evo:.3f}", end="\t")
-                print(f"TDL Test Quality: {test_f1_evo:.3f}", end="\t")
-                print(f"TDL Runtime: {rt_evo:.3f}")
+                print(f"Evo Train Quality: {train_f1_evo:.3f}", end="\t")
+                print(f"Evo Test Quality: {test_f1_evo:.3f}", end="\t")
+                print(f"Evo Runtime: {rt_evo:.3f}")
 
 
 def main():
-    sml_benchmark_cross_validate("tdl-2026-01-07.txt")
+    sml_benchmark_cross_validate("evo-2026-01-07.txt")
 
 
 if __name__ == "__main__":

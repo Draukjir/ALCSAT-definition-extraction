@@ -1,4 +1,4 @@
-from owlapy.render import DLSyntaxObjectRenderer
+from owlapy.render import DLSyntaxObjectRenderer, ManchesterOWLSyntaxOWLObjectRenderer
 from owlapy.owl_individual import OWLNamedIndividual
 from ontolearn.learning_problem import PosNegLPStandard
 from sklearn.model_selection import StratifiedKFold
@@ -15,6 +15,10 @@ import random
 from spell.instance import Instance, OP
 import numpy as np
 
+def size(concept) -> int:
+    rd = ManchesterOWLSyntaxOWLObjectRenderer()
+    s = rd.render(concept)
+    return len(s.split()) - s.count("[")
 
 def sml_benchmark_cross_validate(resultpath: str):
     with open(resultpath, mode="w") as outfile:
@@ -125,7 +129,7 @@ def sml_benchmark_cross_validate(resultpath: str):
                 render = DLSyntaxObjectRenderer()
 
                 _ = outfile.write(
-                    f"{bench}, {ith}, {0}, {train_f1_tdl}, {0}, {0}, {render.render(pred_tdl)} \n"
+                    f"{bench}, {ith}, {0}, {train_f1_tdl}, {size(pred_tdl)}, {size(pred_tdl)}, {render.render(pred_tdl)} \n"
                 )
                 outfile.flush()
 
