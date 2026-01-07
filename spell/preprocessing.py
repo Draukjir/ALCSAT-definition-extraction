@@ -117,10 +117,13 @@ def pick_data_clusters(
                 result[p] = list()
                 continue
 
+            # kmeans cannot process ints, convert to floats
+            vs = [float(v) for v in vs]
+
             # TODO: does this handle dates? and strings
-            centroids = sorted(kmeans(array(list(values)), max_thresholds)[0])
+            centroids = sorted(kmeans(array(vs), max_thresholds)[0])
             result[p] = list()
-            result[p].append(min(values))
+            result[p].append(min(vs))
             for i in range(len(centroids) - 1):
                 result[p].append((centroids[i] + centroids[i + 1]) / 2)
     return result
