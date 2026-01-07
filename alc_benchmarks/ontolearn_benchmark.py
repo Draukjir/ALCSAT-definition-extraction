@@ -6,7 +6,7 @@ import time
 from ontolearn.concept_learner import EvoLearner
 from ontolearn.heuristics import CELOEHeuristic
 from ontolearn.knowledge_base import KnowledgeBase
-from ontolearn.learners import CELOE
+from ontolearn.learners import CELOE, TDL
 from ontolearn.learning_problem import PosNegLPStandard
 from ontolearn.metrics import Accuracy
 from ontolearn.refinement_operators import ModifiedCELOERefinement
@@ -100,6 +100,29 @@ def run_evo(kb_path, P, N, timeout = 10):
     prediction = model.best_hypotheses(1, return_node=True)
     rdr = DLSyntaxObjectRenderer()
     return prediction.quality, rdr.render(prediction.concept)
+
+def run_tdl(kb_path, P, N, timeout=10):
+    kb = KnowledgeBase(path=kb_path)    
+    
+    typed_pos = set(map(OWLNamedIndividual, map(IRI.create, P)))
+    typed_neg = set(map(OWLNamedIndividual, map(IRI.create, N)))
+    lp = PosNegLPStandard(pos=typed_pos, neg=typed_neg)        
+    model = TDL(knowledge_base=kb, max_runtime=timeout, use_nominals=False)
+    # model = EvoLearner(
+    #     knowledge_base=kb,
+    #     max_runtime=timeout,        
+    #     use_card_restrictions=True,
+    #     use_data_properties=True,        
+    # )
+    model.fit(lp)
+
+    prediction = model.best_hypotheses(1)
+    rdr = DLSyntaxObjectRenderer()
+    print(rdr.render(prediction))
+    # return prediction.quality, rdr.render(prediction.concept)
+
+
+
 
 
 def read_examples_from_json(path):
