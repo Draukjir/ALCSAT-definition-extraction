@@ -107,12 +107,6 @@ def run_tdl(kb_path, P, N, timeout=10):
     typed_neg = set(map(OWLNamedIndividual, map(IRI.create, N)))
     lp = PosNegLPStandard(pos=typed_pos, neg=typed_neg)        
     model = TDL(knowledge_base=kb, max_runtime=timeout, use_nominals=False)
-    # model = EvoLearner(
-    #     knowledge_base=kb,
-    #     max_runtime=timeout,        
-    #     use_card_restrictions=True,
-    #     use_data_properties=True,        
-    # )
     model.fit(lp)
 
     prediction = model.best_hypotheses(1)
