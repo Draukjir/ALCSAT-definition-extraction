@@ -3,10 +3,9 @@ import os
 import sys
 import time
 
-from ontolearn.concept_learner import EvoLearner
 from ontolearn.heuristics import CELOEHeuristic
 from ontolearn.knowledge_base import KnowledgeBase
-from ontolearn.learners import CELOE, TDL
+from ontolearn.learners import CELOE, TDL, EvoLearner
 from ontolearn.learning_problem import PosNegLPStandard
 from ontolearn.metrics import Accuracy
 from ontolearn.refinement_operators import ModifiedCELOERefinement
