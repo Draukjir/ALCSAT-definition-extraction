@@ -20,6 +20,22 @@ def size(concept) -> int:
     s = rd.render(concept)
     return len(s.split()) - s.count("[")
 
+
+def accuracy(individuals, pos, neg):
+    tp = 0
+    tn = 0
+
+    for p in pos:
+        if p in individuals:
+            tp += 1
+
+    for n in neg:
+        if n not in individuals:
+            tn += 1
+
+    return (tp + tn) / (len(pos) + len(neg))
+
+
 def sml_benchmark_cross_validate(resultpath: str):
     with open(resultpath, mode="w") as outfile:
         _ = outfile.write("bench, fold, acc, f1, size, evo_size, concept\n")
@@ -44,6 +60,7 @@ def sml_benchmark_cross_validate(resultpath: str):
                 kwargs_classifier={"random_state": 1},
                 max_runtime=300,
                 verbose=1,
+                use_nominals=False
             )
 
             data = dict()
@@ -126,10 +143,12 @@ def sml_benchmark_cross_validate(resultpath: str):
                     neg=test_lp.neg,
                 )
 
+                test_acc = accuracy(frozenset({i for i in kb.individuals(pred_tdl)}), test_lp.pos, test_lp.neg)
+
                 render = DLSyntaxObjectRenderer()
 
                 _ = outfile.write(
-                    f"{bench}, {ith}, {0}, {train_f1_tdl}, {size(pred_tdl)}, {size(pred_tdl)}, {render.render(pred_tdl)} \n"
+                    f"{bench}, {ith}, {test_acc}, {test_f1_tdl}, {size(pred_tdl)}, {size(pred_tdl)}, {render.render(pred_tdl)} \n"
                 )
                 outfile.flush()
 
@@ -139,6 +158,7 @@ def sml_benchmark_cross_validate(resultpath: str):
                 print(f"TDL Train Quality: {train_f1_tdl:.3f}", end="\t")
                 print(f"TDL Test Quality: {test_f1_tdl:.3f}", end="\t")
                 print(f"TDL Runtime: {rt_tdl:.3f}")
+                return
 
 
 def main():
