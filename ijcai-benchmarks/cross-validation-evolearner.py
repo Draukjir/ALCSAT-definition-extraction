@@ -23,6 +23,19 @@ def size(concept) -> int:
     s = rd.render(concept)
     return len(s.split()) - s.count("[")
 
+def accuracy(individuals, pos, neg):
+    tp = 0
+    tn = 0
+
+    for p in pos:
+        if p in individuals:
+            tp += 1
+
+    for n in neg:
+        if n not in individuals:
+            tn += 1
+
+    return (tp + tn) / (len(pos) + len(neg))
 
 
 def sml_benchmark_cross_validate(resultpath: str):
@@ -125,11 +138,13 @@ def sml_benchmark_cross_validate(resultpath: str):
                     pos=test_lp.pos,
                     neg=test_lp.neg,
                 )
+                test_acc = accuracy(frozenset({i for i in kb.individuals(pred_evo)}), test_lp.pos, test_lp.neg)
+
 
                 render = DLSyntaxObjectRenderer()
 
                 _ = outfile.write(
-                    f"{bench}, {ith}, {0}, {train_f1_evo}, {size(pred_evo)}, {size(pred_evo)}, {render.render(pred_evo)} \n"
+                    f"{bench}, {ith}, {test_acc}, {test_f1_evo}, {size(pred_evo)}, {size(pred_evo)}, {render.render(pred_evo)} \n"
                 )
                 outfile.flush()
 
