@@ -107,12 +107,12 @@ def run_tdl(kb_path, P, N, timeout=10):
     typed_neg = set(map(OWLNamedIndividual, map(IRI.create, N)))
     lp = PosNegLPStandard(pos=typed_pos, neg=typed_neg)        
     model = TDL(knowledge_base=kb, max_runtime=timeout, use_nominals=False)
-    model.fit(lp)
+    model.fit(lp)    
 
-    prediction = model.best_hypotheses(1)
+    prediction = model.best_hypotheses(1)    
     rdr = DLSyntaxObjectRenderer()
     print(rdr.render(prediction))
-    # return prediction.quality, rdr.render(prediction.concept)
+    return 0, rdr.render(prediction)
 
 
 

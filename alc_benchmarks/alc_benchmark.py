@@ -20,7 +20,7 @@ from spell.preprocessing import color_refinement, ThresholdMethod
 
 from spell.preprocessing import restrict_to_neighborhood
 
-from .ontolearn_benchmark import run_evo
+from .ontolearn_benchmark import run_evo, run_tdl
 
 CELOE_PATH = ""
 SPARCEL_PATH = ""
@@ -595,35 +595,35 @@ def write_examples(P, N, path):
         f.writelines(map(lambda x: f"{x}\n", N))
 
 
-def examples_from_bisim(kb_path, output_dir, n_ex = 10):
+def examples_from_bisim(kb_path, output_dir, n_ex = 10, max_datasets = 100):
     A = structure_from_owl(kb_path)    
     ind_map_inv = {v: k for k, v in A.indmap.items()}  
     i=1
     for P, N in alcq_examples_from_bisim(A, n_ex=n_ex):        
-        if i > 75:
+        if i > max_datasets:
             break
-        f = FittingALC(
-            A,
-            12,
-            P,
-            N,
-            op=frozenset([OP.ALL, OP.EX, OP.OR, OP.AND, OP.NEG, OP.LE, OP.GE]),
-            workers=10,
-            max_q=5
+        #f = FittingALC(
+        #    A,
+        #    12,
+        #    P,
+        #    N,
+        #    op=frozenset([OP.ALL, OP.EX, OP.OR, OP.AND, OP.NEG, OP.LE, OP.GE]),
+        #    workers=10,
+        #    max_q=5
+        #)
+        #a, k, sol = f.solve_incr(12)
+        #if a > 0 and k > 5:
+        P_s = [ind_map_inv[x] for x in P]
+        N_s = [ind_map_inv[x] for x in N]
+        dest_dir = os.path.join(output_dir, f"{str(i)}")
+        os.mkdir(dest_dir)
+        write_examples(P_s, N_s, dest_dir)
+        reduce_size_by_examples2(
+            A, P_s, N_s, 16, dest=os.path.join(dest_dir, "kb_reduced.owl")
         )
-        a, k, sol = f.solve_incr(12)
-        if a > 0 and k > 5:
-            P_s = [ind_map_inv[x] for x in P]
-            N_s = [ind_map_inv[x] for x in N]
-            dest_dir = os.path.join(output_dir, f"{str(i)}_k{k}")
-            os.mkdir(dest_dir)
-            write_examples(P_s, N_s, dest_dir)
-            reduce_size_by_examples2(
-                A, P_s, N_s, k, dest=os.path.join(dest_dir, "kb_reduced.owl")
-            )
-            with open(os.path.join(dest_dir, "fitting_concept.txt"), "w") as f:
-                f.write(sol.to_tree())            
-            i+=1
+        #with open(os.path.join(dest_dir, "fitting_concept.txt"), "w") as f:
+            #f.write(sol.to_tree())            
+        i+=1
 
 def read_examples(path):
         P,N = [],[]
@@ -633,27 +633,43 @@ def read_examples(path):
             N = list(map(lambda s: s.rstrip(),f.readlines()))
         return P,N
 
-def examples_from_bisim_evo(dir_path):    
+def examples_from_bisim_run(dir_path):    
 
-    for d in filter(lambda s : not s.startswith("."),os.listdir(dir_path)):        
-        kb_path = os.path.join(dir_path,d,"kb_reduced.owl")
-        jd = {}
+    for d in filter(lambda s : not s.startswith("."),os.listdir(dir_path)):   
+        json_path = os.path.join(dir_path, d, "results.json")
+        jd = dict()
+        if os.path.exists(json_path):
+            with open(json_path, 'r') as f:
+                jd = json.load(f)
+
+        kb_path = os.path.join(dir_path,d,"kb_reduced.owl")        
         P,N = read_examples(os.path.join(dir_path,d))
-        start = time.time()
-        quality, c = run_evo(kb_path,P,N, timeout=300)
-        end = time.time()                
-        jd["Evolearner"] = {"concept" : c, "accuracy" : quality, "time" : end-start}
-        start = time.time()
-        A = structure_from_owl(kb_path)
-        P_i = [A.indmap[x] for x in P]
-        N_i = [A.indmap[x] for x in N]
-        f = FittingALC(A, 16, P_i,N_i, op=frozenset([OP.ALL, OP.EX, OP.OR, OP.AND, OP.NEG, OP.LE, OP.GE]),workers=8, max_q=5)
-        a, k, sol = f.solve_incr(16)
-        end = time.time()
-        jd["ALCSAT"] = {"concept" : sol.to_dl_concept(), "accuracy" : a, "time" : end-start}
-        f = open(os.path.join(dir_path, d, "results.json"), "w")
+
+        if not "TDL" in jd.keys():
+            start = time.time()
+            quality, c = run_tdl(kb_path,P,N, timeout=300) 
+            end = time.time()
+            jd["TDL"] = {"concept" : c, "accuracy" : quality, "time" : end-start}
+
+        if not "Evolearner" in jd.keys():
+            start = time.time()
+            quality, c = run_evo(kb_path,P,N, timeout=300)
+            end = time.time()                
+            jd["Evolearner"] = {"concept" : c, "accuracy" : quality, "time" : end-start}
+        
+        if not "ALCSAT" in jd.keys():
+            start = time.time()
+            A = structure_from_owl(kb_path)
+            P_i = [A.indmap[x] for x in P]
+            N_i = [A.indmap[x] for x in N]
+            f = FittingALC(A, 16, P_i,N_i, op=frozenset([OP.ALL, OP.EX, OP.OR, OP.AND, OP.NEG, OP.LE, OP.GE]),workers=8, max_q=10)
+            a, k, sol = f.solve_incr_approx(16)
+            end = time.time()
+            jd["ALCSAT"] = {"concept" : sol.to_dl_concept(), "accuracy" : a, "time" : end-start}
+
+        f = open(json_path, 'w')
         json.dump(jd, f)
-        f.close() 
+        f.close()
 
 def alcq_benchmarks_to_csv(dir_path):
     rows = []
@@ -700,9 +716,9 @@ def test_clustering():
     a, k, sol = f.solve_incr_approx(7)
     
 def main():
-    examples_from_bisim(sys.argv[1], sys.argv[2], n_ex = 100)
-    examples_from_bisim_evo(sys.argv[2])
-    alcq_benchmarks_to_csv(sys.argv[2])
+    examples_from_bisim(sys.argv[1], sys.argv[2], n_ex = 100, max_datasets=3)
+    examples_from_bisim_run(sys.argv[2])
+    #alcq_benchmarks_to_csv(sys.argv[2])
     #test_evo_data_properties_write_file()
     #sml_benchmark_cross_validate("out.txt")
 
