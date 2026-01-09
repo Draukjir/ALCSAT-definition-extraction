@@ -698,6 +698,7 @@ class FittingALC:
         max_q: int = 2,
         bisim_reduction: bool = True,
         clustering: ThresholdMethod = ThresholdMethod.INTERVALS,
+        max_thresholds: int = 10
     ):
         self.max_k: int = max_k
         self.inst: Instance = Instance(
@@ -706,6 +707,7 @@ class FittingALC:
         self.workers: int = workers
         self.clustering = clustering
         self.bisim_reduction = bisim_reduction
+        self.max_thresholds = max_thresholds
 
     def solve(self):
         acc, _, _ = self.solve_incr(self.max_k, self.max_k)
@@ -739,7 +741,7 @@ class FittingALC:
 
         if OP.DGEQ in self.inst.op:
             self.inst, reverse_data_mapping = encode_dataproperties(
-                self.inst, clustering=self.clustering, max_k=self.max_k
+                self.inst, clustering=self.clustering, max_k=self.max_k, max_thresholds=self.max_thresholds
             )
 
         if self.bisim_reduction:

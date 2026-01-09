@@ -76,8 +76,10 @@ def pick_data_intervals(
     for p, values in ranges.items():
         if values == {True, False}:
             result[p] = [True]
-        elif len(values) <= 10:
+        elif len(values) <= max_thresholds:
             result[p] = list(values)
+        elif max_thresholds == 0:
+            result[p] = []
         else:
             thresholds: list[Any] = list()
             vs = list(values)
