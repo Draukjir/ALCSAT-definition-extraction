@@ -1,12 +1,11 @@
 from ontolearn.metrics import F1
-from ontolearn.concept_learner import EvoLearner
 from owlapy.render import DLSyntaxObjectRenderer, ManchesterOWLSyntaxOWLObjectRenderer
 from owlapy.owl_individual import OWLNamedIndividual
 from ontolearn.learning_problem import PosNegLPStandard
 from sklearn.model_selection import StratifiedKFold
 from ontolearn.utils.static_funcs import compute_f1_score
 import time
-from ontolearn.learners import TDL
+from ontolearn.learners import TDL, EvoLearner
 from ontolearn.knowledge_base import KnowledgeBase
 from spell.fitting import determine_relevant_symbols
 import sys
@@ -50,6 +49,7 @@ def sml_benchmark_cross_validate(resultpath: str):
             "nctrer",
             "premierleague",
             "pyrimidine",
+            "suramin"
         ]:
             owlfile = f"../sml-benchmarks/{bench}/{bench}.owl"
             pos_path = f"../sml-benchmarks/{bench}/full/pos.txt"
@@ -122,6 +122,7 @@ def sml_benchmark_cross_validate(resultpath: str):
                     knowledge_base=KnowledgeBase(path=owlfile),
                     quality_func=F1(),
                     max_runtime=300,
+                    card_limit=3
                 )
                 pred_evo = evolearner.fit(train_lp).best_hypotheses()
                 rt_evo = time.time() - start_time

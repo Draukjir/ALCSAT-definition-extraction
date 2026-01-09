@@ -19,6 +19,7 @@ L_OP = {
     "alci": [OP.ALL, OP.EX, OP.OR, OP.AND, OP.NEG, OP.INV],
     "alcq": [OP.ALL, OP.EX, OP.OR, OP.AND, OP.NEG, OP.LE, OP.GE],
     "alcqi": [OP.ALL, OP.EX, OP.OR, OP.AND, OP.NEG, OP.LE, OP.GE, OP.INV],
+    "alcqf": [OP.ALL, OP.EX, OP.OR, OP.AND, OP.NEG, OP.LE, OP.GE, OP.DGEQ],
 }
 
 
@@ -38,7 +39,7 @@ def main():
     _ = parser.add_argument(
         "--language",
         type=str,
-        default="alcq",
+        default="alcqf",
         choices=LANGUAGES,
         help="language to learn in, el: {exists, and}, el_alcsat: {exists, and}, fl0: {forall, and}, ex-or: {exists, or}, all-or: {forall, or}, elu: {exists, and, or}, alc: {forall, exists, and, or, neg}, alcq: {forall, exists, and, or, neg, le, ge} (default=alcq)",
     )

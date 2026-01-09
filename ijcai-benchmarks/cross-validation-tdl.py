@@ -48,6 +48,7 @@ def sml_benchmark_cross_validate(resultpath: str):
             "nctrer",
             "premierleague",
             "pyrimidine",
+            "suramin"
         ]:
             owlfile = f"../sml-benchmarks/{bench}/{bench}.owl"
             pos_path = f"../sml-benchmarks/{bench}/full/pos.txt"

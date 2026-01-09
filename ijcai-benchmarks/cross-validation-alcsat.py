@@ -73,14 +73,15 @@ def sml_benchmark_cross_validate(resultpath: str, tm: ThresholdMethod):
     with open(resultpath, mode="w") as outfile:
         _ = outfile.write("bench, fold, acc, f1, size, evo_size, concept\n")
         for bench in [
-            # "carcinogenesis",
-            # "hepatitis",
-            # "lymphography",
-            # "mammographic",
-            # "mutagenesis",
+            "carcinogenesis",
+            "hepatitis",
+            "lymphography",
+            "mammographic",
+            "mutagenesis",
             "nctrer",
             "premierleague",
             "pyrimidine",
+            "suramin"
         ]:
             owlfile = f"../sml-benchmarks/{bench}/{bench}.owl"
             pospath = f"../sml-benchmarks/{bench}/full/pos.txt"
