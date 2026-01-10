@@ -1,80 +1,125 @@
+from spell.preprocessing import restrict_neighborhood, bisimulation_reduction, encode_inverses, ThresholdMethod, encode_dataproperties
+from spell.fitting import non_empty_symbols, determine_relevant_symbols
+from spell.instance import Instance, OP
 import time
 from alcsat import L_OP
 from spell.structures import structure_from_owl
 from spell.fitting_alc import FittingALC
 
 
+def sizes(A, P, N, max_k, ops, max_q):
+
+    sigma = non_empty_symbols(A)
+
+    inst = Instance(A, P, N, sigma, ops, max_q)
+
+    if OP.INV in inst.op:
+        inst, _ = encode_inverses(inst)
+
+    inst.sigma = determine_relevant_symbols(
+        inst.A, inst.P + inst.N, 1, max_k - 1
+    )
+
+    inst = restrict_neighborhood(inst, max_k)
+
+    if OP.DGEQ in inst.op:
+        inst, reverse_data_mapping = encode_dataproperties(
+            inst, clustering=ThresholdMethod.INTERVALS, max_k=max_k, max_thresholds=10
+        )
+
+    
+    size_before = inst.A.max_ind
+
+    inst = bisimulation_reduction(inst, max_k)
+
+    size_after = inst.A.max_ind
+
+    return size_before, size_after
+
 def main():
-    workers = [8]
     runs = 3
     benchmarks = ["mammographic", "hepatitis", "lymphography"]
     max_k = 8
-    language = "alc"
+    languages = ["alc", "alcf", "alcqf", "alcqif"]
+    workers = 8
+    max_q = 2
 
-    factors = {}
-    for benchmark in benchmarks:
-        factors[benchmark] = []
+    outfile = "bisimulation-2026-01-10.txt"
 
-        A = structure_from_owl(f"../sml-benchmarks/{benchmark}/{benchmark}.owl")
-        pospath = f"../sml-benchmarks/{benchmark}/full/pos.txt"
-        negpath = f"../sml-benchmarks/{benchmark}/full/neg.txt"
+    with open(outfile, mode="w") as outfile:
+        _ = outfile.write("language, benchmark, time_without, time_with, size_without, size_with\n")
+        for language in languages:
+            for benchmark in benchmarks:
 
-        P: list[int] = []
-        with open(pospath, encoding="UTF-8") as file:
-            for line in file.readlines():
-                ind = line.rstrip()
-                P.append(A.indmap[ind])
+                A = structure_from_owl(f"../sml-benchmarks/{benchmark}/{benchmark}.owl")
+                pospath = f"../sml-benchmarks/{benchmark}/full/pos.txt"
+                negpath = f"../sml-benchmarks/{benchmark}/full/neg.txt"
 
-        N: list[int] = []
-        with open(negpath, encoding="UTF-8") as file:
-            for line in file.readlines():
-                ind = line.rstrip()
-                N.append(A.indmap[ind])
+                P: list[int] = []
+                with open(pospath, encoding="UTF-8") as file:
+                    for line in file.readlines():
+                        ind = line.rstrip()
+                        P.append(A.indmap[ind])
 
-        for run in range(runs):
-            start = time.perf_counter()
+                N: list[int] = []
+                with open(negpath, encoding="UTF-8") as file:
+                    for line in file.readlines():
+                        ind = line.rstrip()
+                        N.append(A.indmap[ind])
 
-            f = FittingALC(
-                A,
-                max_k,
-                P,
-                N,
-                op=frozenset(L_OP[language]),
-                workers=8,
-                max_q=2,
-                bisim_reduction=False,
-            )
+                time_with_reduction = []
+                time_without_reduction = []
 
-            acc, _, _ = f.solve_incr_approx(max_k)
+                full_size, reduced_size = sizes(A, P, N, max_k, frozenset(L_OP[language]), max_q)
 
-            end = time.perf_counter()
+                for run in range(runs):
+                    start = time.perf_counter()
 
-            print("==== TOOK {}".format(end - start))
-            t1 = end - start
+                    f = FittingALC(
+                        A,
+                        max_k,
+                        P,
+                        N,
+                        op=L_OP[language],
+                        workers=workers,
+                        max_q=max_q,
+                        bisim_reduction=False,
+                    )
 
-            start = time.perf_counter()
-            f = FittingALC(
-                A,
-                max_k,
-                P,
-                N,
-                op=frozenset(L_OP[language]),
-                workers=8,
-                max_q=2,
-                bisim_reduction=True,
-            )
+                    acc, _, _ = f.solve_incr_approx(max_k)
 
-            acc, _, _ = f.solve_incr_approx(max_k)
+                    end = time.perf_counter()
 
-            end = time.perf_counter()
+                    print("==== TOOK {}".format(end - start))
+                    t1 = end - start
+                    time_without_reduction.append(t1)
 
-            print("==== TOOK {}".format(end - start))
-            t2 = end - start
+                    start = time.perf_counter()
+                    f = FittingALC(
+                        A,
+                        max_k,
+                        P,
+                        N,
+                        op=L_OP[language],
+                        workers=workers,
+                        max_q=max_q,
+                        bisim_reduction=True,
+                    )
 
-            factors[benchmark].append(t2 / t1)
+                    acc, _, _ = f.solve_incr_approx(max_k)
 
-    for benchmark in benchmarks:
-        print(f"Benchmark {benchmark} : {sum(factors[benchmark]) / runs}s ")
+                    end = time.perf_counter()
+
+                    print("==== TOOK {}".format(end - start))
+                    t2 = end - start
+
+                    time_with_reduction.append(t2)
+
+                tw = sum(time_with_reduction) / runs
+                two = sum(time_without_reduction) / runs
+                outfile.write(f"{language}, {benchmark}, {two}, {tw}, {full_size}, {reduced_size}\n")
+                outfile.flush()
+                print(f"Language {language} Benchmark {benchmark} : {two}s {tw}s")
 
 
 if __name__ == "__main__":

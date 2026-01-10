@@ -5,7 +5,7 @@ from spell.fitting_alc import FittingALC
 
 
 def main():
-    workers = [1, 2, 4, 8]
+    workers = [1, 2, 4, 8, 16]
     runs = 3
     benchmarks = ["mammographic", "hepatitis", "lymphography"]
 
@@ -38,7 +38,7 @@ def main():
                     8,
                     P,
                     N,
-                    op=frozenset(L_OP["alc"]),
+                    op=L_OP["alc"],
                     workers=w,
                     max_q=2,
                 )

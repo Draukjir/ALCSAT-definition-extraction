@@ -16,9 +16,12 @@ L_OP = {
     "all-or": [OP.ALL, OP.OR],
     "elu": [OP.EX, OP.OR, OP.AND],
     "alc": [OP.ALL, OP.EX, OP.OR, OP.AND, OP.NEG],
+    "alcf": [OP.ALL, OP.EX, OP.OR, OP.AND, OP.NEG, OP.DGEQ],
     "alci": [OP.ALL, OP.EX, OP.OR, OP.AND, OP.NEG, OP.INV],
+    "alcif": [OP.ALL, OP.EX, OP.OR, OP.AND, OP.NEG, OP.INV, OP.DGEQ],
     "alcq": [OP.ALL, OP.EX, OP.OR, OP.AND, OP.NEG, OP.LE, OP.GE],
     "alcqi": [OP.ALL, OP.EX, OP.OR, OP.AND, OP.NEG, OP.LE, OP.GE, OP.INV],
+    "alcqif": [OP.ALL, OP.EX, OP.OR, OP.AND, OP.NEG, OP.LE, OP.GE, OP.INV, OP.DGEQ],
     "alcqf": [OP.ALL, OP.EX, OP.OR, OP.AND, OP.NEG, OP.LE, OP.GE, OP.DGEQ],
 }
 
