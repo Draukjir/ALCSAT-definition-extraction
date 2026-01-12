@@ -1,3 +1,5 @@
+from ontolearn.triple_store import OWLDataHasValue
+from owlapy.class_expression import OWLClassExpression, OWLClass, OWLObjectUnionOf, OWLObjectIntersectionOf, OWLRestriction, OWLObjectMinCardinality, OWLObjectMaxCardinality, OWLObjectExactCardinality, OWLObjectSomeValuesFrom, OWLObjectAllValuesFrom, OWLObjectComplementOf, OWLDatatypeRestriction, OWLDataSomeValuesFrom
 import json
 import os
 import sys
@@ -116,6 +118,35 @@ def run_tdl(kb_path, P, N, timeout=10):
 
 
 
+def owl_concept_size(c : OWLClassExpression) -> int:
+    if c.is_owl_nothing():
+        return 1
+    if c.is_owl_thing():
+        return 1
+    if isinstance(c, OWLClass):
+        return 1
+    if isinstance(c, OWLNamedIndividual):
+        return 1
+    if isinstance(c, OWLObjectUnionOf) or isinstance(c, OWLObjectIntersectionOf):
+        return 1 + sum(owl_concept_size(d) for d in c.operands())
+    if isinstance(c, OWLObjectComplementOf):
+        return 1 + owl_concept_size(c.get_operand())
+    if isinstance(c, OWLObjectMinCardinality):
+        return 1 + owl_concept_size(c.get_filler())
+    if isinstance(c, OWLObjectMaxCardinality):
+        return 1 + owl_concept_size(c.get_filler())
+    if isinstance(c, OWLObjectExactCardinality):
+        return 1 + owl_concept_size(c.get_filler())
+    if isinstance(c, OWLObjectSomeValuesFrom):
+        return 1 + owl_concept_size(c.get_filler())
+    if isinstance(c, OWLObjectAllValuesFrom):
+        return 1 + owl_concept_size(c.get_filler())
+    if isinstance(c, OWLDataHasValue):
+        return 1
+    if isinstance(c, OWLDataSomeValuesFrom):
+        return 1
+    print(c)
+    return 0
 
 
 def read_examples_from_json(path):

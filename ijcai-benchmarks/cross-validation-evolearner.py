@@ -15,7 +15,7 @@ from spell.preprocessing import ThresholdMethod
 import random
 from spell.instance import Instance, OP
 import numpy as np
-
+from alc_benchmarks.ontolearn_benchmark import owl_concept_size
 
 def size(concept) -> int:
     rd = ManchesterOWLSyntaxOWLObjectRenderer()
@@ -145,7 +145,7 @@ def sml_benchmark_cross_validate(resultpath: str):
                 render = DLSyntaxObjectRenderer()
 
                 _ = outfile.write(
-                    f"{bench}, {ith}, {test_acc}, {test_f1_evo}, {size(pred_evo)}, {size(pred_evo)}, {render.render(pred_evo)} \n"
+                    f"{bench}, {ith}, {test_acc}, {test_f1_evo}, {owl_concept_size(pred_evo)}, {size(pred_evo)}, {render.render(pred_evo)} \n"
                 )
                 outfile.flush()
 
