@@ -529,15 +529,20 @@ def convertCsv(files):
 
 def components(v : set[int], e : set[int,int]):
     components = []
-    while v:
+    while len(v) != 0:
         c = set()
         x = v.pop()
         c.add(x)
-        for y,z in e:
-            if x == y:
-                if z in v:                
-                    v.remove(z)
-                c.add(z)
+        change = True
+        while change:    
+            change = False
+            for y,z in e:                
+                if y in c:
+                    if z in v:                
+                        v.remove(z)
+                    if z not in c:
+                        c.add(z)
+                        change = True
         components.append(c)
     return components
 
@@ -569,17 +574,19 @@ def alcq_examples_from_bisim(A: Structure, n_ex=10):
     #                 e = random.sample(e, pos_len)
     #             yield e, [a]
 
-    for k in classes:
-        v = classes_alc[k]
+    for i in range(0,len(classes),2):
+    #for k in classes:        
+        v = classes_alc[classes[i]] + classes_alc[classes[i+1]]
         vert = set(v)
-        edg = set([(x,y) for x in v for y in v if color_alcq[x] == color_alcq[y]])
-        comp = components(vert, edg)
-        P = [x.pop() for i,x in enumerate(comp[:len(comp)//2]) if i < n_ex]
-        N = [x.pop() for i,x in enumerate(comp[len(comp)//2:]) if i < n_ex]
+        edg = set([(x,y) for x in v for y in v if color_alcq[x] == color_alcq[y]])        
+        comp = components(vert, edg)    
+        print(len(comp))
+        P = [x.pop() for i,x in enumerate(comp[:len(comp)//2]) if i < n_ex]        
+        N = [x.pop() for i,x in enumerate(comp[len(comp)//2:]) if i < n_ex]        
         if len(P) > 0 and len(N) > 0:
             yield P,N
 
-def reduce_size_by_examples2(A: Structure, P, N, k, dest=None):
+def reduce_size_by_examples2(A: Structure, P, N, k, dest=None):    
     P = list(map(lambda n: map_ind_name(A, n), P))
     N = list(map(lambda n: map_ind_name(A, n), N))
     B, m = restrict_to_neighborhood(k - 1, A, P + N)
@@ -595,12 +602,14 @@ def write_examples(P, N, path):
         f.writelines(map(lambda x: f"{x}\n", N))
 
 
-def examples_from_bisim(kb_path, output_dir, n_ex = 10, max_datasets = 100):
+def examples_from_bisim(kb_path, output_dir, n_ex = 10, max_datasets = -1):
+    if not os.path.exists(output_dir):
+        os.mkdir(output_dir)
     A = structure_from_owl(kb_path)    
     ind_map_inv = {v: k for k, v in A.indmap.items()}  
     i=1
     for P, N in alcq_examples_from_bisim(A, n_ex=n_ex):        
-        if i > max_datasets:
+        if i > max_datasets and not max_datasets == -1:
             break
         #f = FittingALC(
         #    A,
@@ -615,7 +624,7 @@ def examples_from_bisim(kb_path, output_dir, n_ex = 10, max_datasets = 100):
         #if a > 0 and k > 5:
         P_s = [ind_map_inv[x] for x in P]
         N_s = [ind_map_inv[x] for x in N]
-        dest_dir = os.path.join(output_dir, f"{str(i)}")
+        dest_dir = os.path.join(output_dir, f"{len(P_s)+len(N_s)}ex-{str(i)}")
         os.mkdir(dest_dir)
         write_examples(P_s, N_s, dest_dir)
         reduce_size_by_examples2(
@@ -635,7 +644,7 @@ def read_examples(path):
 
 def examples_from_bisim_run(dir_path):    
 
-    for d in filter(lambda s : not s.startswith("."),os.listdir(dir_path)):   
+    for d in filter(lambda s : not s.startswith(".") and os.path.isdir(os.path.join(dir_path,s)) ,os.listdir(dir_path)):   
         json_path = os.path.join(dir_path, d, "results.json")
         jd = dict()
         if os.path.exists(json_path):
@@ -646,10 +655,13 @@ def examples_from_bisim_run(dir_path):
         P,N = read_examples(os.path.join(dir_path,d))
 
         if not "TDL" in jd.keys():
-            start = time.time()
-            quality, c = run_tdl(kb_path,P,N, timeout=300) 
-            end = time.time()
-            jd["TDL"] = {"concept" : c, "accuracy" : quality, "time" : end-start}
+            try:
+                start = time.time()
+                quality, c = run_tdl(kb_path,P,N, timeout=300) 
+                end = time.time()
+                jd["TDL"] = {"concept" : c, "accuracy" : quality, "time" : end-start}
+            except ValueError:
+                jd["TDL"] = {"concept" : "None", "accuracy" : 0, "time" : -1}
 
         if not "Evolearner" in jd.keys():
             start = time.time()
@@ -663,7 +675,7 @@ def examples_from_bisim_run(dir_path):
             P_i = [A.indmap[x] for x in P]
             N_i = [A.indmap[x] for x in N]
             f = FittingALC(A, 16, P_i,N_i, op=frozenset([OP.ALL, OP.EX, OP.OR, OP.AND, OP.NEG, OP.LE, OP.GE]),workers=8, max_q=10)
-            a, k, sol = f.solve_incr_approx(16)
+            a, k, sol = f.solve_incr_approx(16,timeout=300)
             end = time.time()
             jd["ALCSAT"] = {"concept" : sol.to_dl_concept(), "accuracy" : a, "time" : end-start}
 
@@ -673,17 +685,56 @@ def examples_from_bisim_run(dir_path):
 
 def alcq_benchmarks_to_csv(dir_path):
     rows = []
-    for d in filter(lambda s : not s.startswith("."),os.listdir(dir_path)):            
+    dirs = sorted(filter(lambda s : not s.startswith(".") and os.path.isdir(os.path.join(dir_path,s)) ,os.listdir(dir_path)),reverse = True)
+    avg_alcsat = defaultdict(int)
+    avg_evo = defaultdict(int)
+    avg_tdl = defaultdict(int) 
+    n_ex_sets = defaultdict(int) 
+    for d in dirs:            
         P,N = read_examples(os.path.join(dir_path,d))
-        m = len(P) + len(N)
+        m = len(P) + len(N)        
         os.path.join(dir_path, d, "results.json")
         f = open(os.path.join(dir_path, d, "results.json"),'r')
         d = json.load(f)
-        rows.append([m, d["ALCSAT"]["accuracy"], d["Evolearner"]["accuracy"], d["ALCSAT"]["time"], d["Evolearner"]["time"]])
+        avg_alcsat[m] += d["ALCSAT"]["accuracy"]
+        avg_evo[m] += d["Evolearner"]["accuracy"]
+        avg_tdl[m] += d["TDL"]["accuracy"]
+        n_ex_sets[m] += 1
+        rows.append([m, d["ALCSAT"]["accuracy"], d["Evolearner"]["accuracy"],d["TDL"]["accuracy"], d["ALCSAT"]["time"], d["Evolearner"]["time"],d["TDL"]["time"]])
         f.close()
 
-    df = pd.DataFrame(rows,columns = ['m', 'a_alcsat', 'a_evo', 't_alcsat', 't_evo'])
-    df.to_csv(os.path.join(dir_path, "data.csv"))
+    df_avg_val = []
+    for m in n_ex_sets.keys():
+        df_avg_val.append([m,avg_alcsat[m]/n_ex_sets[m],avg_evo[m]/n_ex_sets[m], avg_tdl[m]/n_ex_sets[m]])
+
+    df_avg = pd.DataFrame(df_avg_val, columns = ['m', 'a_avg_alcsat', 'a_avg_evo', 'a_avg_tdl'])
+    df_avg.to_csv(os.path.join(dir_path, "data_avg.csv"), index = False)
+
+    df = pd.DataFrame(rows,columns = ['m', 'a_alcsat', 'a_evo', 'a_tdl', 't_alcsat', 't_evo', 't_tdl'])
+    df.to_csv(os.path.join(dir_path, "data.csv"), index = False)
+
+import pandas as pd
+
+def alcq_combine_csvs(path1, path2, out_path):
+    df1 = pd.read_csv(path1)
+    df2 = pd.read_csv(path2)
+    
+    data = []
+    for index in set(df1.index.union(df2.index)):                
+        if index in df1.index and index in df2.index:
+            data.append([index, (df1.loc[index, 'a_avg_alcsat'] + df2.loc[index, 'a_avg_alcsat'])/2 ])
+        elif index in df1.index:
+            data.append([index, df1.loc[index, 'a_avg_alcsat']])        
+        elif index in df2.index:
+            data.append([index, df2.loc[index, 'a_avg_alcsat']])        
+
+    
+    data_cols = ["m", "a_avg_alcsat"]#, "a_avg_evo", "a_avg_tdl"]
+
+    df = pd.DataFrame(data, columns= data_cols)
+
+    # Write CSV
+    df.to_csv(out_path, index=False)
 
 
 def test_evo_data_properties_write_file():
@@ -715,10 +766,45 @@ def test_clustering():
     f = FittingALC(A, 16, P,N, op=frozenset([OP.ALL, OP.EX, OP.OR, OP.AND, OP.NEG, OP.LE, OP.GE, OP.DGEQ]),workers=8, max_q=5, clustering = 1)
     a, k, sol = f.solve_incr_approx(7)
     
+def tmp(dir_path):
+    k = 0
+    for d in filter(lambda s : not s.startswith(".") and os.path.isdir(os.path.join(dir_path,s)) ,os.listdir(dir_path)):   
+        json_path = os.path.join(dir_path, d, "results.json")
+        jd = dict()
+        if os.path.exists(json_path):
+            with open(json_path, 'r') as f:
+                jd = json.load(f)
+        if jd["TDL"]["concept"] == "None":
+            k +=1
+    print(k)
+
+def combine_bisim_exampels(kb_path,dir_path, dest_dir):
+    if not os.path.exists(dest_dir):
+        os.mkdir(dest_dir)
+    dirs = sorted(filter(lambda s : not s.startswith(".") and os.path.isdir(os.path.join(dir_path,s)) ,os.listdir(dir_path)),reverse = True)
+    for i in range(0,len(dirs)-1):
+        P1,N1 = read_examples(os.path.join(dir_path,dirs[i]))
+        P2,N2 = read_examples(os.path.join(dir_path,dirs[i+1]))
+        P = P1 + P2
+        N = N1 + N2
+        d_dir = os.path.join(dest_dir, f"{len(P)+len(N)}ex-{str(i)}" )
+        os.mkdir(d_dir)
+        write_examples(P,N, os.path.join(d_dir))
+        A = structure_from_owl(kb_path)
+        ind_map_inv = {v: k for k, v in A.indmap.items()}
+        #P_s = [ind_map_inv[x] for x in P]
+        #N_s = [ind_map_inv[x] for x in N]
+        reduce_size_by_examples2(
+            A, P, N, 16, dest=os.path.join(dest_dir, d_dir,"kb_reduced.owl")
+        )
+
+
 def main():
-    examples_from_bisim(sys.argv[1], sys.argv[2], n_ex = 100, max_datasets=3)
-    examples_from_bisim_run(sys.argv[2])
-    #alcq_benchmarks_to_csv(sys.argv[2])
+    #examples_from_bisim(sys.argv[1], sys.argv[2], n_ex = 100)
+    #examples_from_bisim_run(sys.argv[2])    
+    #combine_bisim_exampels(sys.argv[1], sys.argv[2],sys.argv[3])
+    alcq_benchmarks_to_csv(sys.argv[2])
+    #alcq_combine_csvs(sys.argv[1], sys.argv[2],sys.argv[3])
     #test_evo_data_properties_write_file()
     #sml_benchmark_cross_validate("out.txt")
 
