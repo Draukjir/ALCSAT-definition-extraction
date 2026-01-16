@@ -23,7 +23,7 @@ pd.set_option("display.float_format", "{:.4f}".format)
 print(results)
 
 
-for f in ["acc", "evo_size", "f1"]:
+for f in ["acc", "size", "f1"]:
     for i in range(len(results[f]["mean"])):
         print(
             "${:.2f} \\pm  {:.2f}$ & ".format(
