@@ -1,4 +1,6 @@
 from ontolearn.triple_store import OWLDataHasValue
+from ontolearn.metrics import F1
+from ontolearn.utils.static_funcs import compute_f1_score
 from owlapy.class_expression import OWLClassExpression, OWLClass, OWLObjectUnionOf, OWLObjectIntersectionOf, OWLRestriction, OWLObjectMinCardinality, OWLObjectMaxCardinality, OWLObjectExactCardinality, OWLObjectSomeValuesFrom, OWLObjectAllValuesFrom, OWLObjectComplementOf, OWLDatatypeRestriction, OWLDataSomeValuesFrom
 import json
 import os
@@ -83,38 +85,79 @@ def run_celoe(kb_path, P, N):
     print(f"Total time: {end - start + kb_parse_time} seconds")
     return prediction.quality, rdr.render(prediction.concept)
 
+def accuracy(individuals, pos, neg):
+    tp = 0
+    tn = 0
 
-def run_evo(kb_path, P, N, timeout = 10):    
+    for p in pos:
+        if p in individuals:
+            tp += 1
+
+    for n in neg:
+        if n not in individuals:
+            tn += 1
+
+    return (tp + tn) / (len(pos) + len(neg))
+
+def run_evo(kb_path, P, N, timeout = 10, card_limit = 3, f1 = False):    
     kb = KnowledgeBase(path=kb_path)    
     
     typed_pos = set(map(OWLNamedIndividual, map(IRI.create, P)))
     typed_neg = set(map(OWLNamedIndividual, map(IRI.create, N)))
-    lp = PosNegLPStandard(pos=typed_pos, neg=typed_neg)        
+    lp = PosNegLPStandard(pos=typed_pos, neg=typed_neg)     
+    
+    qf = Accuracy()
+    if f1:
+        qf = F1()
+
     model = EvoLearner(
         knowledge_base=kb,
         max_runtime=timeout,        
         use_card_restrictions=True,
-        use_data_properties=True,        
+        use_data_properties=True,   
+        card_limit=card_limit,
+        quality_func=qf
     )
     model.fit(lp, verbose=True)
 
-    prediction = model.best_hypotheses(1, return_node=True)
-    rdr = DLSyntaxObjectRenderer()
-    return prediction.quality, rdr.render(prediction.concept)
+    prediction = model.best_hypotheses(1)  
+    rdr = DLSyntaxObjectRenderer()    
+    c = rdr.render(prediction)
+    if not f1:
+        pred = model.best_hypotheses(1, return_node=True)  
+        r = pred.quality
+    else:
+        r = compute_f1_score(
+                    individuals=frozenset({i for i in kb.individuals(prediction)}),
+                    pos=lp.pos,
+                    neg=lp.neg
+                )
+    return r, c , owl_concept_size(prediction) 
 
 def run_tdl(kb_path, P, N, timeout=10):
     kb = KnowledgeBase(path=kb_path)    
+
+    lp = PosNegLPStandard(
+                    pos={OWLNamedIndividual(i) for i in P},
+                    neg={OWLNamedIndividual(i) for i in N},
+                )
     
-    typed_pos = set(map(OWLNamedIndividual, map(IRI.create, P)))
-    typed_neg = set(map(OWLNamedIndividual, map(IRI.create, N)))
-    lp = PosNegLPStandard(pos=typed_pos, neg=typed_neg)        
+    # typed_pos = set(map(OWLNamedIndividual, map(IRI.create, P)))
+    # typed_neg = set(map(OWLNamedIndividual, map(IRI.create, N)))
+    # lp = PosNegLPStandard(pos=typed_pos, neg=typed_neg)        
     model = TDL(knowledge_base=kb, max_runtime=timeout, use_nominals=False)
-    model.fit(lp)    
+    model.fit(lp)        
 
     prediction = model.best_hypotheses(1)    
-    rdr = DLSyntaxObjectRenderer()
-    print(rdr.render(prediction))
-    return 0, rdr.render(prediction)
+    f1 = compute_f1_score(
+                    individuals=frozenset({i for i in kb.individuals(prediction)}),
+                    pos=lp.pos,
+                    neg=lp.neg
+                )
+    rdr = DLSyntaxObjectRenderer()    
+    c = rdr.render(prediction)
+    a = accuracy(frozenset({i for i in kb.individuals(prediction)}), lp.pos, lp.neg)    
+    return a,  c , owl_concept_size(prediction), f1
 
 
 

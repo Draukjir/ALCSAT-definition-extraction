@@ -5,7 +5,7 @@ import pandas as pd
 csv.field_size_limit(sys.maxsize)
 
 # Path to your file
-file_path = "out-2026-01-09-bot.txt"
+file_path = "out-intervall-2026-01-16.txt"
 
 # Read CSV-like text file (comma-separated)
 df = pd.read_csv(file_path, sep=",", engine="python", skipinitialspace=True)
@@ -13,7 +13,7 @@ df = pd.read_csv(file_path, sep=",", engine="python", skipinitialspace=True)
 print(df.groupby("bench"))
 
 # Select only relevant columns
-metrics = ["acc", "f1", "evo_size"]
+metrics = ["acc", "f1", "size"]
 
 # Compute mean and standard deviation per benchmark
 results = df.groupby("bench")[metrics].agg(["mean", "std"])

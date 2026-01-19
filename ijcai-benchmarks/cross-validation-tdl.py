@@ -160,7 +160,6 @@ def sml_benchmark_cross_validate(resultpath: str):
                 print(f"TDL Train Quality: {train_f1_tdl:.3f}", end="\t")
                 print(f"TDL Test Quality: {test_f1_tdl:.3f}", end="\t")
                 print(f"TDL Runtime: {rt_tdl:.3f}")
-                return
 
 
 def main():

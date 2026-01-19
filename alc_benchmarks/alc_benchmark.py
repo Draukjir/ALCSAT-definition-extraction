@@ -642,8 +642,7 @@ def read_examples(path):
             N = list(map(lambda s: s.rstrip(),f.readlines()))
         return P,N
 
-def examples_from_bisim_run(dir_path):    
-
+def examples_from_bisim_run(dir_path, overwrite_all = False):
     for d in filter(lambda s : not s.startswith(".") and os.path.isdir(os.path.join(dir_path,s)) ,os.listdir(dir_path)):   
         json_path = os.path.join(dir_path, d, "results.json")
         jd = dict()
@@ -654,33 +653,73 @@ def examples_from_bisim_run(dir_path):
         kb_path = os.path.join(dir_path,d,"kb_reduced.owl")        
         P,N = read_examples(os.path.join(dir_path,d))
 
-        if not "TDL" in jd.keys():
+        if not "TDL" in jd.keys() or overwrite_all:
             try:
                 start = time.time()
-                quality, c = run_tdl(kb_path,P,N, timeout=300) 
+                a, c, c_size, f1 = run_tdl(kb_path,P,N, timeout=300) 
                 end = time.time()
-                jd["TDL"] = {"concept" : c, "accuracy" : quality, "time" : end-start}
+                jd["TDL"] = {"concept" : c, "size" : c_size, "accuracy" : a, "time" : end-start, "f1" : f1}
             except ValueError:
-                jd["TDL"] = {"concept" : "None", "accuracy" : 0, "time" : -1}
+                jd["TDL"] = {"concept" : "None", "size" : -1, "accuracy" : -1, "time" : -1, "f1" : -1}
 
-        if not "Evolearner" in jd.keys():
+        if not "Evolearner" in jd.keys() or overwrite_all:
             start = time.time()
-            quality, c = run_evo(kb_path,P,N, timeout=300)
-            end = time.time()                
-            jd["Evolearner"] = {"concept" : c, "accuracy" : quality, "time" : end-start}
+            a, c, c_size = run_evo(kb_path,P,N, timeout=300, card_limit=3)
+            end = time.time()
+            a, _,_ = run_evo(kb_path,P,N, timeout=300, card_limit=3, f1 = True)
+            jd["Evolearner"] = {"concept" : c, "size" : c_size, "accuracy" : a, "time" : end-start, "f1" : a }
         
-        if not "ALCSAT" in jd.keys():
+        if not "ALCSAT" in jd.keys() or overwrite_all:
             start = time.time()
             A = structure_from_owl(kb_path)
             P_i = [A.indmap[x] for x in P]
             N_i = [A.indmap[x] for x in N]
-            f = FittingALC(A, 16, P_i,N_i, op=frozenset([OP.ALL, OP.EX, OP.OR, OP.AND, OP.NEG, OP.LE, OP.GE]),workers=8, max_q=10)
-            a, k, sol = f.solve_incr_approx(16,timeout=300)
+            f = FittingALC(A, 16, P_i,N_i, op=frozenset([OP.ALL, OP.EX, OP.OR, OP.AND, OP.NEG, OP.LE, OP.GE]),workers=8, max_q=3)
+            a, c_size, c = f.solve_incr_approx(16,timeout=300)
             end = time.time()
-            jd["ALCSAT"] = {"concept" : sol.to_dl_concept(), "accuracy" : a, "time" : end-start}
+            tp = 0
+            fp = 0
+            tn = 0
+            fn = 0
+
+            for p in P_i:
+                if c.mc(A, p):
+                    tp += 1
+                else:
+                    fn += 1
+            for n in N_i:
+                if c.mc(A, n):
+                    fp += 1
+                else:
+                    tn += 1
+
+            f1 = (2 * tp) / (2 * tp + fp + fn)
+            
+            
+            jd["ALCSAT"] = {"concept" : c.to_dl_concept(), "size" : c_size, "accuracy" : a, "time" : end-start, "f1":f1}
 
         f = open(json_path, 'w')
-        json.dump(jd, f)
+        json.dump(jd, f, indent=4)
+        f.close()
+
+def examples_from_bisim_rerunevo(dir_path, overwrite_all = False):
+    for d in filter(lambda s : not s.startswith(".") and os.path.isdir(os.path.join(dir_path,s)) ,os.listdir(dir_path)):   
+        json_path = os.path.join(dir_path, d, "results.json")
+        if os.path.exists(json_path):
+            with open(json_path, 'r') as f:
+                jd = json.load(f)
+
+        kb_path = os.path.join(dir_path,d,"kb_reduced.owl")
+        P,N = read_examples(os.path.join(dir_path,d))
+                
+        start = time.time()                
+        f1, c,c_size = run_evo(kb_path,P,N, timeout=300, card_limit=3, f1 = True)
+        end = time.time()
+        jd["EvolearnerF1"] = {"concept" : c, "size" : c_size, "f1" : f1,"time" : end-start}                
+        
+
+        f = open(json_path, 'w')
+        json.dump(jd, f, indent=4)
         f.close()
 
 def alcq_benchmarks_to_csv(dir_path):
@@ -688,29 +727,41 @@ def alcq_benchmarks_to_csv(dir_path):
     dirs = sorted(filter(lambda s : not s.startswith(".") and os.path.isdir(os.path.join(dir_path,s)) ,os.listdir(dir_path)),reverse = True)
     avg_alcsat = defaultdict(int)
     avg_evo = defaultdict(int)
-    avg_tdl = defaultdict(int) 
+    avg_tdl = defaultdict(int)
+    avg_f1_alcsat = defaultdict(int)
+    avg_f1_evo = defaultdict(int)
+    avg_f1_tdl = defaultdict(int)
+    n_ex_sets_tdl = defaultdict(int)
     n_ex_sets = defaultdict(int) 
     for d in dirs:            
         P,N = read_examples(os.path.join(dir_path,d))
-        m = len(P) + len(N)        
+        m = len(P) + len(N)
         os.path.join(dir_path, d, "results.json")
         f = open(os.path.join(dir_path, d, "results.json"),'r')
         d = json.load(f)
         avg_alcsat[m] += d["ALCSAT"]["accuracy"]
+        avg_f1_alcsat[m] += d["ALCSAT"]["f1"]
         avg_evo[m] += d["Evolearner"]["accuracy"]
-        avg_tdl[m] += d["TDL"]["accuracy"]
+        avg_f1_evo[m] += d["EvolearnerF1"]["f1"]
+        if d["TDL"]["concept"] != "None":
+            avg_tdl[m] += d["TDL"]["accuracy"]
+            avg_f1_tdl[m] += d["TDL"]["f1"]
+            n_ex_sets_tdl[m] +=1
         n_ex_sets[m] += 1
-        rows.append([m, d["ALCSAT"]["accuracy"], d["Evolearner"]["accuracy"],d["TDL"]["accuracy"], d["ALCSAT"]["time"], d["Evolearner"]["time"],d["TDL"]["time"]])
+        rows.append([m, d["ALCSAT"]["accuracy"], d["Evolearner"]["accuracy"],d["TDL"]["accuracy"], d["ALCSAT"]["time"], d["Evolearner"]["time"],d["TDL"]["time"],d["ALCSAT"]["size"],d["Evolearner"]["size"],d["TDL"]["size"],d["ALCSAT"]["f1"],d["EvolearnerF1"]["f1"],d["TDL"]["f1"]])
         f.close()
 
     df_avg_val = []
     for m in n_ex_sets.keys():
-        df_avg_val.append([m,avg_alcsat[m]/n_ex_sets[m],avg_evo[m]/n_ex_sets[m], avg_tdl[m]/n_ex_sets[m]])
+        if n_ex_sets_tdl[m] > 0:
+            df_avg_val.append([m,avg_alcsat[m]/n_ex_sets[m],avg_evo[m]/n_ex_sets[m], avg_tdl[m]/n_ex_sets_tdl[m], avg_f1_alcsat[m]/n_ex_sets[m],avg_f1_evo[m]/n_ex_sets[m], avg_f1_tdl[m]/n_ex_sets_tdl[m]])
+        else:
+            df_avg_val.append([m,avg_alcsat[m]/n_ex_sets[m],avg_evo[m]/n_ex_sets[m], -1,avg_f1_alcsat[m]/n_ex_sets[m],avg_f1_evo[m]/n_ex_sets[m], -1])
 
-    df_avg = pd.DataFrame(df_avg_val, columns = ['m', 'a_avg_alcsat', 'a_avg_evo', 'a_avg_tdl'])
+    df_avg = pd.DataFrame(df_avg_val, columns = ['m', 'a_avg_alcsat', 'a_avg_evo', 'a_avg_tdl','f_avg_alcsat', 'f_avg_evo', 'f_avg_tdl'])
     df_avg.to_csv(os.path.join(dir_path, "data_avg.csv"), index = False)
 
-    df = pd.DataFrame(rows,columns = ['m', 'a_alcsat', 'a_evo', 'a_tdl', 't_alcsat', 't_evo', 't_tdl'])
+    df = pd.DataFrame(rows,columns = ['m', 'a_alcsat', 'a_evo', 'a_tdl', 't_alcsat', 't_evo', 't_tdl', 's_alcsat', 's_evo', 's_tdl','f_alcsat', 'f_evo', 'f_tdl'])
     df.to_csv(os.path.join(dir_path, "data.csv"), index = False)
 
 import pandas as pd
@@ -778,7 +829,7 @@ def tmp(dir_path):
             k +=1
     print(k)
 
-def combine_bisim_exampels(kb_path,dir_path, dest_dir):
+def combine_bisim_examples(kb_path,dir_path, dest_dir):
     if not os.path.exists(dest_dir):
         os.mkdir(dest_dir)
     dirs = sorted(filter(lambda s : not s.startswith(".") and os.path.isdir(os.path.join(dir_path,s)) ,os.listdir(dir_path)),reverse = True)
@@ -798,12 +849,36 @@ def combine_bisim_exampels(kb_path,dir_path, dest_dir):
             A, P, N, 16, dest=os.path.join(dest_dir, d_dir,"kb_reduced.owl")
         )
 
+def combine_bisim_examples2(kb_path,dir_path, dest_dir, max_per_size = 5):
+    if not os.path.exists(dest_dir):
+        os.mkdir(dest_dir)
+    dirs = list(filter(lambda s : not s.startswith(".") and os.path.isdir(os.path.join(dir_path,s)) ,os.listdir(dir_path)))
+    d = defaultdict(int)
+    k = 0
+    for i in range(len(dirs)):
+        for j in range(i+1,len(dirs)):            
+                P1,N1 = read_examples(os.path.join(dir_path,dirs[i]))
+                P2,N2 = read_examples(os.path.join(dir_path,dirs[j]))
+                P = P1 + P2
+                N = N1 + N2
+                if d[len(P)+len(N)] < max_per_size:
+                    d[len(P)+len(N)] += 1
+                    d_dir = os.path.join(dest_dir, f"{len(P)+len(N)}ex-{str(k)}" )
+                    os.mkdir(d_dir)
+                    write_examples(P,N, os.path.join(d_dir))
+                    A = structure_from_owl(kb_path)                    
+                    reduce_size_by_examples2(
+                        A, P, N, 32, dest=os.path.join(dest_dir, d_dir,"kb_reduced.owl")
+                    )
+                    k+=1
+
 
 def main():
     #examples_from_bisim(sys.argv[1], sys.argv[2], n_ex = 100)
-    #examples_from_bisim_run(sys.argv[2])    
-    #combine_bisim_exampels(sys.argv[1], sys.argv[2],sys.argv[3])
-    alcq_benchmarks_to_csv(sys.argv[2])
+    #examples_from_bisim_run(sys.argv[1])    
+    #examples_from_bisim_rerunevo(sys.argv[1])    
+    alcq_benchmarks_to_csv(sys.argv[1])    
+    #combine_bisim_examples2(sys.argv[1], sys.argv[2],sys.argv[3])
     #alcq_combine_csvs(sys.argv[1], sys.argv[2],sys.argv[3])
     #test_evo_data_properties_write_file()
     #sml_benchmark_cross_validate("out.txt")
