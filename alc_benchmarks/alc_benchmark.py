@@ -747,13 +747,13 @@ def alcq_benchmarks_to_csv(dir_path):
         avg_alcsat[m] += d["ALCSAT"]["accuracy"]
         avg_f1_alcsat[m] += d["ALCSAT"]["f1"]
         avg_evo[m] += d["Evolearner"]["accuracy"]
-        avg_f1_evo[m] += d["EvolearnerF1"]["f1"]
+        avg_f1_evo[m] += d["Evolearner"]["f1"]
         if d["TDL"]["concept"] != "None":
             avg_tdl[m] += d["TDL"]["accuracy"]
             avg_f1_tdl[m] += d["TDL"]["f1"]
             n_ex_sets_tdl[m] +=1
         n_ex_sets[m] += 1
-        rows.append([m, d["ALCSAT"]["accuracy"], d["Evolearner"]["accuracy"],d["TDL"]["accuracy"], d["ALCSAT"]["time"], d["Evolearner"]["time"],d["TDL"]["time"],d["ALCSAT"]["size"],d["Evolearner"]["size"],d["TDL"]["size"],d["ALCSAT"]["f1"],d["EvolearnerF1"]["f1"],d["TDL"]["f1"]])
+        rows.append([m, d["ALCSAT"]["accuracy"], d["Evolearner"]["accuracy"],d["TDL"]["accuracy"], d["ALCSAT"]["time"], d["Evolearner"]["time"],d["TDL"]["time"],d["ALCSAT"]["size"],d["Evolearner"]["size"],d["TDL"]["size"],d["ALCSAT"]["f1"],d["Evolearner"]["f1"],d["TDL"]["f1"]])
         f.close()
 
     df_avg_val = []
@@ -881,7 +881,7 @@ def combine_bisim_examples2(kb_path,dir_path, dest_dir, max_per_size = 5):
 def main():
     #dir_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "alcq_bisim_combined")
     examples_from_bisim_run(sys.argv[1], overwrite_all=True)
-    #alcq_benchmarks_to_csv(sys.argv[1])    
+    alcq_benchmarks_to_csv(sys.argv[1])    
 
 if __name__ == "__main__":
     main()
