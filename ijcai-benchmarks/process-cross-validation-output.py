@@ -5,7 +5,8 @@ import pandas as pd
 csv.field_size_limit(sys.maxsize)
 
 # Path to your file
-file_path = "out-intervall-2026-01-16.txt"
+file_path = "reproduce-table1-our-tool.txt"
+
 
 # Read CSV-like text file (comma-separated)
 df = pd.read_csv(file_path, sep=",", engine="python", skipinitialspace=True)

@@ -44,7 +44,7 @@ def main():
     workers = 8
     max_q = 2
 
-    outfile = "bisimulation-2026-01-10.txt"
+    outfile = "reproduce-table3.txt"
 
     with open(outfile, mode="w") as outfile:
         _ = outfile.write("language, benchmark, time_without, time_with, size_without, size_with\n")

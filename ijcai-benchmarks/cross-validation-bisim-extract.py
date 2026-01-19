@@ -81,8 +81,8 @@ def sml_benchmark_cross_validate(resultpath: str, tm: ThresholdMethod):
             "mutagenesis",
             "nctrer",
             "premierleague",
-            "pyrimidine",
-            "suramin"
+            "pyrimidine"#,
+            #"suramin"
         ]:
             owlfile = f"../sml-benchmarks/{bench}/{bench}.owl"
             pospath = f"../sml-benchmarks/{bench}/full/pos.txt"
@@ -130,14 +130,14 @@ def sml_benchmark_cross_validate(resultpath: str, tm: ThresholdMethod):
             )
             for fold, concept, acc, f1 in kfold(inst, 10, max_k=10, timeout=300, tm=tm):
                 _ = outfile.write(
-                    f"{bench}, {fold}, {acc}, {f1}, {concept.size()}, {concept.evo_size()}, {concept.to_dl_concept()} \n"
+                    f"{bench}, {fold}, {acc}, {f1}, {concept.size()}, {concept.evo_size()}, {concept.to_dl_concept().replace(',','')} \n"
                 )
                 outfile.flush()
 
 
 def main():
     sml_benchmark_cross_validate(
-        "out-perfect-fitting-2026-01-09.txt", ThresholdMethod.INTERVALS
+        "reproduce-table1-therorem2", ThresholdMethod.INTERVALS
     )
 
 if __name__ == "__main__":

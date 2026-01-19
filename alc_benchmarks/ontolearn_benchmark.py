@@ -99,7 +99,7 @@ def accuracy(individuals, pos, neg):
 
     return (tp + tn) / (len(pos) + len(neg))
 
-def run_evo(kb_path, P, N, timeout = 10, card_limit = 3, f1 = False):    
+def run_evo(kb_path, P, N, timeout = 10, card_limit = 3, f1 = True):    
     kb = KnowledgeBase(path=kb_path)    
     
     typed_pos = set(map(OWLNamedIndividual, map(IRI.create, P)))
@@ -123,16 +123,19 @@ def run_evo(kb_path, P, N, timeout = 10, card_limit = 3, f1 = False):
     prediction = model.best_hypotheses(1)  
     rdr = DLSyntaxObjectRenderer()    
     c = rdr.render(prediction)
-    if not f1:
-        pred = model.best_hypotheses(1, return_node=True)  
-        r = pred.quality
-    else:
-        r = compute_f1_score(
+    
+    pred = model.best_hypotheses(1, return_node=True)  
+    a = accuracy(
+         individuals=frozenset({i for i in kb.individuals(prediction)}),
+                    pos=lp.pos,
+                    neg=lp.neg
+    )
+    f1 = compute_f1_score(
                     individuals=frozenset({i for i in kb.individuals(prediction)}),
                     pos=lp.pos,
                     neg=lp.neg
                 )
-    return r, c , owl_concept_size(prediction) 
+    return a, c , owl_concept_size(prediction),f1
 
 def run_tdl(kb_path, P, N, timeout=10):
     kb = KnowledgeBase(path=kb_path)    

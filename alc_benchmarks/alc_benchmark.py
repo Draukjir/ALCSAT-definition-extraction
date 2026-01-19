@@ -664,10 +664,11 @@ def examples_from_bisim_run(dir_path, overwrite_all = False):
 
         if not "Evolearner" in jd.keys() or overwrite_all:
             start = time.time()
-            a, c, c_size = run_evo(kb_path,P,N, timeout=300, card_limit=3)
+            a, c, c_size, f1 = run_evo(kb_path,P,N, timeout=300, card_limit=3, f1 = True)
             end = time.time()
-            a, _,_ = run_evo(kb_path,P,N, timeout=300, card_limit=3, f1 = True)
-            jd["Evolearner"] = {"concept" : c, "size" : c_size, "accuracy" : a, "time" : end-start, "f1" : a }
+            jd["Evolearner"] = {"concept" : c, "size" : c_size, "accuracy" : a, "time" : end-start, "f1" : f1}
+            # f1, _,_ = run_evo(kb_path,P,N, timeout=300, card_limit=3, f1 = True)
+            # jd["Evolearner"] = {"concept" : c, "size" : c_size, "accuracy" : a, "time" : end-start, "f1" : f1 }
         
         if not "ALCSAT" in jd.keys() or overwrite_all:
             start = time.time()
@@ -712,10 +713,14 @@ def examples_from_bisim_rerunevo(dir_path, overwrite_all = False):
         kb_path = os.path.join(dir_path,d,"kb_reduced.owl")
         P,N = read_examples(os.path.join(dir_path,d))
                 
-        start = time.time()                
-        f1, c,c_size = run_evo(kb_path,P,N, timeout=300, card_limit=3, f1 = True)
+        # start = time.time()                
+        # f1, c,c_size = run_evo(kb_path,P,N, timeout=300, card_limit=3, f1 = True)
+        # end = time.time()
+        start = time.time()
+        a, c, c_size, f1 = run_evo(kb_path,P,N, timeout=300, card_limit=3)
         end = time.time()
-        jd["EvolearnerF1"] = {"concept" : c, "size" : c_size, "f1" : f1,"time" : end-start}                
+        jd["EvolearnerF1"] = {"concept" : c, "size" : c_size, "accuracy" : a, "time" : end-start, "f1" : f1}
+        #jd["EvolearnerF1"] = {"concept" : c, "size" : c_size, "f1" : f1,"time" : end-start}                
         
 
         f = open(json_path, 'w')
@@ -874,14 +879,9 @@ def combine_bisim_examples2(kb_path,dir_path, dest_dir, max_per_size = 5):
 
 
 def main():
-    #examples_from_bisim(sys.argv[1], sys.argv[2], n_ex = 100)
-    #examples_from_bisim_run(sys.argv[1])    
-    #examples_from_bisim_rerunevo(sys.argv[1])    
-    alcq_benchmarks_to_csv(sys.argv[1])    
-    #combine_bisim_examples2(sys.argv[1], sys.argv[2],sys.argv[3])
-    #alcq_combine_csvs(sys.argv[1], sys.argv[2],sys.argv[3])
-    #test_evo_data_properties_write_file()
-    #sml_benchmark_cross_validate("out.txt")
+    #dir_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "alcq_bisim_combined")
+    examples_from_bisim_run(sys.argv[1], overwrite_all=True)
+    #alcq_benchmarks_to_csv(sys.argv[1])    
 
 if __name__ == "__main__":
     main()

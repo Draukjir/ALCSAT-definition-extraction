@@ -136,7 +136,7 @@ def sml_benchmark_cross_validate(resultpath: str, tm: ThresholdMethod):
 
 def main():
     sml_benchmark_cross_validate(
-        "out-intervall-2026-01-06.txt", ThresholdMethod.INTERVALS
+        "reproduce-table1-our-tool.txt", ThresholdMethod.INTERVALS
     )
 
 if __name__ == "__main__":

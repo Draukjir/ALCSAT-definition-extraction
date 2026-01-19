@@ -79,8 +79,8 @@ def sml_benchmark_cross_validate(resultpath: str, tm: ThresholdMethod):
             "mutagenesis",
             "nctrer",
             "premierleague",
-            "pyrimidine",
-            "suramin"
+            "pyrimidine"#,
+            #"suramin"
         ]:
             owlfile = f"../sml-benchmarks/{bench}/{bench}.owl"
             pospath = f"../sml-benchmarks/{bench}/full/pos.txt"
@@ -135,7 +135,7 @@ def sml_benchmark_cross_validate(resultpath: str, tm: ThresholdMethod):
 
 def main():
     sml_benchmark_cross_validate(
-        "out-2026-01-09-top-bot.txt", ThresholdMethod.INTERVALS
+        "reproduce-table4-top.txt", ThresholdMethod.INTERVALS
     )
 
 if __name__ == "__main__":

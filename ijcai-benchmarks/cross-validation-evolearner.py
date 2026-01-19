@@ -48,8 +48,8 @@ def sml_benchmark_cross_validate(resultpath: str):
             "mutagenesis",
             "nctrer",
             "premierleague",
-            "pyrimidine",
-            "suramin"
+            "pyrimidine"#,
+            #"suramin"
         ]:
             owlfile = f"../sml-benchmarks/{bench}/{bench}.owl"
             pos_path = f"../sml-benchmarks/{bench}/full/pos.txt"
@@ -158,7 +158,7 @@ def sml_benchmark_cross_validate(resultpath: str):
 
 
 def main():
-    sml_benchmark_cross_validate("evo-2026-01-07.txt")
+    sml_benchmark_cross_validate("reproduce-table1-evolearner.txt")
 
 
 if __name__ == "__main__":

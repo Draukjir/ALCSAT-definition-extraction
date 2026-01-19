@@ -5,10 +5,10 @@ from spell.fitting_alc import FittingALC
 
 
 def main():
-    workers = [1, 2, 4, 8, 16]
+    workers = [1, 2, 3, 4, 5, 6, 7, 8]
     runs = 3
-    benchmarks = ["mammographic", "hepatitis", "lymphography"]
-
+    benchmarks = ["mammographic", "carcinogenesis", "lymphography"]
+    a = []
     for benchmark in benchmarks:
         A = structure_from_owl(f"../sml-benchmarks/{benchmark}/{benchmark}.owl")
         pospath = f"../sml-benchmarks/{benchmark}/full/pos.txt"
@@ -52,7 +52,9 @@ def main():
 
         for w in workers:
             print(f"Benchmark {benchmark}, Worker {w} : {sum(times[w]) / runs}s")
-
+            a.append(f"Benchmark {benchmark}, Worker {w} : {sum(times[w]) / runs}s")
+    for x in a:
+        print(x)
 
 if __name__ == "__main__":
     main()

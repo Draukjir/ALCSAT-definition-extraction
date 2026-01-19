@@ -10,7 +10,7 @@ def main():
     benchmarks = ["mammographic", "suramin", "mutagenesis"]
     max_k = 8
     intervals = [0, 2, 5, 10, 20, 1000]
-    outfile = "interval-2026-01-10.txt"
+    outfile = "reproduce-table2.txt"
 
     with open(outfile, mode="w") as outfile:
         _ = outfile.write("bench, intervals, accuracy, time\n")
