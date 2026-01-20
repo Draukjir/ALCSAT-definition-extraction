@@ -646,7 +646,7 @@ def examples_from_bisim_run(dir_path, overwrite_all = False):
     for d in filter(lambda s : not s.startswith(".") and os.path.isdir(os.path.join(dir_path,s)) ,os.listdir(dir_path)):   
         json_path = os.path.join(dir_path, d, "results.json")
         jd = dict()
-        if os.path.exists(json_path):
+        if os.path.exists(json_path) and not overwrite_all:
             with open(json_path, 'r') as f:
                 jd = json.load(f)
 
@@ -880,8 +880,8 @@ def combine_bisim_examples2(kb_path,dir_path, dest_dir, max_per_size = 5):
 
 def main():
     #dir_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "alcq_bisim_combined")
-    examples_from_bisim_run(sys.argv[1], overwrite_all=True)
-    alcq_benchmarks_to_csv(sys.argv[1])    
+    examples_from_bisim_run(sys.argv[1], overwrite_all=False)
+    alcq_benchmarks_to_csv(sys.argv[1])
 
 if __name__ == "__main__":
     main()
