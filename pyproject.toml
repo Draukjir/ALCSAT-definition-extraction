@@ -5,6 +5,7 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "lightrdf>=0.4.0",
     "lxml>=6.0.1",
     "lxml-stubs>=0.5.1",
     "ontolearn",

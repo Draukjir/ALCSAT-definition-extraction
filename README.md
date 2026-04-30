@@ -1,11 +1,16 @@
 This repository contains our implementation of bounded fitting for the description logic ALCQI(f) (ALCSAT). Given an instance of a learning problem in the form of a knowledge base, positive and negative examples, the tool searches for a description logic concept that covers all positive examples, excludes all negative examples and is of minimal size. Any syntactic fragment of the description logic ALC is supported as well as extensions of ALC with number restrictions, inverse roles and data values.
 
 As this is a Fork of <https://github.com/spell-system/SPELL>, it also contains SPELL, a tool to learn concepts in the description logic EL.
+## Definition Extraction
+yago-fragment.owl can be obtained by following https://github.com/Draukjir/simple-yago-fragmentation and then added to the actor_example folder
+
+This repository contains our implementation of bounded fitting for the description logic ALC (ALSAT). As this is a Fork of <https://github.com/spell-system/SPELL>, it also contains SPELL, a tool to learn concepts in the description logic EL.
 
 ## Requirements
 - Installation of Python 3
 - uv package manager obtainable from https://github.com/astral-sh/uv
 
+- Packages from `requirements.txt`
 
 ## Run
 For full instructions on how to run either ALCSAT of SPELL, run
