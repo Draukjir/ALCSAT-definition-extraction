@@ -1,7 +1,6 @@
-from os import write
 import time
 from enum import Enum
-from typing import NamedTuple, Union
+from typing import NamedTuple
 
 from pysat.card import CardEnc, EncType
 from pysat.solvers import Glucose4, pysolvers
@@ -10,13 +9,11 @@ from .structures import (
     Signature,
     Structure,
     conceptname_ext,
-    conceptnames,
     generate_all_trees,
     ind,
-    restrict_to_neighborhood,
-    rolenames,
     solution2sparql,
 )
+from .preprocessing import restrict_to_neighborhood
 
 mode = Enum("mode", "exact neg_approx full_approx alc")
 
@@ -35,12 +32,12 @@ class Variables(NamedTuple):
 
 def compute_successors(sigma: Signature, A: Structure):
     succs: dict[str, dict[int, set[int]]] = {}
-    for rn in rolenames(sigma):
+    for rn in sigma.rolenames:
         succs[rn] = {a: set() for a in ind(A)}
 
     for a in ind(A):
         for b, rn in A.rn_ext[a]:
-            if rn in rolenames(sigma):
+            if rn in sigma.rolenames:
                 succs[rn][a].add(b)
     return succs
 
@@ -64,7 +61,6 @@ def constraint_conceptname(
     type_var: list[dict[int, int]],
     simul: Simul,
 ):
-
     for pInd in range(size):
         for a in ind(A):
             yield (-simul[pInd][a], type_var[pInd][ind_tp_idx[a]])
@@ -104,18 +100,18 @@ def constraint_succ(
 
     for a in ind(A):
         for pInd2 in range(size):
-            for rn in rolenames(sigma):
+            for rn in sigma.rolenames:
                 succ_sim = [simul[pInd2][b] for b in succs[rn][a]]
                 yield [-D2[pInd2][a], -pr[rn][pInd2]] + succ_sim
 
 
 def complement_type(tp, sigma: Signature):
-    return tuple(cn for cn in conceptnames(sigma) if cn not in tp)
+    return tuple(cn for cn in sigma.conceptnames if cn not in tp)
 
 
 def compute_types(A: Structure, sigma: Signature):
     types: list[list[str]] = [[] for a in ind(A)]
-    for cn in conceptnames(sigma):
+    for cn in sigma.conceptnames:
         for a in conceptname_ext(A, cn):
             types[a].append(cn)
 
@@ -169,7 +165,7 @@ def simulation_constraints(
             for a in ind(A):
                 yield (-DR[pInd][pInd2][a], pi[pInd][pInd2])
                 for b, rn in A.rn_ext[a]:
-                    if rn in rolenames(sigma):
+                    if rn in sigma.rolenames:
                         yield (-DR[pInd][pInd2][a], -pr[rn][pInd2], -simul[pInd2][b])
 
     for pInd in range(size):
@@ -202,13 +198,13 @@ def is_model(
     hc = mapping.hc
 
     for pInd in range(size):
-        for cn in conceptnames(sigma):
+        for cn in sigma.conceptnames:
             if hc[cn][pInd] in model:
                 assums.append(hc[cn][pInd])
             else:
                 assums.append(-hc[cn][pInd])
         for pInd2 in range(pInd + 1, size):
-            for rn in rolenames(sigma):
+            for rn in sigma.rolenames:
                 if pi[pInd][pInd2] in model and pr[rn][pInd2] in model:
                     assums.append(pi[pInd][pInd2])
                     assums.append(pr[rn][pInd2])
@@ -223,7 +219,7 @@ def minimize_concept_assertions(
 
     # Greedily reduce number of concept assertions and abuse sat solver as a fast query engine
     for i in range(size):
-        for cn in conceptnames(sigma):
+        for cn in sigma.conceptnames:
             if mapping.hc[cn][i] in best_model:
                 test_model = set(best_model)
                 test_model.remove(mapping.hc[cn][i])
@@ -242,18 +238,19 @@ def model2fitting_query(
 
     q = Structure(
         max_ind=size,
-        cn_ext={cn: set() for cn in conceptnames(sigma)},
+        cn_ext={cn: set() for cn in sigma.conceptnames},
         rn_ext={a: set() for a in range(size)},
+        dp_ext={a: set() for a in range(size)},
         indmap={},
         nsmap={},
     )
 
     for pInd in range(size):
-        for cn in conceptnames(sigma):
+        for cn in sigma.conceptnames:
             if hc[cn][pInd] in model:
                 q.cn_ext[cn].add(pInd)
         for pInd2 in range(pInd + 1, size):
-            for rn in rolenames(sigma):
+            for rn in sigma.rolenames:
                 if pi[pInd][pInd2] in model and pr[rn][pInd2] in model:
                     q.rn_ext[pInd].add((pInd2, rn))
     return q
@@ -272,10 +269,10 @@ def create_variables(size: int, sigma: Signature, A: Structure) -> Variables:
     ]
 
     # pr[rn][i] is true if product ind i has an incoming rn role
-    pr = {rn: [fresh_var() for pInd in range(size)] for rn in rolenames(sigma)}
+    pr = {rn: [fresh_var() for pInd in range(size)] for rn in sigma.rolenames}
 
     # Conceptnames of product individuals
-    hc = {cn: [fresh_var() for pInd in range(size)] for cn in conceptnames(sigma)}
+    hc = {cn: [fresh_var() for pInd in range(size)] for cn in sigma.conceptnames}
 
     return Variables(simul, pi, pr, hc)
 
@@ -318,10 +315,10 @@ def tree_query_constraints(size: int, sigma: Signature, v: Variables):
 
     # Every pind has at least one incoming role
     for i in range(1, size):
-        yield [pr[rn][i] for rn in rolenames(sigma)]
+        yield [pr[rn][i] for rn in sigma.rolenames]
 
     # Every pInd has at most one incoming role
-    rns = list(rolenames(sigma))
+    rns = list(sigma.rolenames)
     for i in range(1, size):
         for r1 in range(len(rns)):
             for r2 in range(r1):
@@ -360,7 +357,7 @@ def create_coverage_formula(
 
 
 def non_empty_symbols(A: Structure) -> Signature:
-    cns = [cn for cn in A.cn_ext.keys() if A.cn_ext[cn]]
+    cns = [cn for cn in A.cn_ext if A.cn_ext[cn]]
     rns: set[str] = set()
     for a in ind(A):
         for _, rn in A.rn_ext[a]:
@@ -369,7 +366,7 @@ def non_empty_symbols(A: Structure) -> Signature:
 
     cns.sort(key="{}".format)
     rns2.sort(key="{}".format)
-    return (cns, rns2)
+    return Signature(cns, rns2)
 
 
 # Returns the (concept and role) symbols that are relevant given the positive
@@ -377,11 +374,12 @@ def non_empty_symbols(A: Structure) -> Signature:
 def determine_relevant_symbols(
     A: Structure, P: list[int], minP: int, dist: int
 ) -> Signature:
+    sigma = non_empty_symbols(A)
+    cns = sigma.conceptnames
+    rns = sigma.rolenames
 
-    (cns, rns) = non_empty_symbols(A)
-
-    count = {cn: 0 for cn in cns}
-    countr = {rn: 0 for rn in rns}
+    count = dict.fromkeys(cns, 0)
+    countr = dict.fromkeys(rns, 0)
 
     for p in P:
         cns2: set[str] = set()
@@ -407,12 +405,12 @@ def determine_relevant_symbols(
         for rn in rns2:
             countr[rn] += 1
 
-    cns = list(cn for (cn, c) in count.items() if c >= minP)
-    rns = list(rn for (rn, c) in countr.items() if c >= minP)
+    cns = [cn for (cn, c) in count.items() if c >= minP]
+    rns = [rn for (rn, c) in countr.items() if c >= minP]
     cns.sort(key="{}".format)
     rns.sort(key="{}".format)
 
-    return (cns, rns)
+    return Signature(cns, rns)
 
 
 def restrict_nb(
@@ -434,8 +432,7 @@ def solve(
     coverage_lb: int,
     all_pos: bool,
     timeout: float = -1,
-) -> Union[tuple[int, Structure], None]:
-
+) -> tuple[int, Structure] | None:
     time_start = time.process_time()
     A, P, N = restrict_nb(size, A, P, N)
 
@@ -461,7 +458,6 @@ def solve(
     best_sol = None
     coverage_ub = len(P) + len(N)
     while coverage_lb <= coverage_ub and (dt < timeout or timeout < 0):
-
         for c in create_coverage_formula(P, N, coverage_lb, mapping, all_pos):
             pysolvers.glucose41_add_cl(g.glucose, c)
 
@@ -485,9 +481,7 @@ def solve(
         print(solution2sparql(best_q))
 
         print(
-            "== Coverage: {}/{} == Accuracy: {}".format(
-                coverage_lb, coverage_ub, coverage_lb / coverage_ub
-            )
+            f"== Coverage: {coverage_lb}/{coverage_ub} == Accuracy: {coverage_lb / coverage_ub}"
         )
         coverage_lb = coverage_lb + 1
         dt = time.process_time() - time_start
@@ -508,14 +502,16 @@ def solve_incr(
     time_start = time.process_time()
     i = 1
     best_coverage = len(P)
-    best_q = Structure(max_ind=1, cn_ext={}, rn_ext={0: set()}, indmap={}, nsmap={})
+    best_q = Structure(
+        max_ind=1, cn_ext={}, rn_ext={0: set()}, dp_ext={}, indmap={}, nsmap={}
+    )
     dt = time.process_time() - time_start
     while (
         best_coverage < len(P) + len(N)
         and i <= max_size
         and (dt < timeout or timeout == -1)
     ):
-        print("== Searching for a fitting query of size {}".format(i))
+        print(f"== Searching for a fitting query of size {i}")
         if m == mode.exact:
             sol = solve(i, A, P, N, len(P) + len(N), True, timeout - dt)
         elif m == mode.neg_approx:
@@ -527,8 +523,6 @@ def solve_incr(
         i += 1
         dt = time.process_time() - time_start
 
-    print(
-        "== Best query found with coverage {}/{}".format(best_coverage, len(P) + len(N))
-    )
+    print(f"== Best query found with coverage {best_coverage}/{len(P) + len(N)}")
     print(solution2sparql(best_q))
     return (best_coverage, best_q)

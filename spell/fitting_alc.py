@@ -1,684 +1,878 @@
-from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
-import math
-from threading import Timer
-import time, os
-from asciitree import LeftAligned
-from asciitree.drawing import BoxStyle
-from collections import OrderedDict as OD
+import concurrent.futures
+from enum import StrEnum
+import time
+from collections.abc import Iterable
+from concurrent.futures import ProcessPoolExecutor
+from typing import Any
 
+from pysat.card import CardEnc, EncType
+from pysat.solvers import Solver
 
-from pysat.card import CardEnc, EncType, ITotalizer
-from pysat.solvers import Glucose4
-
-
-from .structures import (
-    Signature,
-    Structure,
-    restrict_to_neighborhood,
+from spell.instance import ALC_OP, OP, ALCConcept, Instance
+from spell.preprocessing import (
+    bisimulation_reduction,
+    decode_dataproperties,
+    decode_inverses,
+    determine_max_q_per_relation,
+    encode_dataproperties,
+    encode_inverses,
+    prune_conceptnames,
+    restrict_neighborhood,
+    ThresholdMethod,
+    color_refinement,
+    extract_concept,
+    merge_conj,
+    deduplicate,
+    simplify_conj,
 )
 
 from .fitting import (
     determine_relevant_symbols,
+    non_empty_symbols,
+)
+from .structures import (
+    Signature,
+    Structure,
+    entire_signature,
 )
 
-TYPE_ENCODING: bool = True
-TREE_TEMPLATES: bool = True
-# There should be 2079 trees with 13 nodes. Seems like a sensible limit
-# BUT: experiments suggest that when finding a single path of size k, there is a slowdown for 11 and above
-# Indeed, 10 seems to be a local minimum
-TREE_TEMPLATE_LIMIT = 10
 
-class bcolors:
-    HEADER = '\033[95m'
-    OKBLUE = '\033[94m'
-    OKCYAN = '\033[96m'
-    OKGREEN = '\033[92m'
-    WARNING = '\033[93m'
-    FAIL = '\033[91m'
-    ENDC = '\033[0m'
-    BOLD = '\033[1m'
-    UNDERLINE = '\033[4m'
+class FittingMode(StrEnum):
+    EXACT = "exact"
+    APPROX = "approx"
 
-d_op = {
-     0 : "TOP",
-     1 : "BOT",
-     2: "NEG",
-     3: "AND",
-     4: "OR",
-     5: "EX",
-     6: "ALL"
-}
-d_var_names = {
-    0:"X",
-    1:"Y",
-    2:"Z",
-    4:"V",
-    5:"L",
-    6:"T"
-}
-TOP = 0
-BOT = 1
-NEG = 2
-AND = 3
-OR = 4
-EX = 5
-ALL = 6
-ALC_OP = {NEG,AND,OR,EX,ALL}
-ALC_OP_B = {NEG,AND,OR}
+
 X = 0
-Z = 2
-V = 4
-L = 5
-T = 6
+Z = 1
+V = 2
 
 
-NNF: bool = False
+# Generate non-isomorphic trees of size n with at most binary outdegree
+def all_trees(k: int, start: int = 0) -> list[list[tuple[int, ...]]]:
+    if k == 1:
+        return [[()]]
 
+    res: list[list[tuple[int, ...]]] = []
+    for i in range(1, (k - 1) // 2 + 1):
+        for idx_a, a in enumerate(all_trees(i, start + 2)):
+            for idx_b, b in enumerate(all_trees((k - 1) - i, start + i + 1)):
+                # If a, b have the same size, skip pairs that already occured
+                if i == (k - 1) - i and idx_b < idx_a:
+                    continue
+                # Whacky tree composition to ensure that children of binary nodes are always adjacent
+                # (the start + 2 for the a trees is for the same purpose)
+                res.append([(start + 1, start + 2)] + [a[0]] + [b[0]] + a[1:] + b[1:])
 
-def interrupt(s):
-    s.interrupt()
-
-
-def solver_solve(solver : Glucose4, timeout : float):
-    if timeout != -1 and timeout < 0:
-        return False
-
-    if timeout != -1:
-        timer = Timer(timeout, interrupt, [solver])
-        timer.start()
-    
-    res = solver.solve_limited(expect_interrupt=True)
-
-    if timeout != -1:
-        timer.cancel()
+    for a in all_trees(k - 1, start + 1):
+        res.append([(start + 1,)] + a)
 
     return res
 
 
-
-class STreeNode():
-    def __init__(self, node, children):
-        self.node = node
-        self.children = children
-    
-    def _to_OD_c(self):
-            if not self.children:
-                return OD()
-            else:
-                return OD(list(map(lambda x : (x.node,x._to_OD_c()),self.children)))
-            
-    def _to_OD(self):                
-        return OD([(self.node,self._to_OD_c())])
-
-    def to_asciitree(self):
-        tr = LeftAligned()
-        tr.draw = BoxStyle(node_label = lambda x : x[1])
-        return tr(self._to_OD())
-    
-    def to_string(self):                
-        ns = str(self.node[1])
-        if len(self.children) == 0:
-            return ns
-        elif len(self.children) == 1:
-            if self.node[1].startswith("all"):
-                nss = f"∀.{ns[4:]}"
-            elif self.node[1].startswith("ex"):
-                nss = f"∃.{ns[3:]}"
-            else:
-                nss = ns
-            return f"{nss} {self.children[0].to_string()}"
-        elif len(self.children) == 2:
-            return f"({self.children[0].to_string()} {self.node[1]} {self.children[1].to_string()})" 
-        else:
-            return ""
-    
-    @classmethod
-    def FromDict(cls,dict,root) -> "STreeNode" :
-        return cls(root, list(map(lambda x : cls.FromDict(dict, x), dict[root])))
+def cn_types(A: Structure, sigma: Signature) -> set[frozenset[str]]:
+    res: set[frozenset[str]] = set()
+    # TODO: this is slow when there are many concept names and many individuals
+    for i in range(A.max_ind):
+        tp = frozenset(cn for cn in sigma.conceptnames if i in A.cn_ext[cn])
+        res.add(tp)
+    return res
 
 
+class ALCSATEncoding:
+    def __init__(self, instance: Instance):
+        self.inst: Instance = instance
+        self.solver: Solver | None = None
+        self.k: int = 0
+        self.vars: dict[Any, int] = {}
+        self.max_var: int = 0
+        self.types: set[frozenset[str]] = set()
+        self.clauses: list[Iterable[int]] = []
+        self.max_q_per_r: dict[str, int] = {
+            r: min(q, self.inst.max_q)
+            for r, q in determine_max_q_per_relation(instance).items()
+        }
 
+    def add_clause(self, c: Iterable[int]):
+        self.clauses.append(c)
 
-
-class FittingALC:
-    def __init__(self, A: Structure, k : int, P: list[int],
-        N: list[int], op = ALC_OP, cov_p = - 1, cov_n = -1, tree_templates = True, type_encoding = True):
-        B,m = restrict_to_neighborhood(k-1,A,P + N)
-        self.tree_templates = tree_templates
-        self.type_encoding = type_encoding
-        self.P : list[int] = [m[a] for a in P]
-        self.N : list[int] = [m[b] for b in N]
-        self.A : Structure = B
-        self.sigma : Signature = determine_relevant_symbols(A, P + N, 1, k - 1)
-        self.k = k
-        self.op = op
-        self.op_b = ALC_OP_B.intersection(op)
-        self.op_r = op.difference(ALC_OP_B)
-        self.tree_node_symbols = dict()
-        self.types = self.cn_types()
-        self.vars = self._vars()
-        self.n_op = len(op)        
-        self.cov_p = len(P) if cov_p == -1 else cov_p
-        self.cov_n = len(N) if cov_n == -1 else cov_n
-        self.solver = Glucose4()
-        self.max_var = 0
-        
-        
-    def _vars(self):
-        d = dict()
+    def create_vars(self):
+        d: dict[Any, int] = {}
         i = 1
-        d[X,TOP] = i
-        self.tree_node_symbols[i] = d_op[TOP]
-        d[X,BOT] = i * self.k + 1
-        self.tree_node_symbols[i * self.k+1] = d_op[BOT]
-        i+=1
-        for cn in self.sigma[0]:
-            d[X,cn] = i * self.k+1
-            self.tree_node_symbols[i * self.k+1] = cn
+        d[X, OP.TOP] = i
+        d[X, OP.BOT] = i * self.k + 1
+        i += 1
+        for cn in self.inst.sigma.conceptnames:
+            d[X, cn] = i * self.k + 1
             i += 1
-        for op in self.op_b:
-            d[X,op]=i * self.k+1
-            self.tree_node_symbols[i * self.k+1] = d_op[op]
-            i+=1
-        if EX in self.op:
-            for c in self.sigma[1]:
-                d[X,EX,c] = i * self.k+1
-                self.tree_node_symbols[i * self.k+1] = f"ex.{c}"
+        for op in self.inst.op_b():
+            d[X, op] = i * self.k + 1
+            i += 1
+        if OP.EX in self.inst.op:
+            for c in self.inst.sigma.rolenames:
+                d[X, OP.EX, c] = i * self.k + 1
                 i += 1
-        if ALL in self.op:
-            for c in self.sigma[1]:
-                d[X,ALL,c] = i * self.k+1
-                self.tree_node_symbols[i * self.k+1] = f"all.{c}"
-                i+=1
-        for a in range(self.A.max_ind):
-            d[Z,a] = i * self.k+1
+        if OP.ALL in self.inst.op:
+            for c in self.inst.sigma.rolenames:
+                d[X, OP.ALL, c] = i * self.k + 1
+                i += 1
+        if OP.LE in self.inst.op_q():
+            for r in self.inst.sigma.rolenames:
+                for q in range(1, self.max_q_per_r[r] + 2):
+                    d[X, OP.LE, r, q] = i * self.k + 1
+                    i += 1
+        if OP.GE in self.inst.op_q():
+            for r in self.inst.sigma.rolenames:
+                for q in range(2, self.max_q_per_r[r] + 2):
+                    d[X, OP.GE, r, q] = i * self.k + 1
+                    i += 1
+        for a in range(self.inst.A.max_ind):
+            d[Z, a] = i * self.k + 1
             i += 1
         for j in range(self.k):
-            d[V,1,j] = i*self.k+1
-            i+=1
-        for j in range(self.k):
-            d[V,2,j] = i*self.k+1
-            i+=1
-
-        if self.type_encoding:
-            for tp in self.types:
-                d[X, tp] = i * self.k + 1
-                i += 1
-
-            # For leaves
-            d[L] = i* self.k + 1
+            d[V, 1, j] = i * self.k + 1
             i += 1
-        
+        for j in range(self.k):
+            d[V, 2, j] = i * self.k + 1
+            i += 1
+
+        for tp in self.types:
+            d[X, tp] = i * self.k + 1
+            i += 1
+
         self.max_var = i * self.k + 1
-        
-        if self.tree_templates:
-            tree_k = min(self.k, TREE_TEMPLATE_LIMIT)
-            for idx, t in enumerate(all_trees(tree_k, 0)):
-                d[T, idx] = self.max_var
-                self.max_var += 1
 
+        self.vars = d
 
-        return d
-
-    def _syn_tree_encoding(self):
-        for i in range(self.k):            
-            x_vars = [self.vars[X,o]+i for o in self.op_b] + [self.vars[X,o,r]+i for o in self.op_r for r in self.sigma[1]] + [self.vars[X,cn] +i for cn in self.sigma[0]] + [self.vars[X,TOP]+i,self.vars[X,BOT]+i]
-
-            for clause in CardEnc.equals(lits = x_vars, encoding = EncType.pairwise):
-                self.solver.add_clause(clause)
+    def syn_tree_encoding(self, tt: int):
+        tree = all_trees(self.k)[tt]
 
         for i in range(self.k):
-            v_vars = [self.vars[V, 1, i] + j for j in range(i + 1, self.k)] + [self.vars[V, 2, i] + j for j in range(i + 1, self.k - 1)]
+            v_vars = [self.vars[V, 1, i] + j for j in range(i + 1, self.k)] + [
+                self.vars[V, 2, i] + j for j in range(i + 1, self.k - 1)
+            ]
 
             # At most one of the y-vars
-            for clause in CardEnc.atmost(lits = v_vars, encoding = EncType.pairwise):
-                self.solver.add_clause(clause)
+            for clause in CardEnc.atmost(lits=v_vars, encoding=EncType.pairwise):
+                self.add_clause(clause)
 
-            for r in self.sigma[1]:
-                for op in self.op_r:
-                    self.solver.add_clause([-(self.vars[X,op,r]+i)] + [self.vars[V,1,i]+j for j in range(i+1,self.k)])
-                    for j in range(i + 1, self.k - 1):
-                        self.solver.add_clause([-(self.vars[X,op,r]+i), -(self.vars[V,2,i]+j)])
+            if len(tree[i]) == 0:
+                for v in v_vars:
+                    self.add_clause([-v])
+                x_vars = [self.vars[X, OP.TOP] + i, self.vars[X, OP.BOT] + i] + [
+                    self.vars[X, cn] + i for cn in self.inst.sigma.conceptnames
+                ]
+                if len(x_vars) > 0:
+                    for clause in CardEnc.equals(
+                        lits=x_vars, encoding=EncType.pairwise
+                    ):
+                        self.add_clause(clause)
+                else:
+                    self.add_clause([1])
+                    self.add_clause([-1])
+            elif len(tree[i]) == 1:
+                self.add_clause([self.vars[V, 1, i] + tree[i][0]])
+                x_vars = (
+                    [self.vars[X, op] + i for op in {OP.NEG} if op in self.inst.op]
+                    + [
+                        self.vars[X, op, r] + i
+                        for op in self.inst.op_r()
+                        for r in self.inst.sigma.rolenames
+                    ]
+                    + [
+                        self.vars[X, op, r, q] + i
+                        for op in self.inst.op_q()
+                        for r in self.inst.sigma.rolenames
+                        for q in range(1, self.max_q_per_r[r] + 2)
+                        if op != OP.GE or q != 1
+                    ]
+                )
+                if len(x_vars) > 0:
+                    for clause in CardEnc.equals(
+                        lits=x_vars, encoding=EncType.pairwise
+                    ):
+                        self.add_clause(clause)
+                else:
+                    self.add_clause([1])
+                    self.add_clause([-1])
+            elif len(tree[i]) == 2:
+                self.add_clause([self.vars[V, 2, i] + tree[i][0]])
+                x_vars = [
+                    self.vars[X, op] + i
+                    for op in {OP.AND, OP.OR}.intersection(self.inst.op)
+                ]
+                if len(x_vars) > 0:
+                    for clause in CardEnc.equals(
+                        lits=x_vars, encoding=EncType.pairwise
+                    ):
+                        self.add_clause(clause)
+                else:
+                    self.add_clause([1])
+                    self.add_clause([-1])
+            else:
+                assert False
 
-            if NEG in self.op_b:
-                self.solver.add_clause([-(self.vars[X,NEG]+i)] + [self.vars[V,1,i]+j for j in range(i+1,self.k)])
-                for j in range(i + 1, self.k):
-                    self.solver.add_clause([-(self.vars[X,NEG]+i), -(self.vars[V,2,i]+j)])
-
-
-            for op in self.op_b - {NEG}:
-                self.solver.add_clause([-(self.vars[X,op]+i)] + [self.vars[V,2,i]+j for j in range(i+1,self.k-1)])
-                for j in range(i + 1, self.k):
-                    self.solver.add_clause([-(self.vars[X,op]+i), -(self.vars[V,1,i]+j)])
-
-            for cn in self.sigma[0]:
-
-                if self.type_encoding:
-                    # Is a leaf
-                    self.solver.add_clause((-(self.vars[X,cn]+i),(self.vars[L] + i)))
-
-            for j in range(i + 1, self.k):
-                for cn in self.sigma[0]:
-                    self.solver.add_clause((-(self.vars[X,cn]+i),-(self.vars[V,1, i]+j)))
-                    self.solver.add_clause((-(self.vars[X,cn]+i),-(self.vars[V,2, i]+j)))
-
-
-                for b in {TOP,BOT}:
-                    self.solver.add_clause((-(self.vars[X,b]+i),-(self.vars[V,1,i]+j)))
-                    self.solver.add_clause((-(self.vars[X,b]+i),-(self.vars[V,2,i]+j)))
-
-
-            # Exactly one predecessor
-            possible_preds = [ self.vars[V, 1, j] + i for j in range(0, i)] + [self.vars[V, 2, j] + i for j in range(0, i)] + [self.vars[V, 2, j] + i - 1 for j in range(0, i - 1)]
-            if len(possible_preds) > 0:
-                for clause in CardEnc.equals( lits = possible_preds, encoding= EncType.pairwise):
-                    self.solver.add_clause(clause)
-
-
-    def _symmetry_breaking(self):
-
-        #TODO: reformulate this to work with the tree templates
-        # Symmetry breaking: crossing free syntax tree
-        # for i in range(self.k):
-        #     for j in range(i + 1, self.k):
-        #         for i2 in range(i + 1, j):
-        #             for j2 in range(j + 1, self.k):
-        #                 self.solver.add_clause((-(self.vars[V,1,i]+j),-(self.vars[V,1,i2]+j2)))
-        #                 self.solver.add_clause((-(self.vars[V,1,i]+j),-(self.vars[V,2,i2]+j2)))
-        #                 self.solver.add_clause((-(self.vars[V,2,i]+j),-(self.vars[V,1,i2]+j2)))
-        #                 self.solver.add_clause((-(self.vars[V,2,i]+j),-(self.vars[V,2,i2]+j2)))
-
+    def symmetry_breaking(self):
         # Symmetry breaking: associativity of sqcap and sqcup
-        # There is always a syntax tree where one of the successors of AND is not an AND
+        # There is always a syntax tree where one of the successors of OP.AND is not an OP.AND
         for i in range(self.k):
             for j in range(i + 1, self.k - 1):
-                if AND in self.op_b:
-                    self.solver.add_clause( (- (self.vars[X, AND] + i), - (self.vars[V, 2, i] + j), - (self.vars[X, AND] + j), - (self.vars[X, AND] + j + 1)))
-                if OR in self.op_b:
-                    self.solver.add_clause( (- (self.vars[X, OR] + i), - (self.vars[V, 2, i] + j), - (self.vars[X, OR] + j), - (self.vars[X, OR] + j + 1)))
+                if OP.AND in self.inst.op_b():
+                    self.add_clause(
+                        (
+                            -(self.vars[X, OP.AND] + i),
+                            -(self.vars[V, 2, i] + j),
+                            -(self.vars[X, OP.AND] + j),
+                            -(self.vars[X, OP.AND] + j + 1),
+                        )
+                    )
+                if OP.OR in self.inst.op_b():
+                    self.add_clause(
+                        (
+                            -(self.vars[X, OP.OR] + i),
+                            -(self.vars[V, 2, i] + j),
+                            -(self.vars[X, OP.OR] + j),
+                            -(self.vars[X, OP.OR] + j + 1),
+                        )
+                    )
 
-        # Symmetry breaking: there is always a syntax tree where NEG is not nested directly under ALL or EX or NEG
-        if not NNF and EX in self.op_r and ALL in self.op_r and NEG in self.op_b:
+        # Symmetry breaking: there is always a syntax tree where OP.NEG is not nested directly under OP.ALL or OP.EX or OP.NEG
+        if (
+            OP.EX in self.inst.op_r()
+            and OP.ALL in self.inst.op_r()
+            and OP.NEG in self.inst.op_b()
+        ):
             for i in range(self.k):
                 for j in range(i + 1, self.k):
-                        self.solver.add_clause( (- (self.vars[V, 1, i] + j), - (self.vars[X, NEG] + j)))
+                    self.add_clause(
+                        (-(self.vars[V, 1, i] + j), -(self.vars[X, OP.NEG] + j))
+                    )
 
-        # Symmetry breaking: rewrites involving TOP and BOT?
+        # Symmetry breaking: rewrites involving OP.TOP and OP.BOT?
         for i in range(self.k):
             for j in range(i + 1, self.k - 1):
-                if AND in self.op_b:
-                    self.solver.add_clause( (- (self.vars[X, AND] + i), - (self.vars[V, 2, i] + j), - (self.vars[X, TOP] + j)))
-                    self.solver.add_clause( (- (self.vars[X, AND] + i), - (self.vars[V, 2, i] + j), - (self.vars[X, TOP] + j + 1)))
-                    self.solver.add_clause( (- (self.vars[X, AND] + i), - (self.vars[V, 2, i] + j), - (self.vars[X, BOT] + j)))
-                    self.solver.add_clause( (- (self.vars[X, AND] + i), - (self.vars[V, 2, i] + j), - (self.vars[X, BOT] + j + 1)))
-                if OR in self.op_b:
-                    self.solver.add_clause( (- (self.vars[X, OR] + i), - (self.vars[V, 2, i] + j), - (self.vars[X, TOP] + j)))
-                    self.solver.add_clause( (- (self.vars[X, OR] + i), - (self.vars[V, 2, i] + j), - (self.vars[X, TOP] + j + 1)))
-                    self.solver.add_clause( (- (self.vars[X, OR] + i), - (self.vars[V, 2, i] + j), - (self.vars[X, BOT] + j)))
-                    self.solver.add_clause( (- (self.vars[X, OR] + i), - (self.vars[V, 2, i] + j), - (self.vars[X, BOT] + j + 1)))
+                if OP.AND in self.inst.op_b():
+                    self.add_clause(
+                        (
+                            -(self.vars[X, OP.AND] + i),
+                            -(self.vars[V, 2, i] + j),
+                            -(self.vars[X, OP.TOP] + j),
+                        )
+                    )
+                    self.add_clause(
+                        (
+                            -(self.vars[X, OP.AND] + i),
+                            -(self.vars[V, 2, i] + j),
+                            -(self.vars[X, OP.TOP] + j + 1),
+                        )
+                    )
+                    self.add_clause(
+                        (
+                            -(self.vars[X, OP.AND] + i),
+                            -(self.vars[V, 2, i] + j),
+                            -(self.vars[X, OP.BOT] + j),
+                        )
+                    )
+                    self.add_clause(
+                        (
+                            -(self.vars[X, OP.AND] + i),
+                            -(self.vars[V, 2, i] + j),
+                            -(self.vars[X, OP.BOT] + j + 1),
+                        )
+                    )
+                if OP.OR in self.inst.op_b():
+                    self.add_clause(
+                        (
+                            -(self.vars[X, OP.OR] + i),
+                            -(self.vars[V, 2, i] + j),
+                            -(self.vars[X, OP.TOP] + j),
+                        )
+                    )
+                    self.add_clause(
+                        (
+                            -(self.vars[X, OP.OR] + i),
+                            -(self.vars[V, 2, i] + j),
+                            -(self.vars[X, OP.TOP] + j + 1),
+                        )
+                    )
+                    self.add_clause(
+                        (
+                            -(self.vars[X, OP.OR] + i),
+                            -(self.vars[V, 2, i] + j),
+                            -(self.vars[X, OP.BOT] + j),
+                        )
+                    )
+                    self.add_clause(
+                        (
+                            -(self.vars[X, OP.OR] + i),
+                            -(self.vars[V, 2, i] + j),
+                            -(self.vars[X, OP.BOT] + j + 1),
+                        )
+                    )
 
-        # Symmetry breaking: limited commutativity
-        # Not advantageous right now
-        # for i in range(self.k):
-        #     for j in range(i + 1, self.k):
-        #         # This orders the node types. Binary operators are smallest, the unary operators, then conceptnames, then top and bot
-        #         x_varsj = [self.vars[X,cn] +j for cn in self.sigma[0]] + [self.vars[X,TOP]+j,self.vars[X,BOT]+j]
-        #         x_varsj1 = [self.vars[X,cn] +j + 1 for cn in self.sigma[0]] + [self.vars[X,TOP]+j + 1,self.vars[X,BOT]+j + 1]
-        #         assert(len(x_varsj) == len(x_varsj1))
-        #         for k1 in range(len(x_varsj)):
-        #             for k2 in range(k1 + 1, len(x_varsj1)):
-        #                 # left must be "bigger" than right
-        #                 self.solver.add_clause( ( - (self.vars[V, 2, i] + j), - x_varsj[k1], -x_varsj1[k2]))
+    def evaluation_constraints(self, tt: int):
+        tree = all_trees(self.k)[tt]
 
-
-        # NNF    
-        if NNF:
+        for a in range(self.inst.A.max_ind):
             for i in range(self.k):
-                for j in range(i + 1, self.k):
-                    for j2 in range(j + 1, self.k):
-                        self.solver.add_clause (( - (self.vars[X, NEG] + i),   - (self.vars[V, 1, i] + j), - (self.vars[V, 1, j] + j2)))
-                        self.solver.add_clause (( - (self.vars[X, NEG] + i),   - (self.vars[V, 1, i] + j), - (self.vars[V, 2, j] + j2)))
+                if OP.NEG in self.inst.op_b() and len(tree[i]) == 1:
+                    self.add_clause(
+                        (
+                            -(self.vars[X, OP.NEG] + i),
+                            -(self.vars[Z, a] + i),
+                            -(self.vars[Z, a] + tree[i][0]),
+                        )
+                    )
+                    self.add_clause(
+                        (
+                            -(self.vars[X, OP.NEG] + i),
+                            (self.vars[Z, a] + i),
+                            (self.vars[Z, a] + tree[i][0]),
+                        )
+                    )
 
-        if self.tree_templates:
+                if OP.AND in self.inst.op_b() and len(tree[i]) == 2:
+                    self.add_clause(
+                        (
+                            -(self.vars[X, OP.AND] + i),
+                            -(self.vars[Z, a] + i),
+                            self.vars[Z, a] + tree[i][0],
+                        )
+                    )
+                    self.add_clause(
+                        (
+                            -(self.vars[X, OP.AND] + i),
+                            -(self.vars[Z, a] + i),
+                            self.vars[Z, a] + tree[i][0] + 1,
+                        )
+                    )
+                    self.add_clause(
+                        (
+                            -(self.vars[X, OP.AND] + i),
+                            (self.vars[Z, a] + i),
+                            -(self.vars[Z, a] + tree[i][0] + 1),
+                            -(self.vars[Z, a] + tree[i][0]),
+                        )
+                    )
 
-            tree_k = min(self.k, TREE_TEMPLATE_LIMIT)
+                if OP.OR in self.inst.op_b() and len(tree[i]) == 2:
+                    self.add_clause(
+                        (
+                            -(self.vars[X, OP.OR] + i),
+                            (self.vars[Z, a] + i),
+                            -(self.vars[Z, a] + tree[i][0]),
+                        )
+                    )
+                    self.add_clause(
+                        (
+                            -(self.vars[X, OP.OR] + i),
+                            (self.vars[Z, a] + i),
+                            -(self.vars[Z, a] + tree[i][0] + 1),
+                        )
+                    )
+                    self.add_clause(
+                        (
+                            -(self.vars[X, OP.OR] + i),
+                            -(self.vars[Z, a] + i),
+                            (self.vars[Z, a] + tree[i][0] + 1),
+                            (self.vars[Z, a] + tree[i][0]),
+                        )
+                    )
 
-            tree_vars = []
-            for idx, t in enumerate(all_trees(tree_k)):
-                tree_vars.append(self.vars[T, idx])
-
-            for clause in CardEnc.equals(lits = tree_vars, encoding=EncType.pairwise):
-                self.solver.add_clause(clause)
-
-            for idx, t in enumerate(all_trees(tree_k)):
-                for i in range(tree_k):
-                    
-                    # Only restrict leaves if the tree template is not a prefix
-                    if len(t[i]) == 0 and tree_k == self.k:
-                        for j in range(i + 1, tree_k):
-                            self.solver.add_clause( ( - tree_vars[idx], - ( self.vars[V, 1, i] + j)))
-                            self.solver.add_clause( ( - tree_vars[idx], - ( self.vars[V, 2, i] + j)))
-
-                    if len(t[i]) == 1:
-                        self.solver.add_clause( ( - tree_vars[idx], ( self.vars[V, 1, i] + t[i][0])))
-                    if len(t[i]) == 2:
-                        self.solver.add_clause( ( - tree_vars[idx],  ( self.vars[V, 2, i] + t[i][0])))
-
-    def _evaluation_constraints(self):
-
-        for a in range(self.A.max_ind):
-            for i in range(self.k):                
-                if NEG in self.op_b:
-                    for j in range(i + 1, self.k):
-                        self.solver.add_clause((-(self.vars[X,NEG]+i), -(self.vars[Z,a]+i), -(self.vars[V,1,i]+j), - (self.vars[Z, a] + j)))
-                        self.solver.add_clause((-(self.vars[X,NEG]+i), (self.vars[Z,a]+i), -(self.vars[V,1,i]+j), (self.vars[Z, a] + j)))
-
-                if AND in self.op_b:
-                    for j in range(i + 1, self.k - 1):
-                        self.solver.add_clause((-(self.vars[X,AND]+i), -(self.vars[Z,a]+i), -(self.vars[V,2,i]+j), self.vars[Z, a] + j))
-                        self.solver.add_clause((-(self.vars[X,AND]+i), -(self.vars[Z,a]+i), -(self.vars[V,2,i]+j), self.vars[Z, a] + j + 1))
-                        self.solver.add_clause((-(self.vars[X,AND]+i), (self.vars[Z,a]+i), -(self.vars[V,2,i]+j), -(self.vars[Z, a] + j + 1), -(self.vars[Z, a] + j)))
-
-                if OR in self.op_b:
-                    for j in range(i + 1, self.k - 1):
-                        self.solver.add_clause((-(self.vars[X,OR]+i), (self.vars[Z,a]+i), -(self.vars[V,2,i]+j), -(self.vars[Z, a] + j)))
-                        self.solver.add_clause((-(self.vars[X,OR]+i), (self.vars[Z,a]+i), -(self.vars[V,2,i]+j), -(self.vars[Z, a] + j + 1)))
-                        self.solver.add_clause((-(self.vars[X,OR]+i), -(self.vars[Z,a]+i), -(self.vars[V,2,i]+j), (self.vars[Z, a] + j + 1), (self.vars[Z, a] + j)))
-                
-                if ALL in self.op_r:
-                    for r in self.sigma[1]:
-                        successors = [ b for (b, p) in self.A.rn_ext[a] if p == r]
+                if OP.ALL in self.inst.op_r() and len(tree[i]) == 1:
+                    for r in self.inst.sigma.rolenames:
+                        successors = [b for (b, p) in self.inst.A.rn_ext[a] if p == r]
                         if len(successors) == 0:
                             # Optimization: most individuals don't have successors
-                            self.solver.add_clause( ( - ( self.vars[X, ALL, r] + i), (self.vars[Z, a] + i)))
+                            self.add_clause(
+                                (-(self.vars[X, OP.ALL, r] + i), (self.vars[Z, a] + i))
+                            )
                         else:
-                            for j in range(i + 1, self.k):
-                                self.solver.add_clause([-(self.vars[X,ALL,r]+i), (self.vars[Z,a]+i), -(self.vars[V, 1, i] + j)] + [ -(self.vars[Z, b]+j) for b in successors ])                            
-                                for b in successors:
-                                    self.solver.add_clause((-(self.vars[X,ALL,r]+i), -(self.vars[Z,a]+i), -(self.vars[V, 1, i] + j), self.vars[Z, b] + j))
+                            self.add_clause(
+                                [
+                                    -(self.vars[X, OP.ALL, r] + i),
+                                    (self.vars[Z, a] + i),
+                                ]
+                                + [-(self.vars[Z, b] + tree[i][0]) for b in successors]
+                            )
+                            for b in successors:
+                                self.add_clause(
+                                    (
+                                        -(self.vars[X, OP.ALL, r] + i),
+                                        -(self.vars[Z, a] + i),
+                                        self.vars[Z, b] + tree[i][0],
+                                    )
+                                )
 
-                if EX in self.op_r:
-                    for r in self.sigma[1]:
-                        successors = [ b for (b, p) in self.A.rn_ext[a] if p == r]
+                if OP.EX in self.inst.op_r() and len(tree[i]) == 1:
+                    for r in self.inst.sigma.rolenames:
+                        successors = [b for (b, p) in self.inst.A.rn_ext[a] if p == r]
                         if len(successors) == 0:
                             # Optimization: most individuals don't have successors
-                            self.solver.add_clause( ( - (self.vars[X, EX, r] + i), -(self.vars[Z, a] + i)))
+                            self.add_clause(
+                                (-(self.vars[X, OP.EX, r] + i), -(self.vars[Z, a] + i))
+                            )
                         else:
-                            for j in range(i + 1, self.k):
-                                self.solver.add_clause([-(self.vars[X,EX,r]+i), -(self.vars[Z,a]+i), -(self.vars[V, 1, i] + j)] + [ (self.vars[Z, b]+j) for b in successors ])                            
-                                for b in successors:
-                                    self.solver.add_clause((-(self.vars[X,EX,r]+i), (self.vars[Z,a]+i), -(self.vars[V, 1, i] + j), -(self.vars[Z, b] + j)))
+                            self.add_clause(
+                                [
+                                    -(self.vars[X, OP.EX, r] + i),
+                                    -(self.vars[Z, a] + i),
+                                ]
+                                + [(self.vars[Z, b] + tree[i][0]) for b in successors]
+                            )
+                            for b in successors:
+                                self.add_clause(
+                                    (
+                                        -(self.vars[X, OP.EX, r] + i),
+                                        (self.vars[Z, a] + i),
+                                        -(self.vars[Z, b] + tree[i][0]),
+                                    )
+                                )
 
-                self.solver.add_clause((-(self.vars[X,TOP]+i),(self.vars[Z,a]+i)))
-                self.solver.add_clause((-(self.vars[X,BOT]+i),-(self.vars[Z,a]+i)))
+                if OP.LE in self.inst.op_q() and len(tree[i]) == 1:
+                    for r in self.inst.sigma.rolenames:
+                        successors = [b for (b, p) in self.inst.A.rn_ext[a] if p == r]
+                        for q in range(1, self.max_q_per_r[r] + 2):
+                            if len(successors) <= q:
+                                # Optimization: most individuals don't have successors
+                                self.add_clause(
+                                    (
+                                        -(self.vars[X, OP.LE, r, q] + i),
+                                        (self.vars[Z, a] + i),
+                                    )
+                                )
+                            else:
+                                enc = CardEnc.atmost(
+                                    [self.vars[Z, b] + tree[i][0] for b in successors],
+                                    bound=q,
+                                    top_id=self.max_var,
+                                )
+                                self.max_var = max(enc.nv, self.max_var)
+                                for cl in enc.clauses:
+                                    self.add_clause(
+                                        [
+                                            -(self.vars[X, OP.LE, r, q] + i),
+                                            -(self.vars[Z, a] + i),
+                                        ]
+                                        + cl
+                                    )
+                                enc = CardEnc.atleast(
+                                    [self.vars[Z, b] + tree[i][0] for b in successors],
+                                    bound=q + 1,
+                                    top_id=self.max_var,
+                                )
+                                self.max_var = max(enc.nv, self.max_var)
+                                for cl in enc.clauses:
+                                    self.add_clause(
+                                        [
+                                            -(self.vars[X, OP.LE, r, q] + i),
+                                            (self.vars[Z, a] + i),
+                                        ]
+                                        + cl
+                                    )
 
+                if OP.GE in self.inst.op_q() and len(tree[i]) == 1:
+                    for r in self.inst.sigma.rolenames:
+                        successors = [b for (b, p) in self.inst.A.rn_ext[a] if p == r]
+                        for q in range(2, self.max_q_per_r[r] + 2):
+                            if len(successors) == 0 or len(successors) < q:
+                                # Optimization: most individuals don't have successors
+                                self.add_clause(
+                                    (
+                                        -(self.vars[X, OP.GE, r, q] + i),
+                                        -(self.vars[Z, a] + i),
+                                    )
+                                )
+                            else:
+                                enc = CardEnc.atleast(
+                                    [self.vars[Z, b] + tree[i][0] for b in successors],
+                                    bound=q,
+                                    top_id=self.max_var,
+                                )
+                                self.max_var = max(enc.nv, self.max_var)
+                                for cl in enc.clauses:
+                                    self.add_clause(
+                                        [
+                                            -(self.vars[X, OP.GE, r, q] + i),
+                                            -(self.vars[Z, a] + i),
+                                        ]
+                                        + cl
+                                    )
+                                enc = CardEnc.atmost(
+                                    [self.vars[Z, b] + tree[i][0] for b in successors],
+                                    bound=q - 1,
+                                    top_id=self.max_var,
+                                )
+                                self.max_var = max(enc.nv, self.max_var)
+                                for cl in enc.clauses:
+                                    self.add_clause(
+                                        [
+                                            -(self.vars[X, OP.GE, r, q] + i),
+                                            (self.vars[Z, a] + i),
+                                        ]
+                                        + cl
+                                    )
 
-        if not self.type_encoding:
-            for cn in self.sigma[0]:
-                for i in range(self.k):
-                    for a in range(self.A.max_ind):                    
-                        if a in self.A.cn_ext[cn]:                                            
-                            self.solver.add_clause((-(self.vars[X,cn]+i), self.vars[Z,a]+i))
-                        else:
-                            self.solver.add_clause((-(self.vars[X,cn]+i),-(self.vars[Z,a]+i)))
+                if len(tree[i]) == 0:
+                    self.add_clause(
+                        (-(self.vars[X, OP.TOP] + i), (self.vars[Z, a] + i))
+                    )
+                    self.add_clause(
+                        (-(self.vars[X, OP.BOT] + i), -(self.vars[Z, a] + i))
+                    )
 
-        if self.type_encoding:
+        for i in range(self.k):
+            if len(tree[i]) != 0:
+                continue
+            for tp in self.types:
+                for cn in self.inst.sigma.conceptnames:
+                    if cn in tp:
+                        self.add_clause((-(self.vars[X, cn] + i), self.vars[X, tp] + i))
+                    if cn not in tp:
+                        self.add_clause(
+                            (-(self.vars[X, cn] + i), -(self.vars[X, tp] + i))
+                        )
+
+        for a in range(self.inst.A.max_ind):
+            tp = frozenset(
+                {
+                    cn
+                    for cn in self.inst.sigma.conceptnames
+                    if a in self.inst.A.cn_ext[cn]
+                }
+            )
+            assert tp in self.types
             for i in range(self.k):
-                for tp in self.types:
-                    for cn in self.sigma[0]:
-                        if cn in tp:
-                            self.solver.add_clause((-(self.vars[X, cn] + i), self.vars[X, tp] + i))
-                        if cn not in tp: 
-                            self.solver.add_clause((-(self.vars[X, cn] + i), -(self.vars[X, tp] + i)))
+                if len(tree[i]) != 0:
+                    continue
+                self.add_clause((-(self.vars[X, tp] + i), self.vars[Z, a] + i))
+                self.add_clause(
+                    (
+                        (self.vars[X, tp] + i),
+                        -(self.vars[Z, a] + i),
+                    )
+                )
 
+    def fitting_constraints_approximate(self, n: int):
+        assert self.solver
+        lits = [self.vars[Z, a] for a in self.inst.P] + [
+            -self.vars[Z, b] for b in self.inst.N
+        ]
 
-            for a in range(self.A.max_ind):
-                tp = frozenset({ cn for cn in self.sigma[0] if a in self.A.cn_ext[cn]})
-                assert tp in self.types
-                for i in range(self.k):
-                    self.solver.add_clause( ( - (self.vars[X, tp] + i),   self.vars[Z, a] + i))
-                    # Problem: the following should only happen for CONCEPT NAME NODES. We thus need an additional variable that is true iff a node is a concept name node
-                    self.solver.add_clause( ( (self.vars[X, tp] + i) ,   - (self.vars[Z, a] + i), - (self.vars[L] + i)))
-                
-
-
-    def _fitting_constraints(self):
-        for a in self.P:
-            self.solver.add_clause([self.vars[Z,a]])            
-        for a in self.N:
-            self.solver.add_clause([-(self.vars[Z,a])])       
-
-    def _fitting_constraints_approximate(self, k: int):
-        lits = [self.vars[Z, a] for a in self.P] + [-self.vars[Z, b] for b in self.N]
-        
         enc = CardEnc.atleast(
-            lits, bound=k, top_id=self.max_var, encoding=EncType.kmtotalizer
+            lits, bound=n, top_id=self.max_var, encoding=EncType.kmtotalizer
         )
         self.max_var = max(enc.nv, self.max_var)
         for clause in enc.clauses:
             self.solver.add_clause(clause)
 
-    def _fitting_constraints_approximate_incr_initial(self, k: int):
-        lits = [-self.vars[Z, a] for a in self.P] + [self.vars[Z, b] for b in self.N]                
-        self.totalizer = ITotalizer(lits, ubound = k,top_id=self.max_var)
-        for clause in self.totalizer.cnf.clauses:
-            self.solver.add_clause(clause)
-
-    def _fitting_constraints_approximate_incr_increase(self, k: int): 
-        self.solver.add_clause([-self.totalizer.rhs[k]])
-
-    def solve(self):
-        acc, n, sol = self.solve_incr(self.k, self.k)
-        if acc == 1.0:
-            return True
-        else:
-            return False
-    
-    def solve_incr(self,max_k :int, start_k : int =1, return_string = False, timeout : float = -1):
-        return self.solve_incr_approx(max_k, start_k, len(self.P) + len(self.N), timeout=timeout)
-
-    def cn_types(self) -> set[frozenset[str]]:
-        res: set[frozenset[str]] = set()
-        for i in range(self.A.max_ind):
-            tp: list[str] = []
-            for cn in self.sigma[0]:
-                if i in self.A.cn_ext[cn]:
-                    tp.append(cn)
-            res.add(frozenset(tp))
-        return res
-
-    def solve_approx(self, k: int, min_n: int, timeout : float = -1):
-        time_start = time.perf_counter()
-        self.k = k
-        n = max(len(self.P), len(self.N), min_n)
-        
-        dt = time.perf_counter() - time_start
-
-        best_sol = None
-        best_accuracy = 0
-        best_n = 0
-        
-        self.solver = Glucose4(incr=True)
-        self.vars = self._vars()
-        self._syn_tree_encoding()
-        self._evaluation_constraints()
-        self._symmetry_breaking()
-
-        while n <= len(self.P) + len(self.N) and (dt < timeout or timeout == -1):
-            self._fitting_constraints_approximate(n)
-            
-            dt = time.perf_counter() - time_start
-            remaining_time = -1
-            if timeout != -1:
-                remaining_time = timeout - dt
-
-            if not solver_solve(self.solver, remaining_time):
-                print(f"Not satisfiable for k={self.k}, n={n}")
-                return best_accuracy, best_n, self.k, best_sol
-
-            best_sol = self._modelToTree()
-
-            model_n = self._model_n()
-
-            best_accuracy = model_n / (len(self.P) + len(self.N))
-            best_n = model_n
-            print(f"Satisfiable for k={self.k}, n={model_n}, acc={best_accuracy}")
-            print(best_sol.to_asciitree())
-            n = model_n + 1
-            dt = time.perf_counter() - time_start
-        
-        return best_accuracy, best_n, self.k, best_sol
-
-    def solve_approx2(self, k: int, min_n: int, timeout : float = -1):
-            time_start = time.perf_counter()
-            self.k = k
-            n = max(len(self.P), len(self.N), min_n)
-            
-            dt = time.perf_counter() - time_start
-
-            best_sol = None
-            best_accuracy = 0
-            best_n = 0
-            
-            self.solver = Glucose4(incr=True)
-            self.vars = self._vars()
-            self._syn_tree_encoding()
-            self._evaluation_constraints()
-            self._symmetry_breaking()
-
-            self._fitting_constraints_approximate_incr_initial(len(self.P) + len(self.N))
-
-            while n <= len(self.P) + len(self.N) and (dt < timeout or timeout == -1):                
-                self._fitting_constraints_approximate_incr_increase(len(self.P) + len(self.N) - n)
-                
-                dt = time.perf_counter() - time_start
-                remaining_time = -1
-                if timeout != -1:
-                    remaining_time = timeout - dt
-
-                if not solver_solve(self.solver, remaining_time):
-                    print(f"Not satisfiable for k={self.k}, n={n}")
-                    self.totalizer.delete()
-                    return best_accuracy, best_n, self.k, best_sol
-
-                best_sol = self._modelToTree()
-
-                model_n = self._model_n()
-
-                best_accuracy = model_n / (len(self.P) + len(self.N))
-                best_n = model_n
-                print(f"Satisfiable for k={self.k}, n={model_n}, acc={best_accuracy}")
-                print(best_sol.to_asciitree())                
-                n = model_n+1
-                dt = time.perf_counter() - time_start
-            self.totalizer.delete()
-            return best_accuracy, best_n, self.k, best_sol
-    
-
-
-    def solve_incr_approx(self, max_k : int , start_k : int =1, min_n: int = 1, timeout : float = -1):
-        time_start = time.perf_counter()
-        self.k = start_k
-        n = max(len(self.P), len(self.N), min_n)
-        best_sol: STreeNode = STreeNode.FromDict({ (0, d_op[TOP]) : []}, (0, d_op[TOP]))
-        best_acc = 0
-        dt = time.perf_counter() - time_start
-
-        while self.k <= max_k and (dt < timeout or timeout == -1) and best_acc < 1.0:
-            remaining_time = -1
-            if timeout != -1:
-                remaining_time = timeout - dt
-
-            k_acc, k_n, _, k_sol = self.solve_approx(self.k, n, remaining_time)
-
-            if k_acc > best_acc:
-                assert k_sol
-                best_sol = k_sol
-                best_acc = k_acc
-                n = k_n + 1
-
-            self.k += 1
-            dt = time.perf_counter() - time_start
-
-        return best_acc, self.k, best_sol
-
-    def printVariables(self):
-        if self.solver.get_model():
-            l = self.solver.get_model()                
-            for k,v in self.vars.items():
-                for i in range(self.k):
-                    s = f"{bcolors.FAIL}False{bcolors.ENDC}"
-                    if v+i in l:
-                        s = f"{bcolors.OKGREEN}True{bcolors.ENDC}" 
-                    if k[0] == X:
-                        try:
-                            print((d_var_names[k[0]],d_op[k[1]],v+i), f"Tree Node: {(v+i-1)%self.k }",s)
-                        except KeyError:
-                            print((d_var_names[k[0]],k[1],v+i), f"Tree Node: {(v+i-1)%self.k }",s)
-                    elif k[0] == V:
-                        print((d_var_names[k[0]],k[1:],f"edge: ({k[2]},{i})",v+i),s)
-                    else:
-                        print((d_var_names[k[0]],k[1:],v+i),s)
-                    if k[0] == Y:
-                        print((d_var_names[k[0]],k[1:],v+i),s)
-
-    def _model_n(self)-> int:
+    def model_n(self) -> int:
+        assert self.solver and self.solver.get_status()
         # Return the number of positive/negative examples that is claimed to be covered by a model
         m = self.solver.get_model()
+        assert isinstance(m, list)
 
         res: int = 0
-        for p in self.P:
+        for p in self.inst.P:
             if self.vars[Z, p] + 0 in m:
                 res += 1
-        
-        for n in self.N:
+
+        for n in self.inst.N:
             if self.vars[Z, n] + 0 not in m:
                 res += 1
         return res
 
+    def model_extension(self) -> frozenset[int]:
+        assert self.solver and self.solver.get_status()
+        # Return the number of positive/negative examples that is claimed to be covered by a model
+        m = self.solver.get_model()
+        assert isinstance(m, list)
 
-    def _modelToTree(self) -> STreeNode:
-            m = self.solver.get_model()
-            edges = {i : [] for i in range(self.k)}
-            x_symbols = [None] * self.k
+        res: set[int] = set()
+        for p in self.inst.P:
+            if self.vars[Z, p] + 0 in m:
+                res.add(p)
 
-            for x in m[:self.vars[Z,0]-1]:
-                if x>0:
-                    i = (x-1)%(self.k)                
-                    x_symbols[i] = self.tree_node_symbols[x - i]
+        for n in self.inst.N:
+            if self.vars[Z, n] + 0 in m:
+                res.add(n)
+        return frozenset(res)
 
-            for i in range(self.k):
-                for j in range(i + 1, self.k):
-                    if (self.vars[V, 1, i] + j) in m:
-                        edges[i].append(j)
-                    elif j < self.k - 1 and (self.vars[V, 2, i] + j) in m:
-                        edges[i].append(j)
-                        edges[i].append(j + 1)
+    def nodelabel(self, i: int) -> tuple[OP, int, str]:
+        assert self.solver and self.solver.get_status()
+        m = self.solver.get_model()
+        assert isinstance(m, list)
+        if (self.vars[X, OP.TOP] + i) in m:
+            return (OP.TOP, 0, "")
+        if (self.vars[X, OP.BOT] + i) in m:
+            return (OP.BOT, 0, "")
+        for cn in self.inst.sigma.conceptnames:
+            if (self.vars[X, cn] + i) in m:
+                return (OP.CN, 0, cn)
+        for op in self.inst.op_b():
+            if (self.vars[X, op] + i) in m:
+                return (op, 0, "")
+        if OP.EX in self.inst.op:
+            for r in self.inst.sigma.rolenames:
+                if (self.vars[X, OP.EX, r] + i) in m:
+                    return (OP.EX, 0, r)
+        if OP.ALL in self.inst.op:
+            for r in self.inst.sigma.rolenames:
+                if (self.vars[X, OP.ALL, r] + i) in m:
+                    return (OP.ALL, 0, r)
+        if OP.LE in self.inst.op:
+            for r in self.inst.sigma.rolenames:
+                for q in range(1, self.max_q_per_r[r] + 2):
+                    if (self.vars[X, OP.LE, r, q] + i) in m:
+                        return (OP.LE, q, r)
+        if OP.GE in self.inst.op:
+            for r in self.inst.sigma.rolenames:
+                for q in range(2, self.max_q_per_r[r] + 2):
+                    if (self.vars[X, OP.GE, r, q] + i) in m:
+                        return (OP.GE, q, r)
+        assert False
 
-            edges_labeled = { (k,x_symbols[k]) : list(map(lambda x : (x,x_symbols[x]), v)) for k,v in edges.items() }        
-            t = STreeNode.FromDict(edges_labeled,(0,x_symbols[0]))        
-            return t
+    def modelToTree(self, i: int = 0) -> ALCConcept:
+        assert self.solver and self.solver.get_status()
+        m = self.solver.get_model()
+        assert isinstance(m, list)
+
+        (op, q, r) = self.nodelabel(i)
+
+        children: list[ALCConcept] = []
+        for j in range(i + 1, self.k):
+            if (self.vars[V, 1, i] + j) in m:
+                children.append(self.modelToTree(j))
+            if j < self.k - 1 and (self.vars[V, 2, i] + j) in m:
+                children.append(self.modelToTree(j))
+                children.append(self.modelToTree(j + 1))
+        return ALCConcept(op, r, q, tuple(children))
 
 
+ApproxTask = tuple[ALCSATEncoding, int, int, int]
 
 
-# Generate (almost) non-isomorphic trees of size n
-# Why almost? The case there the left and right subtree are of the same size is
-# currently not handled correctly and from size 7 on, some isomorphic trees are generated
-def all_trees(k: int, start: int = 0) -> list[list[tuple[int] | tuple[int, int] | tuple[()]]]:
-    if k == 1:
-        return [ [()] ]
+def solve_approx(task: ApproxTask):
+    enc, k, min_n, tt = task
 
-    res = []
-    for i in range(1, (k - 1) // 2 + 1):
-        for a in all_trees(i, start + 2):
-            for b in all_trees((k - 1) - i, start + i + 1):
-                # Whacky tree composition to ensure that children of binary nodes are always adjacent
-                # (the start + 2 for the a trees is for the same purpose)
-                res.append([ (start + 1, start + 2)] + [ a[0] ] + [b[0]] + a[1:] + b[1:])
+    n = max(len(enc.inst.P), len(enc.inst.N), min_n)
+
+    best_sol = None
+    best_f1 = 0
+    best_accuracy = 0
+    best_n = 0
+    enc.types = cn_types(enc.inst.A, enc.inst.sigma)
+    enc.create_vars()
+
+    enc.syn_tree_encoding(tt)
+    enc.evaluation_constraints(tt)
+    enc.symmetry_breaking()
+
+    enc.solver = Solver(name="g4", incr=True, bootstrap_with=enc.clauses)
+
+    while n <= len(enc.inst.P) + len(enc.inst.N):
+        enc.fitting_constraints_approximate(n)
+
+        if not enc.solver.solve():
+            return best_accuracy, best_f1, best_n, k, best_sol
+
+        best_sol = enc.modelToTree()
+        extension = enc.model_extension()
+
+        best_accuracy = enc.inst.accuracy(extension)
+        best_f1 = enc.inst.f1score(extension)
+        best_n = enc.model_n()
+        n = best_n + 1
+
+    return best_accuracy, best_f1, best_n, k, best_sol
 
 
-    for a in all_trees(k - 1, start + 1):
-        res.append( [ ( start + 1, )] + a)
-    
-    return res
+class FittingALC:
+    def __init__(
+        self,
+        A: Structure,
+        max_k: int,
+        P: list[int],
+        N: list[int],
+        op: Iterable[OP] = ALC_OP,
+        workers: int = 1,
+        max_q: int = 2,
+        bisim_reduction: bool = True,
+        clustering: ThresholdMethod = ThresholdMethod.INTERVALS,
+        max_thresholds: int = 10
+    ):
+        self.max_k: int = max_k
+        self.inst: Instance = Instance(
+            A, P, N, non_empty_symbols(A), frozenset(op), max_q=max_q
+        )
+        self.workers: int = workers
+        self.clustering = clustering
+        self.bisim_reduction = bisim_reduction
+        self.max_thresholds = max_thresholds
+
+    def solve(self):
+        acc, _, _ = self.solve_incr(self.max_k, self.max_k)
+        return acc == 1.0
+
+    def solve_incr(self, max_k: int, start_k: int = 1, timeout: float = -1):
+        return self.solve_incr_approx(
+            max_k, start_k, len(self.inst.P) + len(self.inst.N), timeout=timeout
+        )
+
+    def solve_incr_approx(
+        self, max_k: int, start_k: int = 1, min_n: int = 1, timeout: float = -1
+    ) -> tuple[float, int, ALCConcept]:
+        time_start = time.time()
+        k: int = start_k
+        n: int = max(len(self.inst.P), len(self.inst.N), min_n)
+        best_sol: ALCConcept = ALCConcept(OP.TOP, "", 0, tuple())
+        best_acc = 0
+        dt = time.time() - time_start
+
+        if OP.INV in self.inst.op:
+            self.inst, reverse_inverse_mapping = encode_inverses(self.inst)
+        else:
+            reverse_inverse_mapping: dict[str, str] = {}
+
+        self.inst.sigma = determine_relevant_symbols(
+            self.inst.A, self.inst.P + self.inst.N, 1, max_k - 1
+        )
+
+        self.inst = restrict_neighborhood(self.inst, max_k)
+
+        if OP.DGEQ in self.inst.op:
+            self.inst, reverse_data_mapping = encode_dataproperties(
+                self.inst, clustering=self.clustering, max_k=self.max_k, max_thresholds=self.max_thresholds
+            )
+
+        if self.bisim_reduction:
+            self.inst = bisimulation_reduction(self.inst, max_k)
+
+        self.inst = prune_conceptnames(self.inst)
+
+        inters = set(self.inst.P).intersection(set(self.inst.N))
+        if len(inters) > 0:
+            print(f"=== {len(inters)} individuals both positive and negative")
+
+        with ProcessPoolExecutor(self.workers) as p:
+            while k <= max_k and (dt < timeout or timeout == -1) and best_acc < 1.0:
+                enc = ALCSATEncoding(self.inst)
+                enc.k = k
+
+                tasks: list[ApproxTask] = [
+                    (enc, k, n, tt) for tt in range(len(all_trees(k)))
+                ]
+
+                fts = [p.submit(solve_approx, task) for task in tasks]
+
+                dt = time.time() - time_start
+                if timeout != -1:
+                    remaining_time = timeout - dt
+                else:
+                    remaining_time = None
+
+                progress = 0
+                print(f"Searching with k = {k}, progress {progress}/{len(tasks)}")
+                try:
+                    for ft in concurrent.futures.as_completed(
+                        fts, timeout=remaining_time
+                    ):
+                        k_acc, k_f1, k_n, _, k_sol = ft.result()
+                        progress += 1
+
+                        print(
+                            f"Searching with k = {k}, progress {progress}/{len(tasks)}"
+                        )
+
+                        if k_acc > best_acc:
+                            assert k_sol
+                            best_sol = k_sol
+                            best_acc = k_acc
+                            print(
+                                f"Satisfiable for k={k}, n={k_n}, acc={k_acc:.6f}, f1={k_f1:.6f}"
+                            )
+                            print(best_sol.to_tree())
+                            n = k_n + 1
+                except TimeoutError:
+                    pass
+
+                k += 1
+                dt = time.time() - time_start
+
+            # Really kill the SAT solver processes
+            for proc in p._processes.values():
+                proc.terminate()
+            p.shutdown(wait=False, cancel_futures=True)
+
+        decoded_sol = best_sol
+
+        if OP.DGEQ in self.inst.op:
+            decoded_sol = decode_dataproperties(best_sol, reverse_data_mapping)
+
+        if OP.INV in self.inst.op:
+            decoded_sol = decode_inverses(decoded_sol, reverse_inverse_mapping)
+
+        return best_acc, k, decoded_sol
+
+
+def perfect_fitting(
+    inst: Instance,
+    clustering: ThresholdMethod = ThresholdMethod.ALL_THRESHOLDS,
+    max_thresholds: int = 10,
+) -> tuple[float, int, ALCConcept]:
+    orig_inst = inst
+    inst, back = encode_dataproperties(inst, clustering, max_thresholds)
+
+    sig = inst.sigma
+    A = inst.A
+    P = inst.P
+    N = inst.N
+
+    colors_alcq, cr = color_refinement(A, sig, True, -1)
+
+    pos_colors = {}
+    neg_colors = {}
+    for p in P:
+        c = colors_alcq[p]
+        if c not in pos_colors:
+            pos_colors[c] = 0
+        pos_colors[c] += 1
+
+    for n in N:
+        c = colors_alcq[n]
+        if c not in neg_colors:
+            neg_colors[c] = 0
+        neg_colors[c] += 1
+
+    disj = list()
+    for cp in pos_colors.keys():
+        if cp in neg_colors and pos_colors[cp] < neg_colors[cp]:
+            # Including this positive example would include a lot of negative
+            # examples and thus not be beneficial for accuracy
+            continue
+
+        conj = list()
+        for cn in neg_colors.keys():
+            if cp == cn:
+                continue
+
+            res = extract_concept(cr, cp, cn, A)
+            for p in P:
+                if colors_alcq[p] == cp:
+                    assert res.mc(inst.A, p)
+            conj.append(res)
+
+        conj = simplify_conj(conj, A)
+        d = merge_conj(deduplicate(conj), OP.AND)
+        disj.append(d)
+
+    c = merge_conj(deduplicate(disj), OP.OR)
+    c = decode_dataproperties(c, back)
+
+    ext: set[int] = set()
+    for a in P + N:
+        if c.mc(orig_inst.A, a):
+            ext.add(a)
+
+    acc = orig_inst.accuracy(frozenset[int](ext))
+
+    return acc, c.size(), c

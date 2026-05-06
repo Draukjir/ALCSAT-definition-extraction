@@ -2,32 +2,29 @@ import functools
 import os
 import random
 import time
-from typing import FrozenSet, Generator, Union
+from collections.abc import Generator
 
-from .fitting import non_empty_symbols, solve_incr, mode
+from .fitting import mode, non_empty_symbols, solve_incr
 from .structures import (
     ABoxBuilder,
     Signature,
     Structure,
     conceptname_ext,
-    conceptnames,
-    copy_structure,
     generate_all_trees,
     ind,
     map_ind_name,
-    rolenames,
     solution2sparql,
     structure_from_owl,
 )
 
-ROBOT_PATH = "{}/../robot/robot".format(os.path.dirname(os.path.realpath(__file__)))
+ROBOT_PATH = f"{os.path.dirname(os.path.realpath(__file__))}/../robot/robot"
 ROBOT_JAVA_ARGS = "-Xmx40G"
 
-Concept = FrozenSet[tuple[str, Union[None, "Concept"]]]
+ELConcept = frozenset[tuple[str, "None | ELConcept"]]
 
 
-def drop_leave_atom(c: Concept) -> list[Concept]:
-    res: list[Concept] = []
+def drop_leave_atom(c: ELConcept) -> list[ELConcept]:
+    res: list[ELConcept] = []
 
     for rn, d in c:
         weak_c = c - {(rn, d)}
@@ -42,7 +39,7 @@ def drop_leave_atom(c: Concept) -> list[Concept]:
     return res
 
 
-def weaken_concept(concept: Concept, steps: int) -> set[Concept]:
+def weaken_concept(concept: ELConcept, steps: int) -> set[ELConcept]:
     s = {concept}
 
     for _ in range(steps):
@@ -53,16 +50,18 @@ def weaken_concept(concept: Concept, steps: int) -> set[Concept]:
 
 def add_random_cn(A: Structure, sigma: Signature) -> Structure:
     a = random.randrange(A.max_ind)
-    cn = random.choice(conceptnames(sigma))
+    cn = random.choice(sigma.conceptnames)
 
     attempts = 0
     while a in conceptname_ext(A, cn) and attempts < 100:
         a = random.randrange(A.max_ind)
-        cn = random.choice(conceptnames(sigma))
+        cn = random.choice(sigma.conceptnames)
         attempts += 1
 
-    A2 = copy_structure(A)
+    A2 = Structure(A.max_ind, A.cn_ext, A.rn_ext, A.dp_ext, A.indmap, A.nsmap)
 
+    A2.cn_ext = dict(A2.cn_ext)
+    A2.cn_ext[cn] = set(A.cn_ext[cn])
     A2.cn_ext[cn].add(a)
     return A2
 
@@ -73,7 +72,7 @@ def random_concept(size: int, sigma: Signature) -> Structure:
 
     # Make sure that we don't have more concept assertions than ways to apply concept assertions
     while (
-        concept_assertions > (edges + 1) * len(conceptnames(sigma))
+        concept_assertions > (edges + 1) * len(sigma.conceptnames)
         or concept_assertions < edges + 1
     ):
         edges = random.randrange(int(size * 0.80))  # 40% edges, 60% concept assertions
@@ -88,32 +87,37 @@ def random_concept(size: int, sigma: Signature) -> Structure:
         rasserts[i] = set()
 
     for edge in range(edges):
-        rolename = random.choice(rolenames(sigma))
+        rolename = random.choice(sigma.rolenames)
         rasserts[tree[edge]].add((edge + 1, rolename))
 
     casserts = {}
-    for cn in conceptnames(sigma):
+    for cn in sigma.conceptnames:
         casserts[cn] = set()
 
     # Generate distinct concept assertions
     no_casserts = 0
     while no_casserts < concept_assertions:
-        cn = random.choice(conceptnames(sigma))
+        cn = random.choice(sigma.conceptnames)
         ind = random.randrange(edges + 1)
         if ind not in casserts[cn]:
             casserts[cn].add(ind)
             no_casserts += 1
 
     return Structure(
-        max_ind=edges + 1, cn_ext=casserts, rn_ext=rasserts, indmap={}, nsmap={}
+        max_ind=edges + 1,
+        cn_ext=casserts,
+        rn_ext=rasserts,
+        dp_ext={},
+        indmap={},
+        nsmap={},
     )
 
 
-def frontier(c: Concept) -> list[Concept]:
-    res: list[Concept] = []
+def frontier(c: ELConcept) -> list[ELConcept]:
+    res: list[ELConcept] = []
 
     for rn, d in c:
-        base: Concept = c - {(rn, d)}
+        base: ELConcept = c - {(rn, d)}
         if not d:  # Conceptname
             res.append(base)
         elif len(d) == 0:  # Leaf
@@ -127,7 +131,7 @@ def frontier(c: Concept) -> list[Concept]:
     return res
 
 
-def repeated_frontier(c: Concept, n: int) -> list[Concept]:
+def repeated_frontier(c: ELConcept, n: int) -> list[ELConcept]:
     f = [c]
 
     for i in range(n):
@@ -136,35 +140,35 @@ def repeated_frontier(c: Concept, n: int) -> list[Concept]:
     return f
 
 
-def drop_root_subtree(c: Concept) -> list[Concept]:
-    res: list[Concept] = []
+def drop_root_subtree(c: ELConcept) -> list[ELConcept]:
+    res: list[ELConcept] = []
     for rn, d in c:
         res.append(c - {(rn, d)})
     return res
 
 
-def weaken_drop_root_subtrees(c: Concept, succs: int) -> list[Concept]:
+def weaken_drop_root_subtrees(c: ELConcept, succs: int) -> list[ELConcept]:
     r1 = frontier(c)
 
     while len(r1[0]) > succs:
-        r1 = list(set([d for c in r1 for d in drop_root_subtree(c)]))
+        r1 = list({d for c in r1 for d in drop_root_subtree(c)})
 
     return list(set(r1))
 
 
-def concept2sparqlclauses(concept: Concept, counter) -> list[str]:
+def concept2sparqlclauses(concept: ELConcept, counter: int) -> list[str]:
     res: list[str] = []
 
     thisnode = counter
     if counter == 0:
-        res.append("?{} a <http://www.w3.org/2002/07/owl#Thing> .".format(counter))
+        res.append(f"?{counter} a <http://www.w3.org/2002/07/owl#Thing> .")
     if len(concept) > 0:
         res.append("FILTER EXISTS {")
         for rn, d in concept:
             if d is None:
-                res.append("?{} a {} .".format(thisnode, rn))
+                res.append(f"?{thisnode} a {rn} .")
             else:
-                res.append("?{} {} ?{} .".format(thisnode, rn, counter + 1))
+                res.append(f"?{thisnode} {rn} ?{counter + 1} .")
                 sub = concept2sparqlclauses(d, counter + 1)
                 res.extend(sub)
                 counter += len(sub) + 1
@@ -173,7 +177,7 @@ def concept2sparqlclauses(concept: Concept, counter) -> list[str]:
     return res
 
 
-def concept2sparql(concept: Concept) -> str:
+def concept2sparql(concept: ELConcept) -> str:
     clauses = concept2sparqlclauses(concept, 0)
 
     return "SELECT DISTINCT ?0 WHERE {{\n {}\n}}".format("\n ".join(clauses))
@@ -195,31 +199,31 @@ def sparql2struct(sparql: str) -> Structure:
     return b.A
 
 
-def conj2string(rn: str, d: Union[None, Concept]) -> str:
+def conj2string(rn: str, d: None | ELConcept) -> str:
     if d is None:
-        return "{}".format(rn)
+        return f"{rn}"
     if len(d) > 1:
-        return "\\exists {}.({})".format(rn, concept2string(d))
+        return f"\\exists {rn}.({concept2string(d)})"
     else:
-        return "\\exists {}.{}".format(rn, concept2string(d))
+        return f"\\exists {rn}.{concept2string(d)}"
 
 
-def concept2string(concept: Concept) -> str:
+def concept2string(concept: ELConcept) -> str:
     if len(concept) == 0:
         return "\\top"
-    sub_concepts = list(conj2string(rn, d) for (rn, d) in concept)
+    sub_concepts = [conj2string(rn, d) for (rn, d) in concept]
     sub_concepts.sort()
     return " \\sqcap ".join(sub_concepts)
 
 
 @functools.cache
-def number_of_vars(c: Union[None, Concept]) -> int:
+def number_of_vars(c: None | ELConcept) -> int:
     if c is None:
         return 0
     return 1 + sum([number_of_vars(d) for (rn, d) in c])
 
 
-def concept_depth(c: Union[None, Concept]) -> int:
+def concept_depth(c: None | ELConcept) -> int:
     if c is None:
         return 0
     if len(c) == 0:
@@ -227,9 +231,9 @@ def concept_depth(c: Union[None, Concept]) -> int:
     return 1 + max([concept_depth(d) for (rn, d) in c])
 
 
-def structure2concept_rec(s: Structure, i: int) -> Concept:
-    res: Concept = frozenset()
-    for cn in s.cn_ext.keys():
+def structure2concept_rec(s: Structure, i: int) -> ELConcept:
+    res: ELConcept = frozenset()
+    for cn in s.cn_ext:
         if i in s.cn_ext[cn]:
             res = res | {(cn, None)}
 
@@ -240,22 +244,24 @@ def structure2concept_rec(s: Structure, i: int) -> Concept:
     return res
 
 
-def structure2concept(s: Structure) -> Concept:
+def structure2concept(s: Structure) -> ELConcept:
     return structure2concept_rec(s, 0)
 
 
-def concept2structure(c: Concept) -> Structure:
-    queue: list[tuple[Concept, int]] = [(c, 0)]
+def concept2structure(c: ELConcept) -> Structure:
+    queue: list[tuple[ELConcept, int]] = [(c, 0)]
 
-    res = Structure(max_ind=1, cn_ext={}, rn_ext={0: set()}, indmap={}, nsmap={})
+    res = Structure(
+        max_ind=1, cn_ext={}, rn_ext={0: set()}, dp_ext={}, indmap={}, nsmap={}
+    )
 
     while len(queue) > 0:
         (c, ind) = queue.pop(0)
         res.rn_ext[ind] = set()
 
         for r, c2 in c:
-            if c2 == None:
-                if r not in res.cn_ext.keys():
+            if c2 is None:
+                if r not in res.cn_ext:
                     res.cn_ext[r] = set()
                 res.cn_ext[r].add(ind)
             else:
@@ -264,6 +270,7 @@ def concept2structure(c: Concept) -> Structure:
                     max_ind=res.max_ind + 1,
                     cn_ext=res.cn_ext,
                     rn_ext=res.rn_ext,
+                    dp_ext={},
                     indmap={},
                     nsmap={},
                 )
@@ -273,7 +280,7 @@ def concept2structure(c: Concept) -> Structure:
     return res
 
 
-def get_reachable_inds(owlfile, starts: list[str]) -> list[str]:
+def get_reachable_inds(owlfile: str, starts: list[str]) -> list[str]:
     A = structure_from_owl(owlfile)
     new_elems = {A.indmap[s] for s in starts}
     res: set[int] = set()
@@ -301,7 +308,7 @@ def get_reachable_inds(owlfile, starts: list[str]) -> list[str]:
 
 def run_robot_cmd(cmd: str):
     if not os.path.isfile(ROBOT_PATH):
-        print("robot cmd at {} not found".format(ROBOT_PATH))
+        print(f"robot cmd at {ROBOT_PATH} not found")
 
     import subprocess
 
@@ -350,7 +357,7 @@ def owlname2tdbname(owlfile):
     return ".cache/{}".format(owlfile.replace("/", "-"))
 
 
-def parse_query_output(output_file) -> list[str]:
+def parse_query_output(output_file: str) -> list[str]:
     result: list[str] = []
     with open(output_file) as file:
         try:
@@ -413,7 +420,7 @@ def merge_negatives(negs: list[list[str]]):
 
 
 def query_for_benchmark_examples(
-    tdbdir: str, concept: Concept, steps: int, bound: int
+    tdbdir: str, concept: ELConcept, steps: int, bound: int
 ) -> tuple[list[str], list[str]]:
     ws = repeated_frontier(concept, steps)
 
@@ -441,12 +448,12 @@ def emit_sml_benchmark(
 ) -> None:
     import subprocess
 
-    print("== Creating benchmark directory at {}/{}".format(path, name))
-    example_dir = "{}/{}/owl/lp/1".format(path, name)
-    p_example_path = "{}/pos.txt".format(example_dir)
-    n_example_path = "{}/neg.txt".format(example_dir)
-    dll_conf_path = "{}/dllearner.conf".format(example_dir)
-    info_path = "{}/{}/benchmark-info.txt".format(path, name)
+    print(f"== Creating benchmark directory at {path}/{name}")
+    example_dir = f"{path}/{name}/owl/lp/1"
+    p_example_path = f"{example_dir}/pos.txt"
+    n_example_path = f"{example_dir}/neg.txt"
+    dll_conf_path = f"{example_dir}/dllearner.conf"
+    info_path = f"{path}/{name}/benchmark-info.txt"
 
     os.makedirs(example_dir, exist_ok=True)
 
@@ -471,31 +478,31 @@ def emit_sml_benchmark(
 
     with open(info_path, "w") as file:
         file.write("Benchmark is automatically generated for SPELL\n")
-        file.write("Number of positive examples: {}\n".format(len(P)))
-        file.write("Number of negative examples: {}\n".format(len(N)))
+        file.write(f"Number of positive examples: {len(P)}\n")
+        file.write(f"Number of negative examples: {len(N)}\n")
 
         for v in info:
             file.write(v + "\n")
 
-    owl_dir = "{}/{}/owl/data".format(path, name)
-    owl_path = "{}/{}.owl".format(owl_dir, name)
+    owl_dir = f"{path}/{name}/owl/data"
+    owl_path = f"{owl_dir}/{name}.owl"
 
     os.makedirs(owl_dir, exist_ok=True)
 
-    subprocess.run("cp {} {}".format(owlfile, owl_path), shell=True)
+    subprocess.run(f"cp {owlfile} {owl_path}", shell=True)
 
 
 def construct_sml_benchmark(
     path, name, owlfile, concept, weaken_steps=1, size_bound=50
 ):
-    print("== Generating benchmark {}".format(name))
-    print("== Saturating {} and creating cache for querying".format(owlfile))
+    print(f"== Generating benchmark {name}")
+    print(f"== Saturating {owlfile} and creating cache for querying")
 
     tdbdir = owlname2tdbname(owlfile)
 
     create_materialized_tdb_dir(owlfile, tdbdir)
 
-    print("== Querying {} using {}".format(owlfile, ROBOT_PATH))
+    print(f"== Querying {owlfile} using {ROBOT_PATH}")
     P, N = query_for_benchmark_examples(tdbdir, concept, weaken_steps, size_bound)
 
     tmp_owl = "tmp.owl"
@@ -503,7 +510,7 @@ def construct_sml_benchmark(
     print("== Collecting relevant individuals for this benchmark")
     relevant_inds = get_reachable_inds(owlfile, list(P) + list(N))
 
-    print("== Creating relevant subset of {}".format(owlfile))
+    print(f"== Creating relevant subset of {owlfile}")
     create_restricted_owl(owlfile, relevant_inds, tmp_owl)
 
     emit_sml_benchmark(
@@ -513,21 +520,19 @@ def construct_sml_benchmark(
         P,
         N,
         [
-            "Fragment of knowledge base: {}".format(owlfile),
-            "Total number of individuals: {}".format(len(relevant_inds)),
-            "Target query: {}".format(concept2string(concept)),
-            "Generalization steps: {}".format(weaken_steps),
+            f"Fragment of knowledge base: {owlfile}",
+            f"Total number of individuals: {len(relevant_inds)}",
+            f"Target query: {concept2string(concept)}",
+            f"Generalization steps: {weaken_steps}",
         ],
     )
 
     print(
-        "== Successfully generated benchmark {} with {} + {} examples and {} individuals".format(
-            name, len(P), len(N), len(relevant_inds)
-        )
+        f"== Successfully generated benchmark {name} with {len(P)} + {len(N)} examples and {len(relevant_inds)} individuals"
     )
 
 
-def parse_simple_concept(concept_str: list[str]) -> tuple[list[str], Concept]:
+def parse_simple_concept(concept_str: list[str]) -> tuple[list[str], ELConcept]:
     if concept_str[0] == "\\exists":
         rn = concept_str[1]
         if concept_str[2] == "(":
@@ -542,7 +547,7 @@ def parse_simple_concept(concept_str: list[str]) -> tuple[list[str], Concept]:
     return concept_str[1:], frozenset({(concept_str[0], None)})
 
 
-def parse_conjunction(concept_str: list[str]) -> tuple[list[str], Concept]:
+def parse_conjunction(concept_str: list[str]) -> tuple[list[str], ELConcept]:
     concept_str, res = parse_simple_concept(concept_str)
     if len(concept_str) > 0:
         if concept_str[0] == ")":
@@ -553,7 +558,7 @@ def parse_conjunction(concept_str: list[str]) -> tuple[list[str], Concept]:
     return concept_str, res
 
 
-def parse_concept(concept_str: str) -> Concept:
+def parse_concept(concept_str: str) -> ELConcept:
     # concept_str = concept_str.replace(".", " ")
     concept_str = concept_str.replace("(", " ( ")
     concept_str = concept_str.replace(")", " ) ")
@@ -568,7 +573,7 @@ def parse_concept(concept_str: str) -> Concept:
 def verify_solution(owlfile, B, P, N, solution):
     claimed_acc, best_q = solution
 
-    print("== Querying {} with best solution".format(owlfile))
+    print(f"== Querying {owlfile} with best solution")
 
     A = structure_from_owl(owlfile)
     construct_owl_from_structure("tmp.owl", A)
@@ -598,22 +603,21 @@ def verify_solution(owlfile, B, P, N, solution):
 
     real_acc = tp + tn
 
-    print("== Real accuracy {}/{} {}/{}".format(tp, len(P), tn, len(N)))
+    print(f"== Real accuracy {tp}/{len(P)} {tn}/{len(N)}")
     assert real_acc == claimed_acc
 
 
 def load_sml_tasks(path: str, task: str):
-    basepath = "{}/{}".format(path, task)
-    owlpath = "{}/owl/data/{}.owl".format(basepath, task)
+    basepath = f"{path}/{task}"
+    owlpath = f"{basepath}/owl/data/{task}.owl"
 
-    print("== Loading {} for benchmark {}".format(owlpath, task))
+    print(f"== Loading {owlpath} for benchmark {task}")
     A = structure_from_owl(owlpath)
 
     res: dict[str, tuple[str, Structure, list[int], list[int]]] = {}
-    for lp in os.listdir("{}/owl/lp".format(basepath)):
-
-        pospath = "{}/owl/lp/{}/pos.txt".format(basepath, lp)
-        negpath = "{}/owl/lp/{}/neg.txt".format(basepath, lp)
+    for lp in os.listdir(f"{basepath}/owl/lp"):
+        pospath = f"{basepath}/owl/lp/{lp}/pos.txt"
+        negpath = f"{basepath}/owl/lp/{lp}/neg.txt"
 
         with open(pospath, encoding="UTF-8") as file:
             P = [map_ind_name(A, line.rstrip()) for line in file.readlines()]
@@ -626,8 +630,8 @@ def load_sml_tasks(path: str, task: str):
 
 
 def generate_benchmark_collection(path, prefix, owlfile, concepts, size_bound: int):
-    print("== Generating benchmark {}".format(prefix))
-    print("== Saturating {} and creating cache for querying".format(owlfile))
+    print(f"== Generating benchmark {prefix}")
+    print(f"== Saturating {owlfile} and creating cache for querying")
 
     tdbdir = owlname2tdbname(owlfile)
 
@@ -641,16 +645,16 @@ def generate_benchmark_collection(path, prefix, owlfile, concepts, size_bound: i
 
     examples = {}
     for info, pC, nCs in concepts:
-        name = "{}-{}-{}".format(prefix, info, size_bound)
+        name = f"{prefix}-{info}-{size_bound}"
         benchmarks.add(name)
 
-        print("Query {}/{}".format(current_query, total_queries))
+        print(f"Query {current_query}/{total_queries}")
         P = query_tdbdir(tdbdir, concept2sparql(pC))
         current_query += 1
         relevant_inds |= set(P[0:size_bound])
         Ns = []
         for nC in nCs:
-            print("Query {}/{}".format(current_query, total_queries))
+            print(f"Query {current_query}/{total_queries}")
             N = query_tdbdir(tdbdir, concept2sparql(nC))
             current_query += 1
             N = list(set(N) - set(P))
@@ -667,7 +671,7 @@ def generate_benchmark_collection(path, prefix, owlfile, concepts, size_bound: i
     print("== Collecting reachable individuals")
     relevant_inds = get_reachable_inds(owlfile, list(relevant_inds))
 
-    print("== Creating reachable fragment of {}".format(owlfile))
+    print(f"== Creating reachable fragment of {owlfile}")
     tmp_owl = "temp.owl"
     create_restricted_owl(owlfile, relevant_inds, tmp_owl)
 
@@ -677,9 +681,7 @@ def generate_benchmark_collection(path, prefix, owlfile, concepts, size_bound: i
         )
 
     print(
-        "== Successfully generated benchmark collection {} with {} benchmarks".format(
-            prefix, len(concepts)
-        )
+        f"== Successfully generated benchmark collection {prefix} with {len(concepts)} benchmarks"
     )
 
 
@@ -692,47 +694,50 @@ def encode(s) -> str:
 
 @functools.cache
 def class_string(cn: str) -> str:
-    return '    <rdf:type rdf:resource="{}"/>\n'.format(encode(cn))
+    return f'    <rdf:type rdf:resource="{encode(cn)}"/>\n'
 
 
-def construct_owl_from_structure(filename, A: Structure):
+def construct_owl_from_structure(filename: str, A: Structure):
     sigma: Signature = non_empty_symbols(A)
+
+    dps = set(dp for a in range(A.max_ind) for (_, _, dp) in A.dp_ext[a])
 
     reverse_indmap = {
         n: name
         for (name, n) in A.indmap.items()
         if "#" in name or "/" in name or "NC_" in name
     }
-    reverse_nsmap = {ns: key for (key, ns) in A.nsmap.items() if key != None}
+    reverse_nsmap = {ns: key for (key, ns) in A.nsmap.items() if key is not None}
 
     rev_cns = {a: set() for a in ind(A)}
-    for cn in conceptnames(sigma):
+    for cn in sigma.conceptnames:
         for a in conceptname_ext(A, cn):
             rev_cns[a].add(cn)
 
     with open(filename, "w") as file:
         file.write('<?xml version="1.0"?> \n <rdf:RDF ')
         for key, ns in A.nsmap.items():
-            if key == None:
-                file.write('    xmlns="{}"\n'.format(ns))
+            if key is None:
+                file.write(f'    xmlns="{ns}"\n')
             else:
-                file.write('    xmlns:{}="{}"\n'.format(key, ns))
+                file.write(f'    xmlns:{key}="{ns}"\n')
         file.write(">\n")
         file.write(
             '<owl:Ontology rdf:about="{}"/>\n'.format(A.nsmap[None].replace("#", ""))
         )
 
-        for cn in conceptnames(sigma):
-            file.write('<owl:Class rdf:about="{}"/>\n'.format(encode(cn)))
+        for cn in sigma.conceptnames:
+            file.write(f'<owl:Class rdf:about="{encode(cn)}"/>\n')
 
-        for rn in rolenames(sigma):
-            file.write('<owl:ObjectProperty rdf:about="{}"/>\n'.format(encode(rn)))
+        for rn in sigma.rolenames:
+            file.write(f'<owl:ObjectProperty rdf:about="{encode(rn)}"/>\n')
+
+        for dp in dps:
+            file.write(f'<owl:DatatypeProperty rdf:about="{encode(dp)}"/>\n')
 
         for a in ind(A):
             file.write(
-                '<owl:NamedIndividual rdf:about="{}">\n'.format(
-                    encode(reverse_indmap[a])
-                )
+                f'<owl:NamedIndividual rdf:about="{encode(reverse_indmap[a])}">\n'
             )
 
             for cn in rev_cns[a]:
@@ -740,13 +745,20 @@ def construct_owl_from_structure(filename, A: Structure):
 
             for b, r in A.rn_ext[a]:
                 for ns, key in reverse_nsmap.items():
-                    r = r.replace(ns, "{}:".format(key))
+                    r = r.replace(ns, f"{key}:")
                 if A.nsmap[None] in r:
                     r = r.replace(A.nsmap[None], "")
 
-                file.write(
-                    '    <{} rdf:resource="{}"/>\n'.format(r, encode(reverse_indmap[b]))
-                )
+                file.write(f'    <{r} rdf:resource="{encode(reverse_indmap[b])}"/>\n')
+
+            for v, t, dp in A.dp_ext[a]:
+                for ns, key in reverse_nsmap.items():
+                    dp = dp.replace(ns, f"{key}:")
+                if A.nsmap[None] in dp:
+                    dp = dp.replace(A.nsmap[None], "")
+                file.write(f'    <{dp} rdf:datatype="{encode(t)}">{v}</{dp}>\n')
+
+
 
             file.write("</owl:NamedIndividual>\n")
 
@@ -754,68 +766,60 @@ def construct_owl_from_structure(filename, A: Structure):
 
 
 def construct_owl_from_concepts(
-    filename, ps: list[Concept], ns: list[Concept]
+    filename: str, ps: list[ELConcept], ns: list[ELConcept]
 ) -> tuple[list[str], list[str]]:
-
     pos_inds: list[str] = []
     neg_inds: list[str] = []
 
-    sigma: Signature = ([], [])
+    sigma: Signature = Signature([], [])
     for p in ps:
         sign = non_empty_symbols(concept2structure(p))
 
-        sigma = (list(set(sigma[0]) | set(sign[0])), list(set(sigma[1]) | set(sign[1])))
+        sigma = Signature(
+            list(set(sigma.conceptnames) | set(sign.conceptnames)),
+            list(set(sigma.rolenames) | set(sign.rolenames)),
+        )
 
     with open(filename, "w") as file:
         file.write(
             '<?xml version="1.0"?> \n <rdf:RDF xmlns="urn:absolute:test#" xml:base="urn:absolute:test" xmlns:owl="http://www.w3.org/2002/07/owl#" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:xml="http://www.w3.org/XML/1998/namespace" xmlns:xsd="http://www.w3.org/2001/XMLSchema#" xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#" xmlns:test="http://example.com/test#"> <owl:Ontology rdf:about="urn:absolute:test"/> \n'
         )
 
-        for cn in conceptnames(sigma):
-            file.write(
-                '<owl:Class rdf:about="http://example.com/test#{}"/>\n'.format(cn)
-            )
+        for cn in sigma.conceptnames:
+            file.write(f'<owl:Class rdf:about="http://example.com/test#{cn}"/>\n')
 
-        for rn in rolenames(sigma):
+        for rn in sigma.rolenames:
             file.write(
-                '<owl:ObjectProperty rdf:about="http://example.com/test#{}"/>\n'.format(
-                    rn
-                )
+                f'<owl:ObjectProperty rdf:about="http://example.com/test#{rn}"/>\n'
             )
 
         maxind = 0
-        queue: list[tuple[Concept, int]] = []
+        queue: list[tuple[ELConcept, int]] = []
         for p in ps:
             queue.append((p, maxind))
-            pos_inds.append("http://example.com/test#a{}".format(maxind))
+            pos_inds.append(f"http://example.com/test#a{maxind}")
             maxind += 1
 
         for n in ns:
             queue.append((n, maxind))
-            neg_inds.append("http://example.com/test#a{}".format(maxind))
+            neg_inds.append(f"http://example.com/test#a{maxind}")
             maxind += 1
 
         while len(queue) > 0:
             c, i = queue.pop(0)
 
             file.write(
-                '<owl:NamedIndividual rdf:about="http://example.com/test#a{}">\n'.format(
-                    i
-                )
+                f'<owl:NamedIndividual rdf:about="http://example.com/test#a{i}">\n'
             )
 
             for r, c2 in c:
-                if c2 == None:
+                if c2 is None:
                     file.write(
-                        '    <rdf:type rdf:resource="http://example.com/test#{}"/>\n'.format(
-                            r
-                        )
+                        f'    <rdf:type rdf:resource="http://example.com/test#{r}"/>\n'
                     )
-                if c2 != None:
+                if c2 is not None:
                     file.write(
-                        '    <test:{} rdf:resource="http://example.com/test#a{}"/>\n'.format(
-                            r, maxind
-                        )
+                        f'    <test:{r} rdf:resource="http://example.com/test#a{maxind}"/>\n'
                     )
                     queue.append((c2, maxind))
                     maxind += 1
@@ -827,7 +831,7 @@ def construct_owl_from_concepts(
         return (pos_inds, neg_inds)
 
 
-def parse_eltl_paren(parts: list[str]) -> tuple[Concept, list[str]]:
+def parse_eltl_paren(parts: list[str]) -> tuple[ELConcept, list[str]]:
     if parts[0] != "(":
         return parse_eltl_simple_concept(parts)
     else:
@@ -836,14 +840,13 @@ def parse_eltl_paren(parts: list[str]) -> tuple[Concept, list[str]]:
         return C, parts[1:]
 
 
-def parse_eltl_simple_concept(parts: list[str]) -> tuple[Concept, list[str]]:
+def parse_eltl_simple_concept(parts: list[str]) -> tuple[ELConcept, list[str]]:
     assert len(parts) > 0
 
     if len(parts) > 1 and parts[1] == "some":
         rn = parts[0]
 
         if parts[2] == "(":
-
             C, parts = parse_eltl_conj(parts[3:])
 
             assert parts[0] == ")"
@@ -861,7 +864,7 @@ def parse_eltl_simple_concept(parts: list[str]) -> tuple[Concept, list[str]]:
         return frozenset({(C, None)}), parts[1:]
 
 
-def parse_eltl_conj(parts: list[str]) -> tuple[Concept, list[str]]:
+def parse_eltl_conj(parts: list[str]) -> tuple[ELConcept, list[str]]:
     C, parts = parse_eltl_paren(parts)
 
     while len(parts) > 0 and (parts[0] == "and" or parts[0] == "or"):
@@ -872,21 +875,21 @@ def parse_eltl_conj(parts: list[str]) -> tuple[Concept, list[str]]:
 
 
 @functools.cache
-def cn_signature(c: Concept) -> set[str]:
+def cn_signature(c: ELConcept) -> set[str]:
     res = set()
 
     for rn, c1 in c:
         res.add(rn)
-        if c1 != None:
+        if c1 is not None:
             res |= cn_signature(c1)
     return res
 
 
 # is d stronger than c
 @functools.cache
-def subsum(c: Concept, d: Concept) -> bool:
+def subsum(c: ELConcept, d: ELConcept) -> bool:
     for rn, c1 in c:
-        if c1 == None:  # Conceptname
+        if c1 is None:  # Conceptname
             if (rn, None) not in d:
                 return False
         else:
@@ -903,11 +906,11 @@ def subsum(c: Concept, d: Concept) -> bool:
     return True
 
 
-def is_addition_still_core(base: Concept, rn, add) -> bool:
+def is_addition_still_core(base: ELConcept, rn, add) -> bool:
     if not cn_signature(add).issubset(cn_signature(base)):
         return True
     for rn2, d in base:
-        if d == None or rn2 != rn:
+        if d is None or rn2 != rn:
             continue
         if subsum(add, d):
             return False  # d is already stronger than add
@@ -915,9 +918,9 @@ def is_addition_still_core(base: Concept, rn, add) -> bool:
     return True
 
 
-def core_frontier(c: Concept) -> Generator[Concept, None, None]:
+def core_frontier(c: ELConcept) -> Generator[ELConcept, None, None]:
     for rn, d in c:
-        base: Concept = c - {(rn, d)}
+        base: ELConcept = c - {(rn, d)}
         if not d:  # Conceptname
             yield base
         elif len(d) == 0:  # Leaf
@@ -932,7 +935,7 @@ def core_frontier(c: Concept) -> Generator[Concept, None, None]:
 
 
 # Naive implementation
-def distance_from_top(c: Concept) -> int:
+def distance_from_top(c: ELConcept) -> int:
     largest = 0
     res = 0
     while len(c) > 0:
@@ -941,14 +944,14 @@ def distance_from_top(c: Concept) -> int:
         c = g.__next__()
         sz = number_of_vars(c)
         if sz > largest:
-            print("{} {}".format(res, number_of_vars(c)))
+            print(f"{res} {number_of_vars(c)}")
             largest = sz
         if res > 10000:
             return res
     return res
 
 
-def parse_eltl(c: str) -> Concept:
+def parse_eltl(c: str) -> ELConcept:
     c = c.replace("(", " ( ")
     c = c.replace(")", " ) ")
     c = c.replace("  ", " ")
@@ -962,7 +965,7 @@ def parse_eltl(c: str) -> Concept:
     return C
 
 
-def labeled_r_path_dual(path: list[str], cns: set[str]) -> Concept:
+def labeled_r_path_dual(path: list[str], cns: set[str]) -> ELConcept:
     if len(path) == 0:
         return frozenset()
     c = path[0]
@@ -977,7 +980,7 @@ def labeled_r_path_dual(path: list[str], cns: set[str]) -> Concept:
     return frozenset({("r", attach), ("r", rest)})
 
 
-def labeld_r_path(length: int, cns: set[str]) -> Concept:
+def labeld_r_path(length: int, cns: set[str]) -> ELConcept:
     attach = frozenset({(cn, None) for cn in cns})
     if length <= 1:
         return attach
@@ -985,7 +988,7 @@ def labeld_r_path(length: int, cns: set[str]) -> Concept:
         return frozenset({("r", labeld_r_path(length - 1, cns))}) | attach
 
 
-def is_core(c: Concept) -> bool:
+def is_core(c: ELConcept) -> bool:
     # If frontier element not weaker, then it is not a core
     for d in frontier(c):
         if subsum(c, d):
@@ -993,14 +996,14 @@ def is_core(c: Concept) -> bool:
     return True
 
 
-def remove_random_atom(c: Concept) -> Concept:
+def remove_random_atom(c: ELConcept) -> ELConcept:
     A = concept2structure(c)
 
     atoms = []
-    for cn in A.cn_ext.keys():
+    for cn in A.cn_ext:
         for i in range(len(A.cn_ext[cn])):
             atoms.append(cn)
-    for a in A.rn_ext.keys():
+    for a in A.rn_ext:
         for i in range(len(A.rn_ext[a])):
             atoms.append(a)
 
@@ -1009,10 +1012,10 @@ def remove_random_atom(c: Concept) -> Concept:
         return c
 
     atom = random.choice(atoms)
-    if atom in A.cn_ext.keys():
+    if atom in A.cn_ext:
         elem = random.choice(list(A.cn_ext[atom]))
         A.cn_ext[atom].remove(elem)
-    elif atom in A.rn_ext.keys():
+    elif atom in A.rn_ext:
         elem = random.choice(list(A.rn_ext[atom]))
         A.rn_ext[atom].remove(elem)
 
@@ -1027,17 +1030,15 @@ def execute_sml_bench(path, task):
 
     time_parsed = time.process_time()
     for lpname, (owlfile, A, P, N) in tasks.items():
-        print("== Starting incremental solving of {} {}".format(task, lpname))
+        print(f"== Starting incremental solving of {task} {lpname}")
         time_start_solve = time.process_time()
 
-        res = solve_incr(A, P, N, mode.exact)
+        _ = solve_incr(A, P, N, mode.exact)
 
         time_solved = time.process_time()
 
         print(
-            "== Took {:.2f}s for reading input and {:.3f}s for solving".format(
-                time_parsed - time_start, time_solved - time_start_solve
-            )
+            f"== Took {time_parsed - time_start:.2f}s for reading input and {time_solved - time_start_solve:.3f}s for solving"
         )
 
         # verify_solution(owlfile, P, N, indmap, res)

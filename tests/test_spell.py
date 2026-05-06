@@ -1,15 +1,13 @@
 import time
 
-from spell.fitting import solve_incr, solve, mode
+from spell.benchmark_tools import execute_sml_bench
+from spell.fitting import mode, solve, solve_incr
 from spell.structures import (
     ABoxBuilder,
     compact_canonical_model,
     map_ind_name,
     structure_from_owl,
-    Structure,
-    structure_to_dot,
 )
-from spell.benchmark_tools import execute_sml_bench
 
 
 def fitting_of_size_exists(size, A, P, N):
@@ -597,7 +595,7 @@ def test_el_path5():
 
 
 def test_el_path4_rel():
-    #This tests that ontologies that use relative resources can be parsed
+    # This tests that ontologies that use relative resources can be parsed
     A = structure_from_owl("tests/test-el-path-4-rel.owl")
 
     P = [
@@ -659,9 +657,9 @@ def test_owl_bench():
 
 
 def test_resoning1():
-    from spell.structures import TBox
+    from spell.structures import EL_TBox
 
-    t = TBox("top")
+    t = EL_TBox("top")
     for i in range(1, 15):
         t.add_axiom3("A{}".format(i), "r{}".format(i), "top")
         t.add_range_restriction("r{}".format(i), "A{}".format(i + 1))
@@ -685,9 +683,9 @@ def test_resoning1():
 
 
 def test_resoning2():
-    from spell.structures import TBox
+    from spell.structures import EL_TBox
 
-    t = TBox("top")
+    t = EL_TBox("top")
     t.add_axiom4("r", "A", "A")
     t.add_axiom3("A", "s", "A")
     t.add_role_inc("r", "s")
@@ -710,9 +708,9 @@ def test_resoning2():
 
 
 def test_TBox():
-    from spell.structures import TBox
+    from spell.structures import EL_TBox
 
-    t = TBox("top")
+    t = EL_TBox("top")
 
     t.add_axiom1("0", "A")
     t.add_axiom3("A", "r", "B")

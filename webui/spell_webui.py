@@ -1,8 +1,11 @@
+import contextlib
+import functools
+import io
 from dataclasses import dataclass
+
 from flask import Flask, render_template, request
 
-from spell.fitting import solve_incr, mode
-
+from spell.fitting import mode, solve_incr
 from spell.structures import Structure, structure_from_owl
 
 
@@ -11,11 +14,6 @@ class Example:
     id: int = 0
     name: str = ""
 
-
-import io
-import contextlib
-
-import functools
 
 print = functools.partial(print, flush=True)
 
@@ -29,7 +27,6 @@ def solve_incr_generator(
     timeout: float = -1,
     max_size: int = 19,
 ):
-
     # Create a StringIO object to capture stdout
     f = io.StringIO()
 
@@ -81,11 +78,11 @@ def search():
     return result
 
 
-def to_readable_name(name : str) -> str:
-    for (a, b) in A.nsmap.items():
+def to_readable_name(name: str) -> str:
+    for a, b in A.nsmap.items():
         if a:
             if name.startswith(b):
-                return "{}:{}".format(a, name[len(b):])
+                return "{}:{}".format(a, name[len(b) :])
     return name
 
 

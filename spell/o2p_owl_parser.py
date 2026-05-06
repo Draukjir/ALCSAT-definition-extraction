@@ -1,8 +1,32 @@
 import sys
 
+import lxml.etree
 from lxml.etree import ElementTree
 
-from .o2p_ontology import *
+from .o2p_ontology import (
+    AllValues,
+    Cardinality,
+    ClassIdentifier,
+    Complement,
+    DisjointWith,
+    EquivalentClass,
+    HasSelf,
+    HasValue,
+    Intersection,
+    MaxCardinality,
+    MinCardinality,
+    ObjectProperty,
+    OneOf,
+    Ontology,
+    PropertyReference,
+    Restriction,
+    SomeValues,
+    SubClassOf,
+    Thing,
+    Union,
+)
+
+# from .o2p_ontology import *
 
 #  - TODO don't skip useful tags (see 'skipping')
 #  - TODO parse DataRange
@@ -14,15 +38,16 @@ def print_element(element):
     :param element: element to print
     :type element: xml.etree.ElementTree.Element
     """
-    import lxml
 
     print(lxml.etree.tostring(element, pretty_print=True).decode(), file=sys.stderr)
+
 
 def make_res_absolute(elem, res):
     if res[0] == "#":
         return elem.nsmap[None] + res[1:]
     else:
         return res
+
 
 class OWLReader(object):
     namespaces = {
@@ -124,8 +149,6 @@ class OWLReader(object):
         elif self.verbose >= severity:
             print("WARNING:", message, file=sys.stderr)
 
-
-
     def read(self):
         ontology = Ontology()
 
@@ -205,7 +228,7 @@ class OWLReader(object):
             factory = self.get_factory(element.tag)
             return factory(element)
         except KeyError:
-            if not element.tag in self.ignore:
+            if element.tag not in self.ignore:
                 self.parse_error(1, element, "Unknown element: %s" % element.tag)
             return None
 
@@ -343,7 +366,11 @@ class OWLReader(object):
 
         results = []
         try:
-            results.append(ClassIdentifier(make_res_absolute(element, element.attrib[rdf_resource])))
+            results.append(
+                ClassIdentifier(
+                    make_res_absolute(element, element.attrib[rdf_resource])
+                )
+            )
         except KeyError:
             pass
 
@@ -368,7 +395,11 @@ class OWLReader(object):
 
         results = []
         try:
-            results.append(PropertyReference(make_res_absolute(element, element.attrib[rdf_resource])))
+            results.append(
+                PropertyReference(
+                    make_res_absolute(element, element.attrib[rdf_resource])
+                )
+            )
         except KeyError:
             pass
 
@@ -403,7 +434,7 @@ class OWLReader(object):
         rdf_resource = self.expand_namespace("rdf", "resource")
 
         if "Description" in element.tag:
-            options = dict()
+            options = {}
         else:
             # Get the property options - very important to make a copy!
             options = dict(self.property_types[element.tag])
@@ -459,7 +490,11 @@ class OWLReader(object):
         rdf_resource = self.expand_namespace("rdf", "resource")
         results = []
         try:
-            results.append(PropertyReference(make_res_absolute(element, element.attrib[rdf_resource])))
+            results.append(
+                PropertyReference(
+                    make_res_absolute(element, element.attrib[rdf_resource])
+                )
+            )
         except KeyError:
             pass
         for child in element:
@@ -567,7 +602,6 @@ class OWLReader(object):
 
     def parse_quantifier_has_value(self, element):
         return self._parse_quantifier_from(element, HasValue)
-    
 
     def _one_of(self, element, *attrs):
         """

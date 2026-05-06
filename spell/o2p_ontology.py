@@ -3,7 +3,7 @@ SPECIAL_CHARS = {
     r"\exists": "\u2203",
     r"\sqcap": "\u2293",
     r"\equiv": "\u2261",
-    r"\top": "\u22A4",
+    r"\top": "\u22a4",
 }
 
 
@@ -78,7 +78,6 @@ class Ontology(object):
 
 
 class NameFactory(object):
-
     __i = 0
     created_names = set()
 
@@ -110,7 +109,7 @@ class SubProperty(object):
         self.object = object_
 
     def __str__(self):
-        return "%s %s %s" % (self.subject, SPECIAL_CHARS["\sqsubseteq"], self.object)
+        return "%s %s %s" % (self.subject, SPECIAL_CHARS["\\sqsubseteq"], self.object)
 
 
 class Property(object):
@@ -153,13 +152,12 @@ class ObjectProperty(Property):
         self.inverse_of = inverse_of
 
     def __str__(self):
-        if self.identifier == None and self.inverse_of != None:
-            return "{}-".format(self.inverse_of)
+        if self.identifier is None and self.inverse_of is not None:
+            return f"{self.inverse_of}-"
         return self.identifier
 
 
 class Expression(OntologyObject):
-
     varcount = 0
 
     @classmethod
@@ -194,7 +192,7 @@ class Expression(OntologyObject):
 
 
 class Rule(OntologyObject):
-    """A ontology expression of the form A \sqsubseteq B."""
+    """A ontology expression of the form A \\sqsubseteq B."""
 
     def __init__(self, subject, object_):
         """
@@ -233,7 +231,7 @@ class Rule(OntologyObject):
 
 
 def issimple(expr):
-    return type(expr) == ClassIdentifier or type(expr) == Thing
+    return type(expr) is ClassIdentifier or type(expr) is Thing
 
 
 class SubClassOf(Rule):
@@ -257,7 +255,7 @@ class SubClassOf(Rule):
         return rules
 
     def __str__(self):
-        return "%s %s %s" % (self.subject, SPECIAL_CHARS["\sqsubseteq"], self.object)
+        return "%s %s %s" % (self.subject, SPECIAL_CHARS["\\sqsubseteq"], self.object)
         # return '%s %s %s' % (self.subject, '->', self.object)
 
     def to_latex(self):
@@ -272,7 +270,7 @@ class EquivalentClass(Rule):
         )
 
     def __str__(self):
-        return "%s %s %s" % (self.subject, SPECIAL_CHARS["\equiv"], self.object)
+        return "%s %s %s" % (self.subject, SPECIAL_CHARS["\\equiv"], self.object)
 
 
 class DisjointWith(Rule):
@@ -386,7 +384,7 @@ class Intersection(Expression):
         return children, rules
 
     def __str__(self):
-        sep = " %s " % SPECIAL_CHARS["\sqcap"]
+        sep = " %s " % SPECIAL_CHARS["\\sqcap"]
         return "(%s)" % sep.join(map(str, self.children))
 
     def to_latex(self):
@@ -422,7 +420,7 @@ class Complement(Expression):
         # raise FeatureNotSupported('complement')
 
     def __str__(self):
-        return "not {}".format(str(self.child))
+        return f"not {str(self.child)}"
 
 
 class OneOf(Expression):
@@ -448,7 +446,7 @@ class Quantifier(object):
 
 class HasSelf(Quantifier):
     def to_string(self, prop):
-        return "hasSelf {}".format(prop)
+        return f"hasSelf {prop}"
 
     def normalize_rhs(self):
         return self, []
@@ -462,7 +460,7 @@ class SomeValues(Quantifier):
         self.from_class = from_class
 
     def to_string(self, prop):
-        return "%s %s.%s" % (SPECIAL_CHARS["\exists"], prop, self.from_class)
+        return "%s %s.%s" % (SPECIAL_CHARS["\\exists"], prop, self.from_class)
 
     def to_latex(self, prop):
         if self.from_class.identifier is not None:
