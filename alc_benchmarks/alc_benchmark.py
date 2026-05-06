@@ -227,12 +227,17 @@ def json_to_dllearner(kb_path, json_path, dest_dir):
         d = json.load(f)
         instance_to_dllearner(kb_path, d["P"], d["N"], dest_dir, Path(json_path).stem)
 
+def json_to_txt(json_path):        
+    with open(json_path, 'r') as f:
+        d = json.load(f)
+        write_examples(d["P"], d["N"],os.path.join(os.path.dirname(json_path)))        
+    with open(json_path, 'w') as f:
+        json.dump(d,f, indent = 4)
 
 def jsons_to_dllearner(kb_path, dir, dest_dir):
     for file in os.listdir(dir):
         if os.path.splitext(file)[1] == ".json":
             json_to_dllearner(kb_path, os.path.join(dir, file), dest_dir)
-
 
 def reduce_size_by_examples(kb_path, json_path, newpath, filename, k):
     P, N = read_examples_from_json(json_path)
@@ -881,7 +886,7 @@ def combine_bisim_examples2(kb_path,dir_path, dest_dir, max_per_size = 5):
 def main():
     #dir_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "alcq_bisim_combined")
     examples_from_bisim_run(sys.argv[1], overwrite_all=False)
-    alcq_benchmarks_to_csv(sys.argv[1])
+    alcq_benchmarks_to_csv(sys.argv[1])    
 
 if __name__ == "__main__":
     main()

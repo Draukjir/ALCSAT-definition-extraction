@@ -40,6 +40,10 @@ def main():
         help="language to learn in, el: {exists,and}, el_alcsat: {exists,and}, fl0: {forall,and}, ex-or: {exists,or}, all-or: {forall,or}, elu: {exists,and,or}, alc: {forall,exists,and,or,neg}, alc: {forall,exists,and,or,neg, le, ge} (default=el)",
     )
 
+    _ = parser.add_argument("--inverse_roles", action="store_true", help="enables inverse roles")
+    _ = parser.add_argument("--feature_values", action="store_true", help="enables feature values")
+    _ = parser.add_argument("--max_thresholds", type=int, default = 10, help="number of feature value thresholds (default=10)")
+
     _ = parser.add_argument("--max_size", type=int, default=12, help="(default=12)")
     _ = parser.add_argument("--max_q", type=int, default=2, help="(default=2)")
     _ = parser.add_argument(
@@ -109,14 +113,20 @@ def main():
 
     acc = 0
     if args.language != "el":
+        ops = L_OP[args.language]
+        if args.inverse_roles:
+            ops.append(OP.INV)
+        if args.feature_values:
+            ops.append(OP.DGEQ)
         f = FittingALC(
             A,
             args.max_size,
             P,
             N,
-            op=frozenset(L_OP[args.language]),
+            op=frozenset(ops),
             workers=args.workers,
             max_q=args.max_q,
+            max_thresholds=args.max_thresholds
         )
         remaining_time = -1
         if args.timeout != -1:
