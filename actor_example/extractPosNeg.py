@@ -6,14 +6,21 @@ all_individuals = set()
 
 parser = lightrdf.Parser()
 
+# Konzeptnamen / YAGO-Klassen
+concept_names = {
+    c.ACTOR,
+    c.FILM_DIRECTOR,
+    c.MOVIE
+}
+
 for triple in parser.parse("yago-fragment.owl", base_iri=None):
     subj, pred, obj = triple
 
-    if pred == c.TYPE:
-        all_individuals.add(subj)
+    if pred == c.TYPE and obj in concept_names:
+        all_individuals.add(subj.strip("<>"))
 
-        if obj == c.ACTOR:
-            positives.add(subj)
+        if obj == c.FILM_ACTOR:
+            positives.add(subj.strip("<>"))
 
 negatives = all_individuals - positives
 
