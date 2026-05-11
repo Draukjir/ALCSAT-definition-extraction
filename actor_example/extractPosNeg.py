@@ -19,7 +19,7 @@ for triple in parser.parse("yago-fragment.owl", base_iri=None):
     if pred == c.TYPE and obj in concept_names:
         all_individuals.add(subj.strip("<>"))
 
-        if obj == c.FILM_ACTOR:
+        if obj == c.ACTOR:
             positives.add(subj.strip("<>"))
 
 negatives = all_individuals - positives

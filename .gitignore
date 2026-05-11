@@ -9,3 +9,8 @@ robot
 .out.csv
 tmp.owl
 .DS_Store
+
+yago-fragment.owl
+yago-fragment-without-target.owl
+P.txt
+N.txt
