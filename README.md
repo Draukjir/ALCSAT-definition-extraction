@@ -36,6 +36,9 @@ The `--mode` options allows switching between exact mode and approximate mode.
 
 The `--workers` option can be used to set the number of worker processes (defaults to 1)
 
+## IJCAI2026 Benchmark Reproduction
+Instructions to reproduce experimental results reported in our paper _Bounded Fitting for Expressive Description Logics_ accepted at IJCAI-ECAI 2026 can be found in the following repository: https://github.com/SAT-based-Concept-Learning/ALCSAT-IJCAI-reproduce
+
 ## ISWC2025 Benchmark Reproduction
-Instructions to reproduce the family benchmarks are in the folder alc_benchmarks in a separate README file. Instructions and required files to reproduce the results on the SML benchmarks can be found in the following repository.
+Results shown in our paper _Bounded Fitting for the Description Logic ALC_ accepted at ISWC 2025 can be reproduced as follows. Instructions to reproduce the family benchmarks are in the folder alc_benchmarks in a separate README file. Instructions and required files to reproduce the results on the SML benchmarks can be found in the following repository.
 https://github.com/SAT-based-Concept-Learning/ALC-SAT-eval
