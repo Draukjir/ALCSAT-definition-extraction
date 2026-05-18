@@ -1,5 +1,13 @@
 import lightrdf
 import constants as c
+import random
+import argparse
+
+parser = argparse.ArgumentParser(prog="spell_cli.py")
+
+_ = parser.add_argument("--samples", type=int, help="number of positive/negative samples")
+
+args = parser.parse_args()
 
 positives = set()
 all_individuals = set()
@@ -23,6 +31,11 @@ for triple in parser.parse("yago-fragment.owl", base_iri=None):
             positives.add(subj.strip("<>"))
 
 negatives = all_individuals - positives
+
+if args.samples:
+    positives = random.sample(sorted(positives), min(args.samples, len(positives)))
+    negatives = random.sample(sorted(negatives), min(args.samples, len(negatives)))
+
 
 with open("P.txt", "w") as f:
     for x in positives:
