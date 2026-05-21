@@ -1,33 +1,28 @@
 import lightrdf
-import constants as c
+import signature
 import random
 import argparse
 
-parser = argparse.ArgumentParser(prog="spell_cli.py")
+arg_parser = argparse.ArgumentParser(prog="extractPosNeg.py")
 
-_ = parser.add_argument("--samples", type=int, help="number of positive/negative samples")
+_ = arg_parser.add_argument("--samples", type=int, help="number of positive/negative samples")
 
-args = parser.parse_args()
+args = arg_parser.parse_args()
 
 positives = set()
 all_individuals = set()
 
-parser = lightrdf.Parser()
+rdf_parser = lightrdf.Parser()
 
-# Konzeptnamen / YAGO-Klassen
-concept_names = {
-    c.ACTOR,
-    c.FILM_DIRECTOR,
-    c.MOVIE
-}
+sig = signature.Signature()
 
-for triple in parser.parse("yago-fragment.owl", base_iri=None):
+for triple in rdf_parser.parse("yago-fragment.owl", base_iri=None):
     subj, pred, obj = triple
 
-    if pred == c.TYPE and obj in concept_names:
+    if pred == sig.TYPE and obj in sig.concept_names:
         all_individuals.add(subj.strip("<>"))
 
-        if obj == c.ACTOR:
+        if obj == sig.target_concept:
             positives.add(subj.strip("<>"))
 
 negatives = all_individuals - positives
