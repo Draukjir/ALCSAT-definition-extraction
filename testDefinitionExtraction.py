@@ -15,8 +15,7 @@ for concept in sig.concept_names:
                           "P.txt",
                           "N.txt",
                           sig,
-                          concept,
-                          max_size=9)
+                          concept)
     
 for concept, (accuracy, definition) in result.items():
     print("------------------------------------------------------------\n")
@@ -26,9 +25,25 @@ for concept, (accuracy, definition) in result.items():
 
 
 # Beispiel
-# The Definition Extraction for <http://yago-knowledge.org/resource/Actor> has acchieved an accuracy of: 0.88
+# ------------------------------------------------------------
+
+# The Definition Extraction for <http://yago-knowledge.org/resource/Author> has acchieved an accuracy of: 0.825
 # The extracted Definition is: 
-# (http://yago-knowledge.org/resource/Director__u0028_creative_work_u0029_ OR (http://schema.org/Person AND NEG (http://yago-knowledge.org/resource/Author OR http://yago-knowledge.org/resource/Erudite_Person_Q20826540)))
+# (http://yago-knowledge.org/resource/Director__u0028_creative_work_u0029_ OR (http://schema.org/Person AND NEG (http://yago-knowledge.org/resource/Creative_And_Performing_Artist_Q108289408 OR (http://yago-knowledge.org/resource/Erudite_Person_Q20826540 AND ALL.http://schema.org/birthPlace http://yago-knowledge.org/resource/Director__u0028_creative_work_u0029_))))
+# ------------------------------------------------------------
+
+# ------------------------------------------------------------
+
+# The Definition Extraction for <http://schema.org/Movie> has acchieved an accuracy of: 0.995
+# The extracted Definition is: 
+# (http://schema.org/CreativeWork AND NEG http://yago-knowledge.org/resource/Album)
+# ------------------------------------------------------------
+
+# ------------------------------------------------------------
+
+# The Definition Extraction for <http://yago-knowledge.org/resource/Actor> has acchieved an accuracy of: 0.83
+# The extracted Definition is: 
+# (http://schema.org/Person AND NEG (http://yago-knowledge.org/resource/Erudite_Person_Q20826540 OR (ALL.http://schema.org/alumniOf http://www.w3.org/1999/02/22-rdf-syntax-ns#Description AND (http://yago-knowledge.org/resource/Musician OR EX.http://schema.org/birthPlace http://www.w3.org/1999/02/22-rdf-syntax-ns#Description))))
 # ------------------------------------------------------------
 
 # ------------------------------------------------------------
@@ -40,37 +55,9 @@ for concept, (accuracy, definition) in result.items():
 
 # ------------------------------------------------------------
 
-# The Definition Extraction for <http://yago-knowledge.org/resource/Scientist> has acchieved an accuracy of: 0.805
+# The Definition Extraction for <http://yago-knowledge.org/resource/Musician> has acchieved an accuracy of: 0.785
 # The extracted Definition is: 
-# (http://schema.org/Person AND (NEG http://yago-knowledge.org/resource/Musician OR EX.http://schema.org/award TOP))
-# ------------------------------------------------------------
-
-# ------------------------------------------------------------
-
-# The Definition Extraction for <http://yago-knowledge.org/resource/Musician> has acchieved an accuracy of: 0.695
-# The extracted Definition is: 
-# (http://schema.org/Person AND (ALL.http://schema.org/alumniOf http://www.w3.org/1999/02/22-rdf-syntax-ns#Description OR NEG http://yago-knowledge.org/resource/Author))
-# ------------------------------------------------------------
-
-# ------------------------------------------------------------
-
-# The Definition Extraction for <http://yago-knowledge.org/resource/Author> has acchieved an accuracy of: 0.785
-# The extracted Definition is: 
-# (http://schema.org/Person AND ALL.http://schema.org/spouse ALL.http://schema.org/spouse http://schema.org/Person)
-# ------------------------------------------------------------
-
-# ------------------------------------------------------------
-
-# The Definition Extraction for <http://yago-knowledge.org/resource/Album> has acchieved an accuracy of: 1.0
-# The extracted Definition is: 
-# (http://schema.org/CreativeWork AND ALL.http://schema.org/actor http://yago-knowledge.org/resource/Director__u0028_creative_work_u0029_)
-# ------------------------------------------------------------
-
-# ------------------------------------------------------------
-
-# The Definition Extraction for <http://yago-knowledge.org/resource/Film_director> has acchieved an accuracy of: 1.0
-# The extracted Definition is: 
-# http://yago-knowledge.org/resource/Director__u0028_creative_work_u0029_
+# (http://schema.org/Person AND NEG (http://yago-knowledge.org/resource/Director__u0028_creative_work_u0029_ OR (http://yago-knowledge.org/resource/Erudite_Person_Q20826540 OR EX.http://schema.org/spouse ALL.http://schema.org/spouse ALL.http://schema.org/birthPlace http://www.w3.org/1999/02/22-rdf-syntax-ns#Description)))
 # ------------------------------------------------------------
 
 # ------------------------------------------------------------
@@ -82,7 +69,21 @@ for concept, (accuracy, definition) in result.items():
 
 # ------------------------------------------------------------
 
-# The Definition Extraction for <http://schema.org/Movie> has acchieved an accuracy of: 0.945
+# The Definition Extraction for <http://yago-knowledge.org/resource/Scientist> has acchieved an accuracy of: 0.735
 # The extracted Definition is: 
-# (EX.http://schema.org/director http://yago-knowledge.org/resource/Director__u0028_creative_work_u0029_ OR (EX.http://schema.org/actor http://schema.org/Thing OR EX.http://schema.org/productionCompany TOP))
+# (http://schema.org/Person AND (NEG http://yago-knowledge.org/resource/Director__u0028_creative_work_u0029_ AND (EX.http://schema.org/alumniOf TOP OR ALL.http://schema.org/spouse ALL.http://schema.org/birthPlace http://www.w3.org/1999/02/22-rdf-syntax-ns#Description)))
+# ------------------------------------------------------------
+
+# ------------------------------------------------------------
+
+# The Definition Extraction for <http://yago-knowledge.org/resource/Film_director> has acchieved an accuracy of: 0.69
+# The extracted Definition is: 
+# (http://schema.org/Person AND (ALL.http://schema.org/spouse EX.http://schema.org/spouse EX.http://schema.org/spouse http://schema.org/Person AND (ALL.http://schema.org/alumniOf http://schema.org/Thing OR EX.http://schema.org/birthPlace TOP)))
+# ------------------------------------------------------------
+
+# ------------------------------------------------------------
+
+# The Definition Extraction for <http://yago-knowledge.org/resource/Album> has acchieved an accuracy of: 0.99
+# The extracted Definition is: 
+# (http://schema.org/CreativeWork AND (ALL.http://schema.org/director http://schema.org/CreativeWork AND ALL.http://schema.org/musicBy http://www.w3.org/1999/02/22-rdf-syntax-ns#Description))
 # ------------------------------------------------------------

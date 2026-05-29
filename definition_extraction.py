@@ -102,10 +102,10 @@ def definition_extraction(owlfile: str,
             return -1, None
         elif len(A.cn_ext[concept]) == 0:
             print(f"[WARN] Concept {concept} has no individuals")
-            break
+            continue
         else:
             removed = len(A.cn_ext[concept])
-            A.cn_ext[concept] = set()
+            A.cn_ext[concept].clear()
             print(f"Removed {removed} individuals of {concept}")
 
     print("== Starting incremental search search for fitting query")
@@ -152,10 +152,6 @@ def definition_extraction(owlfile: str,
     
     return acc, ALCConcept.to_dl_concept(output_definition)
 
-    # if output_definition is not None:
-    #     print(f"Concept Definition: {output_definition}")
-    #     with open("concept.txt", "w", encoding="UTF-8") as file:
-    #         file.write(output_definition)
 
 if __name__ == "__main__":
     main()
