@@ -20,30 +20,31 @@ L_OP = {
     "alcq": [OP.ALL, OP.EX, OP.OR, OP.AND, OP.NEG, OP.LE, OP.GE],
 }
 
-
 def main():
     sig = signature.Signature()
 
-    owlfile = "yago_fragmentation/yago-fragment.owl"
-    pospath = "P.txt"
-    negpath = "N.txt"
+    definition_extraction("yago_fragmentation/yago-fragment.owl",
+                          "P.txt",
+                          "N.txt",
+                          sig,
+                          sig.target_concept,
+                          )
 
-    language = "alc"
-    inverse_roles = False
-    
-    feature_values = False
-    max_thresholds = 10
-    max_size = 12
-    max_q = 2
-
-    md= "full_approx"
-    # output = None
-    timeout = 180
-    workers = 1
-
-    target_concept = sig.target_concept
-
-    # output_definition = None
+def definition_extraction(owlfile: str, 
+                          pospath: str, 
+                          negpath: str,
+                          sig: signature.Signature,
+                          target_concept: str, 
+                          language: str = "alc", 
+                          inverse_roles: bool = False, 
+                          feature_values: bool = False, 
+                          max_thresholds: int = 10,
+                          max_size: int = 12,
+                          max_q: int = 2,
+                          md: str = "full_approx",
+                          output = None,
+                          timeout = 180,
+                          workers = 1,):
 
     time_start = time.perf_counter()
 
@@ -135,12 +136,13 @@ def main():
         )
     )
     print("== Reached accurary {:.4f}".format(acc))
+    
+    return acc
 
     # if output_definition is not None:
     #     print(f"Concept Definition: {output_definition}")
     #     with open("concept.txt", "w", encoding="UTF-8") as file:
     #         file.write(output_definition)
-
 
 if __name__ == "__main__":
     main()
