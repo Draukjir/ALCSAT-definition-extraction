@@ -23,7 +23,7 @@ def extract_Examples(target_concept: str, sig: signature.Signature, samples: int
         if pred == sig.TYPE and obj in sig.concept_names:
             all_individuals.add(subj.strip("<>"))
 
-            if obj == sig.target_concept:
+            if obj == target_concept:
                 positives.add(subj.strip("<>"))
 
     negatives = all_individuals - positives

@@ -5,6 +5,7 @@ import time
 from spell.fitting import mode, solve_incr
 from spell.fitting_alc import FittingALC, OP
 from spell.structures import solution2sparql, structure_from_owl
+from spell.instance import ALCConcept
 from yago_fragmentation.taxonomy import collect_superclasses
 from yago_fragmentation import signature
 
@@ -23,12 +24,16 @@ L_OP = {
 def main():
     sig = signature.Signature()
 
-    definition_extraction("yago_fragmentation/yago-fragment.owl",
+    a, d = definition_extraction("yago_fragmentation/yago-fragment.owl",
                           "P.txt",
                           "N.txt",
                           sig,
                           sig.target_concept,
+                          max_size=9
                           )
+    
+    print(f"Reached Accuracy: {a}")
+    print(f"Found Definition for {sig.target_concept}:\n{d}")
 
 def definition_extraction(owlfile: str, 
                           pospath: str, 
@@ -42,7 +47,6 @@ def definition_extraction(owlfile: str,
                           max_size: int = 12,
                           max_q: int = 2,
                           md: str = "full_approx",
-                          output = None,
                           timeout = 180,
                           workers = 1,):
 
@@ -86,11 +90,19 @@ def definition_extraction(owlfile: str,
 
     target_concepts -= set(sig.top_level_classes) | {sig.THING}
 
+    if len(A.cn_ext[target_concept.strip("<>")]) == 0:
+        print(f"[WARN] Target Concept {target_concept} has no individuals")
+        return -1, None
+
     for concept in target_concepts:
         concept = concept.strip("<>")
 
         if concept not in A.cn_ext:
             print(f"[WARN] Concept {concept} not found.")
+            return -1, None
+        elif len(A.cn_ext[concept]) == 0:
+            print(f"[WARN] Concept {concept} has no individuals")
+            break
         else:
             removed = len(A.cn_ext[concept])
             A.cn_ext[concept] = set()
@@ -100,6 +112,7 @@ def definition_extraction(owlfile: str,
     time_start_solve = time.perf_counter()
 
     acc = 0
+    output_definition = None
     if language != "el":
         ops = L_OP[language]
         if inverse_roles:
@@ -137,7 +150,7 @@ def definition_extraction(owlfile: str,
     )
     print("== Reached accurary {:.4f}".format(acc))
     
-    return acc
+    return acc, ALCConcept.to_dl_concept(output_definition)
 
     # if output_definition is not None:
     #     print(f"Concept Definition: {output_definition}")
