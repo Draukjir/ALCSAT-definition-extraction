@@ -15,7 +15,7 @@ def extract_Examples(target_concept: str, sig: signature.Signature, samples: int
 
     sig = signature.Signature()
 
-    fragment_file = "yago_fragmentation/yago-fragment.owl"
+    fragment_file = "yago-fragment.owl"
 
     for triple in rdf_parser.parse(fragment_file, base_iri=None):
         subj, pred, obj = triple

@@ -2,8 +2,8 @@ class Signature:
     def __init__(self):
         # file_names
         self.TAXONOMY = "yago_fragmentation/yago-taxonomy.ttl"
-        self.SCHEMA = "yago-schema.ttl"
-        self.FACTS = "yago-facts.ttl"
+        self.SCHEMA = "yago_fragmentation/yago-schema.ttl"
+        self.FACTS = "yago_fragmentation/yago-facts.ttl"
 
         # important rdf_relations
         self.SUBCLASS = "<http://www.w3.org/2000/01/rdf-schema#subClassOf>"
@@ -18,8 +18,8 @@ class Signature:
             "<http://yago-knowledge.org/resource/Author>",
             "<http://yago-knowledge.org/resource/Scientist>",
             "<http://yago-knowledge.org/resource/Musician>",
-            "<http://yago-knowledge.org/resource/Chef_Q3499072>",
-            "<http://yago-knowledge.org/resource/Single_music>",
+            "<http://yago-knowledge.org/resource/Chef>",
+            #"<http://yago-knowledge.org/resource/Single_music>",
             "<http://yago-knowledge.org/resource/Album>"
         }
         
@@ -32,8 +32,8 @@ class Signature:
             "<http://yago-knowledge.org/resource/Author>",
             "<http://yago-knowledge.org/resource/Scientist>",
             "<http://yago-knowledge.org/resource/Musician>",
-            "<http://yago-knowledge.org/resource/Chef_Q3499072>",
-            "<http://yago-knowledge.org/resource/Single_music>",
+            "<http://yago-knowledge.org/resource/Chef>",
+            #"<http://yago-knowledge.org/resource/Single_music>",
             "<http://yago-knowledge.org/resource/Album>"
         }
 

@@ -8,6 +8,7 @@ from spell.structures import solution2sparql, structure_from_owl
 from spell.instance import ALCConcept
 from yago_fragmentation.taxonomy import collect_superclasses
 from yago_fragmentation import signature
+from extractExamples import extract_Examples
 
 LANGUAGES = ["el", "el_alcsat", "fl0", "ex-or", "all-or", "elu", "alc", "alcq"]
 L_OP = {
@@ -23,12 +24,15 @@ L_OP = {
 
 def main():
     sig = signature.Signature()
+    target = "<http://yago-knowledge.org/resource/Single_music>",
 
-    a, d = definition_extraction("yago_fragmentation/yago-fragment.owl",
+    extract_Examples(target, sig)
+
+    a, d = definition_extraction("yago-fragment.owl",
                           "P.txt",
                           "N.txt",
                           sig,
-                          sig.target_concept,
+                          "<http://yago-knowledge.org/resource/Single_music>",
                           max_size=9
                           )
     
@@ -90,9 +94,11 @@ def definition_extraction(owlfile: str,
 
     target_concepts -= set(sig.top_level_classes) | {sig.THING}
 
-    if len(A.cn_ext[target_concept.strip("<>")]) == 0:
-        print(f"[WARN] Target Concept {target_concept} has no individuals")
-        return -1, None
+    # if len(A.cn_ext[target_concept.strip("<>")]) == 0:
+    #     print(f"[WARN] Target Concept {target_concept} has no individuals")
+    #     return -1, None
+
+    foundIndividuals = False
 
     for concept in target_concepts:
         concept = concept.strip("<>")
@@ -107,6 +113,10 @@ def definition_extraction(owlfile: str,
             removed = len(A.cn_ext[concept])
             A.cn_ext[concept].clear()
             print(f"Removed {removed} individuals of {concept}")
+            foundIndividuals = True
+
+    if foundIndividuals == False:
+        return -1, None
 
     print("== Starting incremental search search for fitting query")
     time_start_solve = time.perf_counter()
@@ -135,6 +145,7 @@ def definition_extraction(owlfile: str,
         if md == mode.exact:
             acc, _, _ = f.solve_incr(max_size, timeout=remaining_time)
         elif md == "full_approx":
+            print("Starting with solving")
             acc, _, output_definition = f.solve_incr_approx(max_size, timeout=remaining_time) # _ _ 3 beste Konzept hier zurückgeben
         else:
             print(f"Mode {md} is only supported for SPELL.")

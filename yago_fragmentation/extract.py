@@ -1,6 +1,6 @@
-import signature
+from . import signature
 import lightrdf
-import taxonomy
+from . import taxonomy
 from collections import defaultdict
 import random
 import argparse
