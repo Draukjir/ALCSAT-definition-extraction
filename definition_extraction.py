@@ -86,8 +86,7 @@ def definition_extraction(owlfile: str,
 
     time_parsed = time.perf_counter()
 
-    # Target Removal: 
-    # If we only remove the target concept, we get just a trivial solution of one of it's superclasses, therefore we have to remove them aswell
+    # If we only remove the target concept, we get just a trivial solution of one of it's superclasses, therefore we have to remove them as well
     target_concepts = collect_superclasses(target_concept) | {target_concept}
     target_concepts -= set(sig.top_level_classes) | {sig.THING}
 
