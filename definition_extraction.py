@@ -4,11 +4,10 @@ import time
 
 from spell.fitting import mode, solve_incr
 from spell.fitting_alc import FittingALC, OP
-from spell.structures import solution2sparql, structure_from_owl
+from spell.structures import solution2sparql, structure_from_owl, ind, Structure
 from spell.instance import ALCConcept
 from yago_fragmentation.taxonomy import collect_superclasses
 from yago_fragmentation import signature
-from extractExamples import extract_Examples
 
 LANGUAGES = ["el", "el_alcsat", "fl0", "ex-or", "all-or", "elu", "alc", "alcq"]
 L_OP = {
@@ -22,22 +21,45 @@ L_OP = {
     "alcq": [OP.ALL, OP.EX, OP.OR, OP.AND, OP.NEG, OP.LE, OP.GE],
 }
 
-def main():
-    sig = signature.Signature()
-    target = "<http://yago-knowledge.org/resource/Single_music>",
+def load_examples(path: str, owlfile: str, A: Structure) -> list[int]:
+    examples: list[int] = []
+    with open(path, encoding="UTF-8") as file:
+        for line in file.readlines():
+            individual = line.rstrip()
+            if individual not in A.indmap:
+                print(
+                    "[ERR] The {}-example {} does not seem to occur in {}".format(
+                        path, individual, owlfile
+                    )
+                )
+                sys.exit(1)
+            examples.append(A.indmap[individual])
+        
+    return examples
 
-    extract_Examples(target, sig)
+def compute_overall_accuracy(A: Structure, output_definition: ALCConcept, target_extension: set) -> float:
+    """Computes the overall accuracy for a given definition ans it's original target extension"""
 
-    a, d = definition_extraction("yago-fragment.owl",
-                          "P.txt",
-                          "N.txt",
-                          sig,
-                          "<http://yago-knowledge.org/resource/Single_music>",
-                          max_size=9
-                          )
-    
-    print(f"Reached Accuracy: {a}")
-    print(f"Found Definition for {sig.target_concept}:\n{d}")
+    TP = set() # True Positives
+    FN = set() # False Negatives
+    TN = set() # True Negatives
+    FP = set() # False Positives
+
+    for a in ind(A):
+        if output_definition.mc(A, a):
+            if a in target_extension:
+                TP.add(a)
+            else:
+                FP.add(a)
+        else:
+            if a in target_extension:
+                FN.add(a)
+            else:
+                TN.add(a)
+
+    overall_accuracy = (len(TP) + len(TN)) / (len(TP) + len(TN) + len(FP) + len(FN))
+
+    return overall_accuracy
 
 def definition_extraction(owlfile: str, 
                           pospath: str, 
@@ -59,69 +81,44 @@ def definition_extraction(owlfile: str,
     print("== Loading {}".format(owlfile))
     A = structure_from_owl(owlfile)
 
-    P: list[int] = []
-    with open(pospath, encoding="UTF-8") as file:
-        for line in file.readlines():
-            ind = line.rstrip()
-            if ind not in A.indmap:
-                print(
-                    "[ERR] The positive example {} does not seem to occur in {}".format(
-                        ind, owlfile
-                    )
-                )
-                sys.exit(1)
-            P.append(A.indmap[ind])
-
-    N: list[int] = []
-    with open(negpath, encoding="UTF-8") as file:
-        for line in file.readlines():
-            ind = line.rstrip()
-            if ind not in A.indmap:
-                print(
-                    "[ERR] The negative example {} does not seem to occur in {}".format(
-                        ind, owlfile
-                    )
-                )
-                sys.exit(1)
-            N.append(A.indmap[ind])
+    P = load_examples(pospath, owlfile, A)
+    N = load_examples(negpath, owlfile, A)
 
     time_parsed = time.perf_counter()
 
     # Target Removal: 
     # If we only remove the target concept, we get just a trivial solution of one of it's superclasses, therefore we have to remove them aswell
-
     target_concepts = collect_superclasses(target_concept) | {target_concept}
-
     target_concepts -= set(sig.top_level_classes) | {sig.THING}
 
-    # if len(A.cn_ext[target_concept.strip("<>")]) == 0:
-    #     print(f"[WARN] Target Concept {target_concept} has no individuals")
-    #     return -1, None
-
     foundIndividuals = False
+
+    target_extension = set()
 
     for concept in target_concepts:
         concept = concept.strip("<>")
 
         if concept not in A.cn_ext:
             print(f"[WARN] Concept {concept} not found.")
-            return -1, None
+            return None, None
         elif len(A.cn_ext[concept]) == 0:
             print(f"[WARN] Concept {concept} has no individuals")
             continue
         else:
+            target_extension.update(A.cn_ext[concept].copy())
+
             removed = len(A.cn_ext[concept])
             A.cn_ext[concept].clear()
             print(f"Removed {removed} individuals of {concept}")
             foundIndividuals = True
 
-    if foundIndividuals == False:
-        return -1, None
+    if not foundIndividuals:
+        return None, None
 
     print("== Starting incremental search search for fitting query")
     time_start_solve = time.perf_counter()
 
-    acc = 0
+    training_accuracy = 0.0
     output_definition = None
     if language != "el":
         ops = L_OP[language]
@@ -143,10 +140,10 @@ def definition_extraction(owlfile: str,
         if timeout != -1:
             remaining_time = timeout - (time.perf_counter() - time_start)
         if md == mode.exact:
-            acc, _, _ = f.solve_incr(max_size, timeout=remaining_time)
+            training_accuracy, _, _ = f.solve_incr(max_size, timeout=remaining_time)
         elif md == "full_approx":
             print("Starting with solving")
-            acc, _, output_definition = f.solve_incr_approx(max_size, timeout=remaining_time) # _ _ 3 beste Konzept hier zurückgeben
+            training_accuracy, _, output_definition = f.solve_incr_approx(max_size, timeout=remaining_time) # _ _ 3 beste Konzept hier zurückgeben
         else:
             print(f"Mode {md} is only supported for SPELL.")
     else:
@@ -159,10 +156,10 @@ def definition_extraction(owlfile: str,
             time_parsed - time_start, time_solved - time_start_solve
         )
     )
-    print("== Reached accurary {:.4f}".format(acc))
+    print("== Reached accurary (Training data) {:.4f}".format(training_accuracy))
+
+    overall_accuracy = compute_overall_accuracy(A, output_definition, target_extension)
+
+    print("== Reached accurary (Overall data) {:.4f}".format(overall_accuracy))
     
-    return acc, ALCConcept.to_dl_concept(output_definition)
-
-
-if __name__ == "__main__":
-    main()
+    return (training_accuracy, overall_accuracy), output_definition, A, P, N
