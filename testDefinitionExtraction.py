@@ -35,7 +35,6 @@ for concept_name, (accuracy, definition) in result.items():
     print("- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -")
     print("- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -")
 
-
 # Beispielausgabe
 # The Definition Extraction has been completed for all concept names:
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -

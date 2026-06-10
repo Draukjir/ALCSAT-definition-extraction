@@ -99,7 +99,7 @@ def definition_extraction(owlfile: str,
 
         if concept not in A.cn_ext:
             print(f"[WARN] Concept {concept} not found.")
-            return None, None
+            return None, None, None, None, None
         elif len(A.cn_ext[concept]) == 0:
             print(f"[WARN] Concept {concept} has no individuals")
             continue
@@ -112,7 +112,7 @@ def definition_extraction(owlfile: str,
             foundIndividuals = True
 
     if not foundIndividuals:
-        return None, None
+        return None, None, None, None, None
 
     print("== Starting incremental search search for fitting query")
     time_start_solve = time.perf_counter()
