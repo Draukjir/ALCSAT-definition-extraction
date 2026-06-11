@@ -1,13 +1,11 @@
 from yago_fragmentation import signature
 from extractExamples import extract_Examples
 from definition_extraction import definition_extraction
-from spell.structures import ind, structure_from_owl, Structure
+from spell.structures import ind, Structure
 from spell.instance import ALCConcept
 import time
-from yago_fragmentation.taxonomy import collect_superclasses
 from spell.fitting import mode, solve_incr
 from spell.fitting_alc import FittingALC, OP
-import sys
 
 LANGUAGES = ["el", "el_alcsat", "fl0", "ex-or", "all-or", "elu", "alc", "alcq"]
 L_OP = {
@@ -20,76 +18,6 @@ L_OP = {
     "alc": [OP.ALL, OP.EX, OP.OR, OP.AND, OP.NEG],
     "alcq": [OP.ALL, OP.EX, OP.OR, OP.AND, OP.NEG, OP.LE, OP.GE],
 }
-
-def main():
-    sig = signature.Signature()
-
-    extract_Examples(sig.target_concept, sig)
-
-    acc, concept, A, P, N= definition_extraction("yago-fragment.owl",
-                            "P.txt",
-                            "N.txt",
-                            sig,
-                            sig.target_concept,
-                            max_size=9
-                            )
-
-    definition = ALCConcept.to_dl_concept(concept)
-
-    print(f"Reached Training Accuracy: {acc[0]}")
-    print(f"Reached Overall Accuracy: {acc[1]}")
-    print(f"Found Definition for {sig.target_concept}:\n{definition}")
-
-    print("Start Approximation:")
-    extension = set()
-    for a in ind(A):
-        if concept.mc(A,a):
-            extension.add(a)
-
-    P = set(P)
-    N = set(N)
-
-    TP = P & extension
-    TN = N - extension
-    FP = N & extension
-    FN = P - extension
-
-    print(f"found {len(TP)} true positives")
-    print(f"found {len(TN)} true negatives")
-    print(f"found {len(FP)} false positives")
-    print(f"found {len(FN)} false negatives")
-
-    P_1 = list(TP)
-    N_1 = list(FP)
-    P_2 = list(FN)
-    N_2 = list(TN)
-
-    acc_1, conc_1, _, _, _ = continue_extraction(A, P_1, N_1, sig, sig.target_concept, max_size=9)
-    acc_2, conc_2, _, _, _ = continue_extraction(A, P_2, N_2, sig, sig.target_concept, max_size=9)
-
-    print(f"Reached an accuracy of {acc_1} for the following dividing concept for True Positives and False Positves: {ALCConcept.to_dl_concept(conc_1)}")
-    print(f"Reached an accuracy of {acc_2} for the following dividing concept for True Positives and False Positves: {ALCConcept.to_dl_concept(conc_2)}")
-
-    not_c = ALCConcept(operation=OP.NEG, name="", value=0, children=(concept,))
-    left = ALCConcept(operation=OP.AND,name="",value=0,children=(concept, conc_1))
-    right = ALCConcept(operation=OP.AND,name="",value=0,children=(not_c, conc_2))
-    final_concept = ALCConcept(operation=OP.OR,name="",value=0,children=(left, right))
-
-    final_extension = set()
-    for a in ind(A):
-        if final_concept.mc(A,a):
-            final_extension.add(a)
-
-    final_TP = len(P & final_extension)
-    final_TN = len(N - final_extension)
-
-    final_accuracy = (final_TP + final_TN) / (len(P)+len(N))
-
-    print(f"Final Accuracy: {final_accuracy} with the following concept: {ALCConcept.to_dl_concept(final_concept)}")
-
-    print("----------------------------------------------------------------------------")
-    print(f"Accuracy before approximation: {acc}")
-    print(f"Accuracy after approximation: {final_accuracy}")
 
 def compute_extension(A: Structure, concept: ALCConcept) -> set:
     extension = set()
@@ -121,7 +49,7 @@ def continue_extraction(A: Structure,
     print("== Starting incremental search search for fitting query")
     time_start_solve = time.perf_counter()
 
-    acc = 0
+    acc = 0.0
     output_definition = None
     if language != "el":
         ops = L_OP[language]
@@ -165,17 +93,28 @@ def continue_extraction(A: Structure,
 
 def approximation_step(extension: set, P: list[int], N: list[int], concept: ALCConcept, sig: signature.Signature, target_concept: str, A: Structure):
 
-        P_1 = list(P & extension) # True Positives
-        N_1 = list(N & extension) # False Positives
+    P_1 = list(P & extension) # True Positives
+    N_1 = list(N & extension) # False Positives
+    
+    P_2= list(P - extension) # False Negatives
+    N_2 = list(N - extension) # True Negatives
+
+    print(f"found {len(P_1)} true positives")
+    print(f"found {len(N_2)} true negatives")
+    print(f"found {len(N_1)} false positives")
+    print(f"found {len(P_2)} false negatives")
+
+    if len(N_1) == 0 and len(P_2) ==  0:
+        new_concept= concept
+    elif len(N_1) == 0 and len(P_2) != 0:
+        conc_2 = continue_extraction(A, P_2, N_2, sig, target_concept, max_size=9)
         
-        P_2= list(P - extension) # False Negatives
-        N_2 = list(N - extension) # True Negatives
+        new_concept = ALCConcept(operation=OP.OR,name="",value=0,children=(concept, conc_2))
+    elif len(N_1) != 0 and len(P_2) == 0:
+        conc_1 = continue_extraction(A, P_1, N_1, sig, target_concept, max_size=9)
 
-        print(f"found {len(P_1)} true positives")
-        print(f"found {len(N_2)} true negatives")
-        print(f"found {len(N_1)} false positives")
-        print(f"found {len(P_2)} false negatives")
-
+        new_concept = ALCConcept(operation=OP.AND,name="",value=0,children=(concept, conc_1))
+    else:
         conc_1 = continue_extraction(A, P_1, N_1, sig, target_concept, max_size=9)
         conc_2 = continue_extraction(A, P_2, N_2, sig, target_concept, max_size=9)
 
@@ -184,7 +123,7 @@ def approximation_step(extension: set, P: list[int], N: list[int], concept: ALCC
         right = ALCConcept(operation=OP.AND,name="",value=0,children=(not_c, conc_2))
         new_concept = ALCConcept(operation=OP.OR,name="",value=0,children=(left, right))
 
-        return new_concept
+    return new_concept
 
 def approximation(target_concept: str,
                   sig: signature.Signature,
@@ -208,6 +147,10 @@ def approximation(target_concept: str,
     print(f"Reached Overall Accuracy: {accuracy[1]}")
 
     print(f"\nExtracted Concept:\n{definition}")
+
+    if accuracy[0] == 1.0:
+        print("The Accuracy on the training data is already 1, nothing to improve. No Approximation needed!")
+        return 0.0, concept
 
     extension = compute_extension(A, concept)
 
@@ -237,13 +180,3 @@ def approximation(target_concept: str,
     print(f"The accuracy has increased by {improvement}")
 
     return improvement, concept
-
-if __name__ == "__main__":
-    main()
-
-# Beispielausgabe:
-# ...........
-# ..........
-# ----------------------------------------------------------------------------
-# Accuracy before approximation: 0.86
-# Accuracy after approximation: 0.91
