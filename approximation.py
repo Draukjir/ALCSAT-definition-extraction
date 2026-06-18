@@ -1,11 +1,12 @@
 from yago_fragmentation import signature
 from extractExamples import extract_Examples
-from definition_extraction import definition_extraction
+from definition_extraction import definition_extraction, compute_overall_accuracy
 from spell.structures import ind, Structure
 from spell.instance import ALCConcept
 import time
 from spell.fitting import mode, solve_incr
 from spell.fitting_alc import FittingALC, OP
+import copy
 
 LANGUAGES = ["el", "el_alcsat", "fl0", "ex-or", "all-or", "elu", "alc", "alcq"]
 L_OP = {
@@ -129,9 +130,9 @@ def approximation(target_concept: str,
                   sig: signature.Signature,
                   iterations: int):
     
-    extract_Examples(target_concept, sig)
+    extract_Examples(target_concept, sig, samples=500)
 
-    accuracy, concept, A, P, N= definition_extraction("yago-fragment.owl",
+    accuracy, concept, A, P, N, target_extension= definition_extraction("yago-fragment.owl",
                             "P.txt",
                             "N.txt",
                             sig,
@@ -139,18 +140,21 @@ def approximation(target_concept: str,
                             max_size=9
                             )
 
-    definition = ALCConcept.to_dl_concept(concept)
+    old_definition = ALCConcept.to_dl_concept(concept)
+    old_training_accuracy = accuracy[0]
+    old_overall_accuracy = accuracy[1]
 
     print(f"Result for {target_concept}\n")
 
     print(f"Reached Training Accuracy: {accuracy[0]}")
     print(f"Reached Overall Accuracy: {accuracy[1]}")
 
-    print(f"\nExtracted Concept:\n{definition}")
+    print(f"\nExtracted Concept:\n{old_definition}")
 
-    if accuracy[0] == 1.0:
+    if old_training_accuracy == 1.0:
         print("The Accuracy on the training data is already 1, nothing to improve. No Approximation needed!")
-        return 0.0, concept
+        #return 0.0, concept, accuracy[1], accuracy[1]
+        return old_definition, old_definition, old_training_accuracy, old_training_accuracy, old_overall_accuracy, old_overall_accuracy
 
     extension = compute_extension(A, concept)
 
@@ -168,15 +172,14 @@ def approximation(target_concept: str,
 
     print("DEBUG ZEICHEN")
 
-    final_accuracy = (final_TP + final_TN) / (len(P)+len(N))
+    new_training_accuracy = (final_TP + final_TN) / (len(P)+len(N))
+    new_overall_accuracy = compute_overall_accuracy(A, concept, target_extension)
+    new_definition = ALCConcept.to_dl_concept(concept)
 
     print(f"Extracted concept for {target_concept} after {iterations} iterations: {ALCConcept.to_dl_concept(concept)}")
 
     print("----------------------------------------------------------------------------")
-    print(f"Accuracy before approximation: {accuracy[1]}")
-    print(f"Accuracy after approximation: {final_accuracy}")
+    print(f"Accuracy before approximation: TRAINING: {old_training_accuracy} - - - OVERALL: {old_overall_accuracy}")
+    print(f"Accuracy after approximation: TRAINING{new_training_accuracy} - - - OVERALL: {new_overall_accuracy}")
 
-    improvement = final_accuracy - accuracy[1]
-    print(f"The accuracy has increased by {improvement}")
-
-    return improvement, concept
+    return old_definition, new_definition, old_training_accuracy, new_training_accuracy, old_overall_accuracy, new_overall_accuracy
