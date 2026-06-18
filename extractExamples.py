@@ -6,7 +6,7 @@ def main():
     sig = signature.Signature()
     extract_Examples(sig.target_concept, sig)
 
-def extract_Examples(target_concept: str, sig: signature.Signature, samples: int = 100):
+def extract_Examples(target_concept: str, sig: signature.Signature, samples: int = 100, mode: str = "definition"):
 
     positives = set()
     all_individuals = set()
@@ -29,9 +29,17 @@ def extract_Examples(target_concept: str, sig: signature.Signature, samples: int
     negatives = all_individuals - positives
 
     if samples:
-        positives = random.sample(sorted(positives), min(samples, len(positives)))
-        negatives = random.sample(sorted(negatives), min(samples, len(negatives)))
-
+        if mode == "definition":
+            positives = random.sample(sorted(positives), min(samples, len(positives)))
+            negatives = random.sample(sorted(negatives), min(samples, len(negatives)))
+        elif mode == "upper_bound": # 20 / 80 ratio
+            positives = random.sample(sorted(positives), min(samples * 0.2, len(positives)))
+            negatives = random.sample(sorted(negatives), min(samples * 0.8, len(negatives)))
+        elif mode == "lower_bound": # 80 / 20 ratio
+            positives = random.sample(sorted(positives), min(samples * 0.8, len(positives)))
+            negatives = random.sample(sorted(negatives), min(samples * 0.2, len(negatives)))
+        else:
+            print(f"[WARN] This Mode {mode} does not exist")
 
     with open("P.txt", "w") as f:
         for x in positives:
