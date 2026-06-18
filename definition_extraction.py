@@ -8,6 +8,7 @@ from spell.structures import solution2sparql, structure_from_owl, ind, Structure
 from spell.instance import ALCConcept
 from yago_fragmentation.taxonomy import collect_superclasses
 from yago_fragmentation import signature
+import copy
 
 LANGUAGES = ["el", "el_alcsat", "fl0", "ex-or", "all-or", "elu", "alc", "alcq"]
 L_OP = {
@@ -79,7 +80,12 @@ def definition_extraction(owlfile: str,
     time_start = time.perf_counter()
 
     print("== Loading {}".format(owlfile))
-    A = structure_from_owl(owlfile)
+    A_new = structure_from_owl(owlfile)
+
+    A = copy.deepcopy(A_new)
+
+    weird_concept = "http://www.w3.org/1999/02/22-rdf-syntax-ns#Description"
+    A.cn_ext[weird_concept].clear()
 
     P = load_examples(pospath, owlfile, A)
     N = load_examples(negpath, owlfile, A)
@@ -99,7 +105,7 @@ def definition_extraction(owlfile: str,
 
         if concept not in A.cn_ext:
             print(f"[WARN] Concept {concept} not found.")
-            return None, None, None, None, None
+            return None, None, None, None, None, None
         elif len(A.cn_ext[concept]) == 0:
             print(f"[WARN] Concept {concept} has no individuals")
             continue
@@ -112,7 +118,8 @@ def definition_extraction(owlfile: str,
             foundIndividuals = True
 
     if not foundIndividuals:
-        return None, None, None, None, None
+        print(f"[WARN] No Individuals for {target_concept} found!")
+        return None, None, None, None, None, None
 
     print("== Starting incremental search search for fitting query")
     time_start_solve = time.perf_counter()
@@ -161,4 +168,4 @@ def definition_extraction(owlfile: str,
 
     print("== Reached accurary (Overall data) {:.4f}".format(overall_accuracy))
     
-    return (training_accuracy, overall_accuracy), output_definition, A, P, N
+    return (training_accuracy, overall_accuracy), output_definition, A, P, N, target_extension

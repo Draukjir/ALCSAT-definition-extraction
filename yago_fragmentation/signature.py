@@ -19,7 +19,6 @@ class Signature:
             "<http://yago-knowledge.org/resource/Scientist>",
             "<http://yago-knowledge.org/resource/Musician>",
             "<http://yago-knowledge.org/resource/Chef>",
-            #"<http://yago-knowledge.org/resource/Single_music>",
             "<http://yago-knowledge.org/resource/Album>"
         }
         
@@ -33,8 +32,10 @@ class Signature:
             "<http://yago-knowledge.org/resource/Scientist>",
             "<http://yago-knowledge.org/resource/Musician>",
             "<http://yago-knowledge.org/resource/Chef>",
-            #"<http://yago-knowledge.org/resource/Single_music>",
-            "<http://yago-knowledge.org/resource/Album>"
+            "<http://yago-knowledge.org/resource/Album>",
+            "<http://yago-knowledge.org/resource/University>", #needed for the alumniOf Relation
+            "<http://yago-knowledge.org/resource/Prize>", #needed for the award Relation
+            "<http://schema.org/City>" #needed for the birthPlace Relation
         }
 
         # role_names - 2nd pass
