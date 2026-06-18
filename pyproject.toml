@@ -13,6 +13,7 @@ dependencies = [
     "owlready2>=0.48",
     "pytest>=8.4.2",
     "python-sat>=1.8.dev20",
+    "seaborn>=0.13.2",
 ]
 
 [tool.uv.sources]
