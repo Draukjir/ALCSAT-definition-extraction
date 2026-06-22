@@ -91,6 +91,7 @@ class ALCSATEncoding:
             r: min(q, self.inst.max_q)
             for r, q in determine_max_q_per_relation(instance).items()
         }
+        self.exclude_atomic : Iterable[OP] = [],
 
     def add_clause(self, c: Iterable[int]):
         self.clauses.append(c)
@@ -143,6 +144,11 @@ class ALCSATEncoding:
 
         self.vars = d
 
+    def disable_topbot(self):
+        for op in self.exclude_atomic:
+            for i in range(self.k):
+                self.add_clause([-(self.vars[X,op]+i)])
+    
     def syn_tree_encoding(self, tt: int):
         tree = all_trees(self.k)[tt]
 
@@ -662,8 +668,8 @@ def solve_approx(task: ApproxTask):
     best_n = 0
     enc.types = cn_types(enc.inst.A, enc.inst.sigma)
     enc.create_vars()
-
     enc.syn_tree_encoding(tt)
+    enc.disable_topbot()
     enc.evaluation_constraints(tt)
     enc.symmetry_breaking()
 
@@ -693,12 +699,13 @@ class FittingALC:
         max_k: int,
         P: list[int],
         N: list[int],
-        op: Iterable[OP] = ALC_OP,
+        op: Iterable[OP] = ALC_OP,        
         workers: int = 1,
         max_q: int = 2,
         bisim_reduction: bool = True,
         clustering: ThresholdMethod = ThresholdMethod.INTERVALS,
-        max_thresholds: int = 10
+        max_thresholds: int = 10,
+        exclude_atomic: Iterable[OP] = []
     ):
         self.max_k: int = max_k
         self.inst: Instance = Instance(
@@ -708,6 +715,7 @@ class FittingALC:
         self.clustering = clustering
         self.bisim_reduction = bisim_reduction
         self.max_thresholds = max_thresholds
+        self.exclude_atomic = exclude_atomic
 
     def solve(self):
         acc, _, _ = self.solve_incr(self.max_k, self.max_k)
@@ -756,6 +764,7 @@ class FittingALC:
         with ProcessPoolExecutor(self.workers) as p:
             while k <= max_k and (dt < timeout or timeout == -1) and best_acc < 1.0:
                 enc = ALCSATEncoding(self.inst)
+                enc.exclude_atomic = self.exclude_atomic
                 enc.k = k
 
                 tasks: list[ApproxTask] = [

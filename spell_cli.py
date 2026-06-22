@@ -42,6 +42,8 @@ def main():
 
     _ = parser.add_argument("--inverse_roles", action="store_true", help="enables inverse roles")
     _ = parser.add_argument("--feature_values", action="store_true", help="enables feature values")
+    _ = parser.add_argument("--notop", action="store_true", help="disables the top concept")
+    _ = parser.add_argument("--nobot", action="store_true", help="disables the bottom concept")
     _ = parser.add_argument("--max_thresholds", type=int, default = 10, help="number of feature value thresholds (default=10)")
 
     _ = parser.add_argument("--max_size", type=int, default=12, help="(default=12)")
@@ -114,10 +116,15 @@ def main():
     acc = 0
     if args.language != "el":
         ops = L_OP[args.language]
+        exclude_atomic = []
         if args.inverse_roles:
             ops.append(OP.INV)
         if args.feature_values:
             ops.append(OP.DGEQ)
+        if args.notop:
+            exclude_atomic.append(OP.TOP)
+        if args.nobot:
+            exclude_atomic.append(OP.TOP)
         f = FittingALC(
             A,
             args.max_size,
@@ -126,7 +133,8 @@ def main():
             op=frozenset(ops),
             workers=args.workers,
             max_q=args.max_q,
-            max_thresholds=args.max_thresholds
+            max_thresholds=args.max_thresholds,
+            exclude_atomic=exclude_atomic
         )
         remaining_time = -1
         if args.timeout != -1:
