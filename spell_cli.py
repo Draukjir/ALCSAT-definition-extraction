@@ -124,7 +124,7 @@ def main():
         if args.notop:
             exclude_atomic.append(OP.TOP)
         if args.nobot:
-            exclude_atomic.append(OP.TOP)
+            exclude_atomic.append(OP.BOT)
         f = FittingALC(
             A,
             args.max_size,
