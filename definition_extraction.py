@@ -20,6 +20,7 @@ L_OP = {
     "elu": [OP.EX, OP.OR, OP.AND],
     "alc": [OP.ALL, OP.EX, OP.OR, OP.AND, OP.NEG],
     "alcq": [OP.ALL, OP.EX, OP.OR, OP.AND, OP.NEG, OP.LE, OP.GE],
+    "my_language": [OP.EX, OP.ALL, OP.OR, OP.AND]
 }
 
 def load_examples(path: str, owlfile: str, A: Structure) -> list[int]:
@@ -66,7 +67,7 @@ def definition_extraction(owlfile: str,
                           pospath: str, 
                           negpath: str,
                           sig: signature.Signature,
-                          target_concept: str, 
+                          target_concept_name: str, 
                           language: str = "alc", 
                           inverse_roles: bool = False, 
                           feature_values: bool = False, 
@@ -76,6 +77,7 @@ def definition_extraction(owlfile: str,
                           md: str = "full_approx",
                           timeout = 180,
                           workers = 1,):
+    print(f"- - - - Starting Definition Extraction for {target_concept_name} - - - -")
 
     time_start = time.perf_counter()
 
@@ -92,34 +94,36 @@ def definition_extraction(owlfile: str,
 
     time_parsed = time.perf_counter()
 
-    # If we only remove the target concept, we get just a trivial solution of one of it's superclasses, therefore we have to remove them as well
-    target_concepts = collect_superclasses(target_concept) | {target_concept}
-    target_concepts -= set(sig.top_level_classes) | {sig.THING}
+    if len(A.cn_ext[target_concept_name.strip("<>")]) == 0:
+        print(f"[WARN] The target_concept_name-Extension {target_concept_name} is EMPTY!")
+        sys.exit(1)
+    
+    # save the target extension locally and then clear it in the A structure, so that we will not get a trivial solution
+    target_extension = A.cn_ext[target_concept_name.strip("<>")].copy()
+    A.cn_ext[target_concept_name.strip("<>")].clear()
 
-    foundIndividuals = False
+    # If we only remove the target concept, we get just a trivial solution of one of it's superclasses, therefore we have to remove those superclasses that are equivalent to our target_extension
+    target_superclasses = collect_superclasses(target_concept_name)
+    # target_superclasses -= set(sig.top_level_classes) | {sig.THING}
 
-    target_extension = set()
+    for concept_name in target_superclasses:
+        concept_name = concept_name.strip("<>")
 
-    for concept in target_concepts:
-        concept = concept.strip("<>")
-
-        if concept not in A.cn_ext:
-            print(f"[WARN] Concept {concept} not found.")
-            return None, None, None, None, None, None
-        elif len(A.cn_ext[concept]) == 0:
-            print(f"[WARN] Concept {concept} has no individuals")
+        if concept_name not in A.cn_ext:
+            print(f"[WARN] Concept_name {concept_name} does not exist!")
+            sys.exit(1)
+        elif len(A.cn_ext[concept_name]) == 0:
+            print(f"[WARN] Concept {concept_name} has no individuals!") 
             continue
         else:
-            target_extension.update(A.cn_ext[concept].copy())
+            concept_name_extension = A.cn_ext[concept_name]
+            removed = 0
 
-            removed = len(A.cn_ext[concept])
-            A.cn_ext[concept].clear()
-            print(f"Removed {removed} individuals of {concept}")
-            foundIndividuals = True
+            if concept_name_extension == target_extension:
+                removed = len(A.cn_ext[concept_name])
+                A.cn_ext[concept_name].clear()
 
-    if not foundIndividuals:
-        print(f"[WARN] No Individuals for {target_concept} found!")
-        return None, None, None, None, None, None
+            print(f"Removed {removed} individuals of {concept_name}")
 
     print("== Starting incremental search search for fitting query")
     time_start_solve = time.perf_counter()
@@ -164,7 +168,7 @@ def definition_extraction(owlfile: str,
     )
     print("== Reached accurary (Training data) {:.4f}".format(training_accuracy))
 
-    overall_accuracy = compute_overall_accuracy(A, output_definition, target_extension)
+    overall_accuracy = compute_overall_accuracy(A_new, output_definition, target_extension)
 
     print("== Reached accurary (Overall data) {:.4f}".format(overall_accuracy))
     
