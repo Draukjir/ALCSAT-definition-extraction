@@ -1,6 +1,6 @@
-import signature
+from . import signature
 import lightrdf
-import taxonomy
+from . import taxonomy
 from collections import defaultdict
 import random
 import argparse
@@ -30,27 +30,20 @@ concept_pool = {
 }
 
 all_concepts = set().union(*concept_pool.values())
-target_pool = concept_pool[sig.target_concept]
-
-# Searching for the most general class for our target, so that the individual will stay in our fragment
-target_general_class = taxonomy.determine_most_general_class(sig.target_concept)
 
 print(f"Done ({time.perf_counter() - start:.2f}s)")
 
 rdf_parser = lightrdf.Parser()
 
 f_full = open("result.nt", "w")
-f_no_target = open("result_without_target.nt", "w")
 
 written = set()
-def write_triple(triple, write_in_both=True):
+def write_triple(triple):
     if triple in written:
         return
     written.add(triple)
 
     f_full.write("{} {} {} .\n".format(*triple))
-    if write_in_both:
-        f_no_target.write("{} {} {} .\n".format(*triple))
 
 # Part 1: SCHEMA
 print("Processing yago-schema.ttl")
@@ -65,10 +58,7 @@ print("Processing yago-taxonomy.ttl")
 start = time.perf_counter()
 for subj, pred, obj in rdf_parser.parse(sig.TAXONOMY, base_iri=None):
     if not ("shacl" in pred or "shacl" in obj):
-        if (subj in target_pool or obj in target_pool):
-            write_triple((subj,pred,obj), False)
-        else:
-            write_triple((subj,pred,obj))
+        write_triple((subj,pred,obj))
 print(f"Done ({time.perf_counter() - start:.2f}s)")
 
 # Part 3: FACTS
@@ -124,32 +114,26 @@ domain |= neighbors
 print(f"Done ({time.perf_counter() - start:.2f}s)")
 
 # 3.3: Write the triples to both .nt files
-print("Processing yago-facts.ttl == Third Pass: Write triples to both result files")
+print("Processing yago-facts.ttl == Third Pass: Write triples to result.nt")
 start = time.perf_counter()
 for subj, pred, obj in rdf_parser.parse(sig.FACTS, base_iri=None):
 
     if pred in sig.role_names:
 
         if subj in domain and obj in domain:
-            write_triple((subj, pred, obj), True)
+            write_triple((subj, pred, obj))
 
     elif pred == sig.TYPE:
         if subj not in domain:
             continue
 
-        if obj in target_pool:
-            write_triple((subj, pred, sig.target_concept), False)
-            write_triple((subj, pred, target_general_class), True)
-        else:
-            for c in sig.concept_names:
-                if obj in concept_pool[c]:
-                    write_triple((subj, pred, c), True)
-                    #break
+        for c in sig.concept_names:
+            if obj in concept_pool[c]:
+                write_triple((subj, pred, c))
 
 print(f"Done ({time.perf_counter() - start:.2f}s)")
 
 f_full.close()
-f_no_target.close()
 
 print(f"Finished extraction in {time.perf_counter() - total_start:.2f}s")
 print(f"Domain size: {len(domain)}")
