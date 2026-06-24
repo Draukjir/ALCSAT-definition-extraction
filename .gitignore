@@ -13,10 +13,12 @@ tmp.owl
 yago-fragment.owl
 yago-fragment-without-target.owl
 custom-schema.owl
+*.owl
 P.txt
 N.txt
 
 *.ttl
 *.nt
+*.png
 
 \definition_extraction

@@ -6,7 +6,7 @@ def main():
     sig = signature.Signature()
     extract_Examples(sig.target_concept, sig)
 
-def extract_Examples(target_concept: str, sig: signature.Signature, samples: int = 100, mode: str = "definition"):
+def extract_Examples(target_concept: str, sig: signature.Signature, samples: int = 100, mode: str = "definition", fragment_file: str = "yago-fragment.owl"):
 
     positives = set()
     all_individuals = set()
@@ -14,8 +14,6 @@ def extract_Examples(target_concept: str, sig: signature.Signature, samples: int
     rdf_parser = lightrdf.Parser()
 
     sig = signature.Signature()
-
-    fragment_file = "yago-fragment.owl"
 
     for triple in rdf_parser.parse(fragment_file, base_iri=None):
         subj, pred, obj = triple

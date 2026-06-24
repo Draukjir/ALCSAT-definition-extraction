@@ -92,7 +92,7 @@ def continue_extraction(A: Structure,
     
     return output_definition
 
-def approximation_step(extension: set, P: list[int], N: list[int], concept: ALCConcept, sig: signature.Signature, target_concept: str, A: Structure):
+def approximation_step(extension: set, P: list[int], N: list[int], concept: ALCConcept, sig: signature.Signature, target_concept: str, A: Structure, size: int):
 
     P_1 = list(P & extension) # True Positives
     N_1 = list(N & extension) # False Positives
@@ -108,16 +108,16 @@ def approximation_step(extension: set, P: list[int], N: list[int], concept: ALCC
     if len(N_1) == 0 and len(P_2) ==  0:
         new_concept= concept
     elif len(N_1) == 0 and len(P_2) != 0:
-        conc_2 = continue_extraction(A, P_2, N_2, sig, target_concept, max_size=9)
+        conc_2 = continue_extraction(A, P_2, N_2, sig, target_concept, max_size=size)
         
         new_concept = ALCConcept(operation=OP.OR,name="",value=0,children=(concept, conc_2))
     elif len(N_1) != 0 and len(P_2) == 0:
-        conc_1 = continue_extraction(A, P_1, N_1, sig, target_concept, max_size=9)
+        conc_1 = continue_extraction(A, P_1, N_1, sig, target_concept, max_size=size)
 
         new_concept = ALCConcept(operation=OP.AND,name="",value=0,children=(concept, conc_1))
     else:
-        conc_1 = continue_extraction(A, P_1, N_1, sig, target_concept, max_size=9)
-        conc_2 = continue_extraction(A, P_2, N_2, sig, target_concept, max_size=9)
+        conc_1 = continue_extraction(A, P_1, N_1, sig, target_concept, max_size=size)
+        conc_2 = continue_extraction(A, P_2, N_2, sig, target_concept, max_size=size)
 
         not_c = ALCConcept(operation=OP.NEG, name="", value=0, children=(concept,))
         left = ALCConcept(operation=OP.AND,name="",value=0,children=(concept, conc_1))
@@ -128,16 +128,18 @@ def approximation_step(extension: set, P: list[int], N: list[int], concept: ALCC
 
 def approximation(target_concept: str,
                   sig: signature.Signature,
-                  iterations: int):
+                  iterations: int,
+                  size: int,
+                  fragment_file: str):
     
     extract_Examples(target_concept, sig, samples=500)
 
-    accuracy, concept, A, P, N, target_extension= definition_extraction("yago-fragment.owl",
+    accuracy, concept, A, P, N, target_extension= definition_extraction(fragment_file,
                             "P.txt",
                             "N.txt",
                             sig,
                             target_concept,
-                            max_size=9
+                            max_size=size
                             )
 
     old_definition = ALCConcept.to_dl_concept(concept)
@@ -153,7 +155,6 @@ def approximation(target_concept: str,
 
     if old_training_accuracy == 1.0:
         print("The Accuracy on the training data is already 1, nothing to improve. No Approximation needed!")
-        #return 0.0, concept, accuracy[1], accuracy[1]
         return old_definition, old_definition, old_training_accuracy, old_training_accuracy, old_overall_accuracy, old_overall_accuracy
 
     extension = compute_extension(A, concept)
@@ -164,7 +165,7 @@ def approximation(target_concept: str,
     for i in range(iterations):
         print(f"Approximation step: {i}")
 
-        concept = approximation_step(extension, P, N, concept, sig, target_concept, A)
+        concept = approximation_step(extension, P, N, concept, sig, target_concept, A, size)
         extension = compute_extension(A, concept)
 
     final_TP = len(P & extension)

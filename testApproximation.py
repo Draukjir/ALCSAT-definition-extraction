@@ -5,7 +5,9 @@ from spell.instance import ALCConcept
 from approximation import approximation
 
 sig = signature.Signature()
-iterations = 2
+iterations = 1
+size = 4
+fragment_file = "yago-fragment.owl"
 
 result = {
     concept: (None, None, 0.00, 0.00, 0.00, 0.00) # (old_def, new_def, old_training_acc, new_training_acc, old_overall_acc, new_overall_acc)
@@ -13,7 +15,7 @@ result = {
 }
 
 for concept_name in sig.domain_signature:
-    old_definition, new_definition, old_training_accuracy, new_training_accuracy, old_overall_accuracy, new_overall_accuracy = approximation(concept_name, sig, iterations)
+    old_definition, new_definition, old_training_accuracy, new_training_accuracy, old_overall_accuracy, new_overall_accuracy = approximation(concept_name, sig, iterations, size, fragment_file)
 
     result[concept_name] = (old_definition, new_definition, old_training_accuracy, new_training_accuracy, old_overall_accuracy, new_overall_accuracy)
 
