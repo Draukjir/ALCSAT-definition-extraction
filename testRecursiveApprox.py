@@ -1,8 +1,7 @@
-import json
-
-from approximation import approximation
-from spell.fitting_alc import OP
 from yago_fragmentation import signature
+from recursive_approx import approx_start
+from spell.fitting_alc import OP
+import json
 
 
 def clean_name(uri):
@@ -13,8 +12,8 @@ def clean_name(uri):
         .replace("http://yago-knowledge.org/resource/", "")
         .replace("http://schema.org/", "")
     )
-    
-# LOAD JSON SIGNATURE IF USING PATTERN BASED EXTRACTION
+
+
 # with open("extracted_signature.json", "r", encoding="utf-8") as f:
 #     loaded_sig = json.load(f)
 
@@ -22,19 +21,18 @@ def clean_name(uri):
 #     concept_names=loaded_sig["concept_names"], role_names=loaded_sig["role_names"]
 # )
 
-
 sig = signature.Signature()
 
-# SETTINGS - CHANGE HERE
+# SETTINGS
 samples = 100
 iterations = 1
 size = 4
 fragment_file = "fragment-sample-22-07.owl"
-language = "alc_pos_no_all"
-inverse = False
-exclude_atomic = []
-# SETTINGS
-
+language = "alc_pos"
+inverse = True
+exclude_atomic = []  # noch nicht integriert in approximation!
+threshold = 10
+# SETTINGS 
 
 result = {
     concept_name: {
@@ -56,10 +54,20 @@ for concept_name in sig.domain_signature:
         result[concept_name]["new_train_acc"],
         result[concept_name]["old_all_acc"],
         result[concept_name]["new_all_acc"],
-    ) = approximation(concept_name, sig, iterations, size, fragment_file, samples, language=language, inverse=inverse)
+    ) = approx_start(
+        concept_name,
+        sig,
+        iterations,
+        size,
+        fragment_file,
+        samples,
+        language=language,
+        inverse=inverse,
+        threshold=threshold,
+    )
 
 print(
-    f"The result of the Approximation for the training data after {iterations} Iterations are the following:"
+    f"The result of RECURSIV APPROX for the training data after {iterations} Iterations are the following:"
 )
 
 for concept_name, res in result.items():

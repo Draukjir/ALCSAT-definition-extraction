@@ -1,11 +1,77 @@
+# Definition Extraction
+This repository contains an implementation of Definition Extraction for the description logic ALCI. 
+
+This is a fork of the ALC-SAT tool <https://github.com/SAT-based-Concept-Learning/ALCSAT.git>.
+ 
+It uses it to find definitions for concept names of the Knowledge Base YAGO. The ALC-SAT tool does find fitting concepts for a given set of positive and negative examples.
+
+## Obtain Yago 4.5.0.2
+Download YAGO using:
+
+```
+wget https://yago-knowledge.org/data/yago4.5/yago-4.5.0.2.zip
+```
+## Extracting the needed files
+Extract the required YAGO files:
+
+```
+unzip yago-4.5.0.2.zip yago-schema.ttl yago-taxonomy.ttl yago-facts.ttl
+```
+Make sure that all files are in the `yago_fragmentation` folder
+## Extracting fragments
+Before performing definition extraction, a fragment of YAGO has to be extracted. Three Methods are available:
+- Standard Fragment:
+```uv run -m yago_fragmentation.extract```
+- Sampled Fragment:
+``` uv run -m yago_fragmentation.extract --samples=<AMOUNT>```
+- Pattern based Fragment:
+```uv run -m yago_fragmentation.extractAuto```
+
+You can change the focus of the fragments by modifying the concept and role names in `signature.py`
+
+The extraction scripts use the [uv package manager](https://github.com/astral-sh/uv) and require the [lightrdf library](https://github.com/ozekik/lightrdf).
+
+Depending on the selected extraction method, the resulting files are, for example: 
+```
+custom-schema.owl
+result.nt
+```
+
+## Convert to OWL
+The extracted fragment can be converted into a single OWL file using [ROBOT](https://github.com/ontodev/robot).
+```
+robot merge --input custom-schema.owl --input result.nt --output fragment.owl
+```
+
+## Definition Extraction
+The repository contains several scripts for direct definition extraction and approximation-based extraction.
+
+Before running an extraction, make sure that the configuration parameters in the respective script are set correctly for the selected fragment and target concepts.
+
+For pattern-based fragments, the signature is generated automatically and stored in `extracted_signature.json`. In this case, the corresponding signature can be instantiated using this file. An example of this is provided in the respective scripts.
+
+### Available Scripts:
+* `testSingleExtraction`: performs one definition extraction for a single concept
+* `testDefinitionExtraction`: performs definition extraction for all target concepts
+* `testMultipleRuns`: performs multiple extractions for one concept to evaluate variation between runs
+* `testNecCritExtraction`: performs necessary-condition extraction
+* `testSuffCritExtraction`: performs sufficient-criterion extraction
+* `testApproximation`: performs approximation-based definition extraction
+* `testRecursiveApprox`: performs recursive approximation
+* `individual_definition_extraction`: performs definition extraction for individual concepts
+
+you can start each script equally with e.g.
+``` uv run testSingleExtraction```
+ 
+The same procedure applies to the other scripts.
+
+
+# Description for ALCSAT:
+This repository contains our implementation of bounded fitting for the description logic ALC (ALSAT). As this is a Fork of <https://github.com/spell-system/SPELL>, it also contains SPELL, a tool to learn concepts in the description logic EL.
+
 This repository contains our implementation of bounded fitting for the description logic ALCQI(f) (ALCSAT). Given an instance of a learning problem in the form of a knowledge base, positive and negative examples, the tool searches for a description logic concept that covers all positive examples, excludes all negative examples and is of minimal size. Any syntactic fragment of the description logic ALC is supported as well as extensions of ALC with number restrictions, inverse roles and data values.
 
 As this is a Fork of <https://github.com/spell-system/SPELL>, it also contains SPELL, a tool to learn concepts in the description logic EL.
-## Definition Extraction
-yago-fragment.owl can be obtained by following https://github.com/Draukjir/simple-yago-fragmentation and then added to the actor_example folder
-
-This repository contains our implementation of bounded fitting for the description logic ALC (ALSAT). As this is a Fork of <https://github.com/spell-system/SPELL>, it also contains SPELL, a tool to learn concepts in the description logic EL.
-
 ## Requirements
 - Installation of Python 3
 - uv package manager obtainable from https://github.com/astral-sh/uv

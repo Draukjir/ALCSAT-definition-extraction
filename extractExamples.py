@@ -1,24 +1,42 @@
-import lightrdf
-from yago_fragmentation import signature
 import random
+import sys
+from collections import defaultdict
+
+import lightrdf
+
+from yago_fragmentation import signature
+
 
 def main():
     sig = signature.Signature()
     extract_Examples(sig.target_concept, sig)
 
-def extract_Examples(target_concept: str, sig: signature.Signature, samples: int = 100, mode: str = "definition", fragment_file: str = "yago-fragment.owl"):
+
+def extract_Examples(
+    target_concept: str,
+    sig: signature.Signature,
+    samples: int = 100,
+    mode: str = "definition",
+    fragment_file: str = "yago-fragment.owl",
+    only_focus: bool = False,
+):
+    print(f"Starting Example-Extraction for {target_concept} with mode = {mode}")
+    
+    example_concepts = set()
+    if only_focus:
+        example_concepts = sig.domain_signature
+    else:
+        example_concepts = sig.concept_names
 
     positives = set()
     all_individuals = set()
 
     rdf_parser = lightrdf.Parser()
 
-    sig = signature.Signature()
-
     for triple in rdf_parser.parse(fragment_file, base_iri=None):
         subj, pred, obj = triple
 
-        if pred == sig.TYPE and obj in sig.concept_names:
+        if pred == sig.TYPE and obj in example_concepts:
             all_individuals.add(subj.strip("<>"))
 
             if obj == target_concept:
@@ -28,16 +46,27 @@ def extract_Examples(target_concept: str, sig: signature.Signature, samples: int
 
     if samples:
         if mode == "definition":
-            positives = random.sample(sorted(positives), min(samples, len(positives)))
-            negatives = random.sample(sorted(negatives), min(samples, len(negatives)))
-        elif mode == "upper_bound": # 20 / 80 ratio
-            positives = random.sample(sorted(positives), min(samples * 0.2, len(positives)))
-            negatives = random.sample(sorted(negatives), min(samples * 0.8, len(negatives)))
-        elif mode == "lower_bound": # 80 / 20 ratio
-            positives = random.sample(sorted(positives), min(samples * 0.8, len(positives)))
-            negatives = random.sample(sorted(negatives), min(samples * 0.2, len(negatives)))
+            min_size = min(len(positives), len(negatives), samples)
+            print(f"Taking {min_size} sample Examples")
+            
+            positives = random.sample(sorted(positives), min_size)
+            negatives = random.sample(sorted(negatives), min_size)
         else:
-            print(f"[WARN] This Mode {mode} does not exist")
+            print(f"[WARN] This Mode {mode} does not work with samples")
+            sys.exit(1)
+    else:
+        if mode == "nec_crit":
+            k = max(10, int(0.001 * len(negatives)))
+            print(f"Necessary Criterion: {len(positives)} positive examples, {k} negative examples")
+                        
+            negatives = random.sample(sorted(negatives), k)
+            # negatives = set()
+        elif mode == "suf_crit":
+            k = max(10, int(0.01 * len(positives)))
+            print(f"Sufficient Criterion: {k} positive examples, {len(negatives)} negative examples")
+            
+            positives = random.sample(sorted(positives), k)
+            # positives = set()
 
     with open("P.txt", "w") as f:
         for x in positives:

@@ -1,10 +1,11 @@
-from . import signature
-import lightrdf
-from . import taxonomy
-from collections import defaultdict
-import random
 import argparse
+import random
 import time
+from collections import defaultdict
+
+import lightrdf
+
+from . import signature, taxonomy
 
 total_start = time.perf_counter()
 
@@ -89,6 +90,7 @@ else:
 
 
 domain = set().union(*sampled.values())
+print(f"Gathered {len(domain)} Individuals after 1st Pass")
 
 print(f"Done ({time.perf_counter() - start:.2f}s)")
 

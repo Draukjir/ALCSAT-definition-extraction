@@ -6,7 +6,6 @@ from spell.instance import ALCConcept
 import time
 from spell.fitting import mode, solve_incr
 from spell.fitting_alc import FittingALC, OP
-import copy
 
 LANGUAGES = ["el", "el_alcsat", "fl0", "ex-or", "all-or", "elu", "alc", "alcq"]
 L_OP = {
@@ -17,31 +16,38 @@ L_OP = {
     "all-or": [OP.ALL, OP.OR],
     "elu": [OP.EX, OP.OR, OP.AND],
     "alc": [OP.ALL, OP.EX, OP.OR, OP.AND, OP.NEG],
+    "alc_pos": [OP.ALL, OP.EX, OP.OR, OP.AND],
     "alcq": [OP.ALL, OP.EX, OP.OR, OP.AND, OP.NEG, OP.LE, OP.GE],
+    "alc_no_all": [OP.EX, OP.OR, OP.AND, OP.NEG],
+    "alc_pos_no_all": [OP.EX, OP.OR, OP.AND]
 }
+
 
 def compute_extension(A: Structure, concept: ALCConcept) -> set:
     extension = set()
     for a in ind(A):
-        if concept.mc(A,a):
+        if concept.mc(A, a):
             extension.add(a)
-    
+
     return extension
 
-def continue_extraction(A: Structure, 
-                          P: list[int], 
-                          N: list[int],
-                          sig: signature.Signature,
-                          target_concept: str, 
-                          language: str = "alc", 
-                          inverse_roles: bool = False, 
-                          feature_values: bool = False, 
-                          max_thresholds: int = 10,
-                          max_size: int = 12,
-                          max_q: int = 2,
-                          md: str = "full_approx",
-                          timeout = 180,
-                          workers = 1,):
+
+def continue_extraction(
+    A: Structure,
+    P: list[int],
+    N: list[int],
+    sig: signature.Signature,
+    target_concept: str,
+    language: str = "alc",
+    inverse_roles: bool = False,
+    feature_values: bool = False,
+    max_thresholds: int = 10,
+    max_size: int = 12,
+    max_q: int = 2,
+    md: str = "full_approx",
+    timeout=180,
+    workers=1,
+):
 
     time_start = time.perf_counter()
 
@@ -66,7 +72,7 @@ def continue_extraction(A: Structure,
             op=frozenset(ops),
             workers=workers,
             max_q=max_q,
-            max_thresholds=max_thresholds
+            max_thresholds=max_thresholds,
         )
         remaining_time = -1
         if timeout != -1:
@@ -75,7 +81,9 @@ def continue_extraction(A: Structure,
             acc, _, _ = f.solve_incr(max_size, timeout=remaining_time)
         elif md == "full_approx":
             print("Starting with solving")
-            acc, _, output_definition = f.solve_incr_approx(max_size, timeout=remaining_time) # _ _ 3 beste Konzept hier zurückgeben
+            acc, _, output_definition = f.solve_incr_approx(
+                max_size, timeout=remaining_time
+            )  # _ _ 3 beste Konzept hier zurückgeben
         else:
             print(f"Mode {md} is only supported for SPELL.")
     else:
@@ -89,58 +97,82 @@ def continue_extraction(A: Structure,
         )
     )
     print("== Reached accurary {:.4f}".format(acc))
-    
+
     return output_definition
 
-def approximation_step(extension: set, P: list[int], N: list[int], concept: ALCConcept, sig: signature.Signature, target_concept: str, A: Structure, size: int):
 
-    P_1 = list(P & extension) # True Positives
-    N_1 = list(N & extension) # False Positives
-    
-    P_2= list(P - extension) # False Negatives
-    N_2 = list(N - extension) # True Negatives
+def approximation_step(
+    extension: set,
+    P: list[int],
+    N: list[int],
+    concept: ALCConcept,
+    sig: signature.Signature,
+    target_concept: str,
+    A: Structure,
+    size: int,
+    language:str = "alc",
+    inverse: bool = True,
+    exclude_atomic = [] # muss noch integriert werden
+):
+
+    P_1 = list(P & extension)  # True Positives
+    N_1 = list(N & extension)  # False Positives
+
+    P_2 = list(P - extension)  # False Negatives
+    N_2 = list(N - extension)  # True Negatives
 
     print(f"found {len(P_1)} true positives")
     print(f"found {len(N_2)} true negatives")
     print(f"found {len(N_1)} false positives")
     print(f"found {len(P_2)} false negatives")
 
-    if len(N_1) == 0 and len(P_2) ==  0:
-        new_concept= concept
+    if len(N_1) == 0 and len(P_2) == 0:
+        new_concept = concept
     elif len(N_1) == 0 and len(P_2) != 0:
-        conc_2 = continue_extraction(A, P_2, N_2, sig, target_concept, max_size=size)
-        
-        new_concept = ALCConcept(operation=OP.OR,name="",value=0,children=(concept, conc_2))
-    elif len(N_1) != 0 and len(P_2) == 0:
-        conc_1 = continue_extraction(A, P_1, N_1, sig, target_concept, max_size=size)
+        conc_2 = continue_extraction(A, P_2, N_2, sig, target_concept, max_size=size, language=language, inverse_roles=inverse)
 
-        new_concept = ALCConcept(operation=OP.AND,name="",value=0,children=(concept, conc_1))
+        new_concept = ALCConcept(
+            operation=OP.OR, name="", value=0, children=(concept, conc_2)
+        )
+    elif len(N_1) != 0 and len(P_2) == 0:
+        conc_1 = continue_extraction(A, P_1, N_1, sig, target_concept, max_size=size, language=language, inverse_roles=inverse)
+
+        new_concept = ALCConcept(
+            operation=OP.AND, name="", value=0, children=(concept, conc_1)
+        )
     else:
-        conc_1 = continue_extraction(A, P_1, N_1, sig, target_concept, max_size=size)
-        conc_2 = continue_extraction(A, P_2, N_2, sig, target_concept, max_size=size)
+        conc_1 = continue_extraction(A, P_1, N_1, sig, target_concept, max_size=size, language=language, inverse_roles=inverse)
+        conc_2 = continue_extraction(A, P_2, N_2, sig, target_concept, max_size=size, language=language, inverse_roles=inverse)
 
         not_c = ALCConcept(operation=OP.NEG, name="", value=0, children=(concept,))
-        left = ALCConcept(operation=OP.AND,name="",value=0,children=(concept, conc_1))
-        right = ALCConcept(operation=OP.AND,name="",value=0,children=(not_c, conc_2))
-        new_concept = ALCConcept(operation=OP.OR,name="",value=0,children=(left, right))
+        left = ALCConcept(
+            operation=OP.AND, name="", value=0, children=(concept, conc_1)
+        )
+        right = ALCConcept(operation=OP.AND, name="", value=0, children=(not_c, conc_2))
+        new_concept = ALCConcept(
+            operation=OP.OR, name="", value=0, children=(left, right)
+        )
 
     return new_concept
 
-def approximation(target_concept: str,
-                  sig: signature.Signature,
-                  iterations: int,
-                  size: int,
-                  fragment_file: str):
-    
-    extract_Examples(target_concept, sig, samples=500)
 
-    accuracy, concept, A, P, N, target_extension= definition_extraction(fragment_file,
-                            "P.txt",
-                            "N.txt",
-                            sig,
-                            target_concept,
-                            max_size=size
-                            )
+def approximation(
+    target_concept: str,
+    sig: signature.Signature,
+    iterations: int,
+    size: int,
+    fragment_file: str,
+    samples: int = 100,
+    language: str = "alc",
+    inverse: bool = True,
+    exclude_atomic = []
+):
+
+    extract_Examples(target_concept, sig, samples, fragment_file=fragment_file)
+
+    accuracy, concept, A, P, N, target_extension = definition_extraction(
+        fragment_file, "P.txt", "N.txt", sig, target_concept, language=language, inverse_roles=inverse, max_size=size, exclude_atomic=exclude_atomic
+    )
 
     old_definition = ALCConcept.to_dl_concept(concept)
     old_training_accuracy = accuracy[0]
@@ -154,8 +186,17 @@ def approximation(target_concept: str,
     print(f"\nExtracted Concept:\n{old_definition}")
 
     if old_training_accuracy == 1.0:
-        print("The Accuracy on the training data is already 1, nothing to improve. No Approximation needed!")
-        return old_definition, old_definition, old_training_accuracy, old_training_accuracy, old_overall_accuracy, old_overall_accuracy
+        print(
+            "The Accuracy on the training data is already 1, nothing to improve. No Approximation needed!"
+        )
+        return (
+            old_definition,
+            old_definition,
+            old_training_accuracy,
+            old_training_accuracy,
+            old_overall_accuracy,
+            old_overall_accuracy,
+        )
 
     extension = compute_extension(A, concept)
 
@@ -165,7 +206,9 @@ def approximation(target_concept: str,
     for i in range(iterations):
         print(f"Approximation step: {i}")
 
-        concept = approximation_step(extension, P, N, concept, sig, target_concept, A, size)
+        concept = approximation_step(
+            extension, P, N, concept, sig, target_concept, A, size, language, inverse=inverse, exclude_atomic=exclude_atomic
+        )
         extension = compute_extension(A, concept)
 
     final_TP = len(P & extension)
@@ -173,14 +216,29 @@ def approximation(target_concept: str,
 
     print("DEBUG ZEICHEN")
 
-    new_training_accuracy = (final_TP + final_TN) / (len(P)+len(N))
+    new_training_accuracy = (final_TP + final_TN) / (len(P) + len(N))
     new_overall_accuracy = compute_overall_accuracy(A, concept, target_extension)
     new_definition = ALCConcept.to_dl_concept(concept)
 
-    print(f"Extracted concept for {target_concept} after {iterations} iterations: {ALCConcept.to_dl_concept(concept)}")
+    print(
+        f"Extracted concept for {target_concept} after {iterations} iterations: {ALCConcept.to_dl_concept(concept)}"
+    )
 
-    print("----------------------------------------------------------------------------")
-    print(f"Accuracy before approximation: TRAINING: {old_training_accuracy} - - - OVERALL: {old_overall_accuracy}")
-    print(f"Accuracy after approximation: TRAINING{new_training_accuracy} - - - OVERALL: {new_overall_accuracy}")
+    print(
+        "----------------------------------------------------------------------------"
+    )
+    print(
+        f"Accuracy before approximation: TRAINING: {old_training_accuracy} - - - OVERALL: {old_overall_accuracy}"
+    )
+    print(
+        f"Accuracy after approximation: TRAINING{new_training_accuracy} - - - OVERALL: {new_overall_accuracy}"
+    )
 
-    return old_definition, new_definition, old_training_accuracy, new_training_accuracy, old_overall_accuracy, new_overall_accuracy
+    return (
+        old_definition,
+        new_definition,
+        old_training_accuracy,
+        new_training_accuracy,
+        old_overall_accuracy,
+        new_overall_accuracy,
+    )

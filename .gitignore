@@ -20,5 +20,7 @@ N.txt
 *.ttl
 *.nt
 *.png
+*.json
+*.txt
 
 \definition_extraction

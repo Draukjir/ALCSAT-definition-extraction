@@ -1,6 +1,9 @@
-import lightrdf
 from collections import defaultdict, deque
+
+import lightrdf
+
 from . import signature
+
 
 def collect_subclasses(target_class: str):
     parser = lightrdf.Parser()
@@ -9,8 +12,7 @@ def collect_subclasses(target_class: str):
 
     children = defaultdict(set)
 
-    for s,p,o in parser.parse(sig.TAXONOMY, base_iri=None):
-
+    for s, p, o in parser.parse(sig.TAXONOMY, base_iri=None):
         if p == sig.SUBCLASS:
             children[o].add(s)
 
@@ -27,14 +29,14 @@ def collect_subclasses(target_class: str):
 
     return subclasses
 
+
 def collect_superclasses(target_class: str):
     parser = lightrdf.Parser()
     sig = signature.Signature()
 
     parents = defaultdict(set)
 
-    for s,p,o in parser.parse(sig.TAXONOMY, base_iri=None):
-
+    for s, p, o in parser.parse(sig.TAXONOMY, base_iri=None):
         if p == sig.SUBCLASS:
             parents[s].add(o)
 
@@ -50,6 +52,7 @@ def collect_superclasses(target_class: str):
                 queue.append(parent)
 
     return superclasses
+
 
 def determine_most_general_class(target_class: str):
 
