@@ -264,5 +264,9 @@ class Instance:
         for a in self.N:
             if a in st:
                 fp += 1
-
-        return (2 * tp) / (2 * tp + fp + fn)
+                
+        if tp == 0 and fp == 0 and fn == 0:
+            print("[ERR] tp, fp and fn are all = 0")
+            return -1
+        else:
+            return (2 * tp) / (2 * tp + fp + fn)

@@ -9,14 +9,14 @@ from extractExamples import extract_Examples
 from spell.instance import ALCConcept
 from yago_fragmentation import signature
 
-with open("extracted_signature.json", "r", encoding="utf-8") as f:
-    loaded_sig = json.load(f)
+# with open("extracted_signature.json", "r", encoding="utf-8") as f:
+#     loaded_sig = json.load(f)
 
-sig = signature.Signature(
-    concept_names=loaded_sig["concept_names"], role_names=loaded_sig["role_names"]
-)
+# sig = signature.Signature(
+#     concept_names=loaded_sig["concept_names"], role_names=loaded_sig["role_names"]
+# )
 
-# sig = signature.Signature()
+sig = signature.Signature()
 
 # SETTINGS - CHANGE HERE
 size = 4
@@ -24,7 +24,7 @@ samples = 100
 runs = 30
 timeout = 180
 language = "alc"
-fragment_file = "fragment-auto-07-08.owl"
+fragment_file = "fragment-sample-22-07.owl"
 inverse = True
 concept_name = "<http://yago-knowledge.org/resource/Actor>"
 # SETTINGS

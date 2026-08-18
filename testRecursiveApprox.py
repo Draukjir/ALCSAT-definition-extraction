@@ -14,20 +14,20 @@ def clean_name(uri):
     )
 
 
-# with open("extracted_signature.json", "r", encoding="utf-8") as f:
-#     loaded_sig = json.load(f)
+with open("extracted_signature.json", "r", encoding="utf-8") as f:
+    loaded_sig = json.load(f)
 
-# sig = signature.Signature(
-#     concept_names=loaded_sig["concept_names"], role_names=loaded_sig["role_names"]
-# )
+sig = signature.Signature(
+    concept_names=loaded_sig["concept_names"], role_names=loaded_sig["role_names"]
+)
 
-sig = signature.Signature()
+# sig = signature.Signature()
 
 # SETTINGS
-samples = 100
+samples = 1000
 iterations = 1
-size = 4
-fragment_file = "fragment-sample-22-07.owl"
+size = 2
+fragment_file = "fragment-auto-07-08.owl"
 language = "alc_pos"
 inverse = True
 exclude_atomic = []  # noch nicht integriert in approximation!

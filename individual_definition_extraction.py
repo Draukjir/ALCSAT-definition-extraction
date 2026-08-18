@@ -84,16 +84,16 @@ def main():
     sig = signature.Signature()
     
     # OTHER SETTINGS
-    individual_uri = "<http://yago-knowledge.org/resource/Reiner_Kunze>"
+    individual_uri = "<http://yago-knowledge.org/resource/Stephen_King>"
     fragment_file = "fragment-sample-22-07.owl"
-    samples = 5000
+    samples = 35000
     
     # SETTINGS FOR ALC SAT
     language = "alc"
     inverse_roles = False
     feature_values = False
     max_thresholds = 10
-    max_size = 4
+    max_size = 12
     max_q = 2
     md = mode.exact
     timeout = 500
@@ -104,18 +104,9 @@ def main():
             
     print("== Loading {}".format(fragment_file))
     A = structure_from_owl(fragment_file)
-    
-    id_to_uri = {v: k for k, v in A.indmap.items()}
 
     P = load_examples("P.txt", fragment_file, A)
     N = load_examples("N.txt", fragment_file, A)
-    
-    print("P + N:", len(set(P) | set(N)))
-    print("Delta:", len(set(ind(A))))
-    missing = set(ind(A)) - set(P) - set(N)
-    print("Missing:", len(missing))
-    for i in random.sample(sorted(missing), 5):
-        print(clean_name(id_to_uri[i]))
     
     time_parsed = time.perf_counter()
 

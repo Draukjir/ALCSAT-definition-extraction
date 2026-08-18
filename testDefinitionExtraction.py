@@ -37,6 +37,7 @@ exclude_atomic = []         # Options:[OP.TOP, OP.BOT]
 timeout = 360
 example_mode = "definition"
 only_focus = False
+exclude_top_level_classes = True
 # SETTINGS
 
 result = {concept: (0.00, None) for concept in sorted(sig.domain_signature)}
@@ -57,6 +58,7 @@ for concept_name in sig.domain_signature:
         md=mode,
         timeout=timeout,
         exclude_atomic=exclude_atomic,
+        exclude_top_classes=exclude_top_level_classes,
     )
 
     definition = ALCConcept.to_dl_concept(concept)

@@ -28,7 +28,7 @@ language = "alc"
 inverse = True
 size = 15
 md = "full_approx"
-exclude_atomic = [OP.TOP, OP.BOT]
+exclude_atomic = [OP.BOT,OP.TOP]
 timeout = 500
 # END SETTINGS
 
@@ -55,7 +55,7 @@ print(
 )
 
 print(
-    f"The Extraction of a Necessary Criterion for {clean_name(target_concept)} has been completed:"
+    f"The Extraction of a Sufficient Criterion for {clean_name(target_concept)} has been completed:"
 )
 
 print(f"Extracted Concept: {clean_name(definition)}")
@@ -63,3 +63,17 @@ print(f"Extracted Concept: {clean_name(definition)}")
 print(f"Training Accuracy: {accuracy[0]}")
 
 print(f"Overall Accuracy: {accuracy[1]}")
+
+# Beispiel:     |P| = 0,    |N| = NOT A^I   MODE = EXACT
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# The Extraction of a Sufficient Criterion for Journalist has been completed:
+# Extracted Concept: EX.actor Club__u0028_organization_u0029_
+# Training Accuracy: 1.0
+# Overall Accuracy: 0.9706503378378378
+
+# Beispiel 2:   |P| = 10,   |N|= NOT A^I    MODE = FULL APPROX
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# The Extraction of a Sufficient Criterion for Journalist has been completed:
+# Extracted Concept: (Person AND NEG (Erudite_Person_Q20826540 OR (Politician OR (Artist OR SportsPerson))))
+# Training Accuracy: 0.9984555984555985
+# Overall Accuracy: 0.9784628378378378

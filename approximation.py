@@ -83,7 +83,7 @@ def continue_extraction(
             print("Starting with solving")
             acc, _, output_definition = f.solve_incr_approx(
                 max_size, timeout=remaining_time
-            )  # _ _ 3 beste Konzept hier zurückgeben
+            ) 
         else:
             print(f"Mode {md} is only supported for SPELL.")
     else:
@@ -103,16 +103,16 @@ def continue_extraction(
 
 def approximation_step(
     extension: set,
-    P: list[int],
-    N: list[int],
+    P: set,
+    N: set,
     concept: ALCConcept,
     sig: signature.Signature,
     target_concept: str,
     A: Structure,
     size: int,
     language:str = "alc",
-    inverse: bool = True,
-    exclude_atomic = [] # muss noch integriert werden
+    inverse: bool = False,
+    exclude_atomic = []
 ):
 
     P_1 = list(P & extension)  # True Positives
@@ -164,14 +164,15 @@ def approximation(
     fragment_file: str,
     samples: int = 100,
     language: str = "alc",
-    inverse: bool = True,
-    exclude_atomic = []
+    inverse: bool = False,
+    exclude_atomic = [],
+    exclude_top_classes = False,
 ):
 
     extract_Examples(target_concept, sig, samples, fragment_file=fragment_file)
 
     accuracy, concept, A, P, N, target_extension = definition_extraction(
-        fragment_file, "P.txt", "N.txt", sig, target_concept, language=language, inverse_roles=inverse, max_size=size, exclude_atomic=exclude_atomic
+        fragment_file, "P.txt", "N.txt", sig, target_concept, language=language, inverse_roles=inverse, max_size=size, exclude_atomic=exclude_atomic, exclude_top_classes=exclude_top_classes
     )
 
     old_definition = ALCConcept.to_dl_concept(concept)

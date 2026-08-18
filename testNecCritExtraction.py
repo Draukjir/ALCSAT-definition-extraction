@@ -17,7 +17,7 @@ def clean_name(uri):
 
 
 # SETTINGS - CHANGE HERE
-target_concept = "<http://yago-knowledge.org/resource/Journalist>"
+target_concept = "<http://yago-knowledge.org/resource/Actor>"
 sig = signature.Signature()
 samples = 0
 example_mode = "nec_crit"
@@ -26,9 +26,10 @@ only_focus = False
 
 language = "alc_pos"
 inverse = True
-size = 5
-mode = mode.exact
+size = 15
+md = "full_approx"
 exclude_atomic = [OP.TOP, OP.BOT]
+timeout = 500
 # END SETTINGS
 
 extract_Examples(target_concept, sig, samples, example_mode, fragment_file, only_focus)
@@ -42,7 +43,8 @@ accuracy, concept, _, _, _, _ = definition_extraction(
     language,
     inverse,
     max_size=size,
-    md=mode,
+    md=md,
+    timeout=timeout,
     exclude_atomic=exclude_atomic,
 )
 
@@ -61,3 +63,17 @@ print(f"Extracted Concept: {clean_name(definition)}")
 print(f"Training Accuracy: {accuracy[0]}")
 
 print(f"Overall Accuracy: {accuracy[1]}")
+
+# Beispiel:     |P| = A^I,    |N| = 0   MODE = EXACT
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# The Extraction of a Necessary Criterion for Actor has been completed:
+# Extracted Concept: Person
+# Training Accuracy: 1.0
+# Overall Accuracy: 0.8268581081081081
+
+# Beispiel 2:   |P| = A^I,   |N|= 10   MODE = FULL APPROX
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# The Extraction of a Necessary Criterion for Actor has been completed:
+# Extracted Concept: (Person AND (EX.memberOf Political_organisation OR (ALL.playsIn Intangible AND NEG Politician)))
+# Training Accuracy: 0.9950980392156863
+# Overall Accuracy: 0.8397381756756757

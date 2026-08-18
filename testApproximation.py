@@ -14,24 +14,22 @@ def clean_name(uri):
         .replace("http://schema.org/", "")
     )
     
-# LOAD JSON SIGNATURE IF USING PATTERN BASED EXTRACTION
-# with open("extracted_signature.json", "r", encoding="utf-8") as f:
-#     loaded_sig = json.load(f)
+# # LOAD JSON SIGNATURE IF USING PATTERN BASED EXTRACTION
+with open("extracted_signature.json", "r", encoding="utf-8") as f:
+    loaded_sig = json.load(f)
 
-# sig = signature.Signature(
-#     concept_names=loaded_sig["concept_names"], role_names=loaded_sig["role_names"]
-# )
+sig = signature.Signature(
+    concept_names=loaded_sig["concept_names"], role_names=loaded_sig["role_names"]
+)
 
-
-sig = signature.Signature()
+# sig = signature.Signature()
 
 # SETTINGS - CHANGE HERE
-samples = 100
+samples = 1000
 iterations = 1
-size = 4
-fragment_file = "fragment-sample-22-07.owl"
+size = 3
+fragment_file = "fragment-auto-07-08.owl"
 language = "alc_pos_no_all"
-inverse = False
 exclude_atomic = []
 # SETTINGS
 
@@ -56,7 +54,7 @@ for concept_name in sig.domain_signature:
         result[concept_name]["new_train_acc"],
         result[concept_name]["old_all_acc"],
         result[concept_name]["new_all_acc"],
-    ) = approximation(concept_name, sig, iterations, size, fragment_file, samples, language=language, inverse=inverse)
+    ) = approximation(concept_name, sig, iterations, size, fragment_file, samples, language=language)
 
 print(
     f"The result of the Approximation for the training data after {iterations} Iterations are the following:"

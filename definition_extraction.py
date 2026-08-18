@@ -88,7 +88,8 @@ def definition_extraction(
     md: str = "full_approx",
     timeout=180,
     workers=1,
-    exclude_atomic = []
+    exclude_atomic = [],
+    exclude_top_classes: bool = False
 ):
     print(f"- - - - Starting Definition Extraction for {target_concept_name} - - - -")
 
@@ -120,7 +121,8 @@ def definition_extraction(
 
     # If we only remove the target concept, we get just a trivial solution of one of it's superclasses, therefore we have to remove those superclasses that are equivalent to our target_extension
     target_superclasses = collect_superclasses(target_concept_name)
-    target_superclasses -= set(sig.top_level_classes) | {sig.THING}
+    if not exclude_top_classes:
+        target_superclasses -= set(sig.top_level_classes) | {sig.THING}
 
     for concept_name in target_superclasses:
         concept_name = concept_name.strip("<>")

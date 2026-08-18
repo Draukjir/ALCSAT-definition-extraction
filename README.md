@@ -51,20 +51,55 @@ Before running an extraction, make sure that the configuration parameters in the
 For pattern-based fragments, the signature is generated automatically and stored in `extracted_signature.json`. In this case, the corresponding signature can be instantiated using this file. An example of this is provided in the respective scripts.
 
 ### Available Scripts:
+relevant for the bachelor thesis:
 * `testSingleExtraction`: performs one definition extraction for a single concept
 * `testDefinitionExtraction`: performs definition extraction for all target concepts
 * `testMultipleRuns`: performs multiple extractions for one concept to evaluate variation between runs
+* `testApproximation`: performs approximation-based definition extraction
+* `individual_definition_extraction`: performs definition extraction for individual concepts
+
+others:
 * `testNecCritExtraction`: performs necessary-condition extraction
 * `testSuffCritExtraction`: performs sufficient-criterion extraction
-* `testApproximation`: performs approximation-based definition extraction
 * `testRecursiveApprox`: performs recursive approximation
-* `individual_definition_extraction`: performs definition extraction for individual concepts
 
 you can start each script equally with e.g.
 ``` uv run testSingleExtraction```
  
 The same procedure applies to the other scripts.
 
+### Parameters and Options for these scripts:
+Definition Extraction
+- `fragment_file`: specifies the input fragment file e.g. "fragment.owl"
+- `mode`: specifies the extraction mode
+    - `"full_approx"`: uses approximative alc-sat
+    - `mode.exact`: uses exact alc-sat
+- `size`: specifies the maximum size of the extracted definition
+- `inverse`:
+    - `True`:  enables inverse roles (ALCI)
+    - `False`: disables inverse roles (ALC)
+- `language`: specifies the syntactic fragments of ALC/ALCI used for the extraction
+    - `"alc"`: basic ALC/ALCI with all Operators
+    - `"alc_pos"`: removes negation
+    - `"alc_no_all"`: removes the universal quantifier
+    - `"alc_pos_no_all"`: removes negation and universal quantifier
+- `timeout`: specifies the maximum time allowed for each definition extraction
+- `exclude_atomic`: specifies whether `TOP` and `BOT` are excluded from the extracted definition
+    - `[OP.TOP, OP.BOT]`: excludes both `TOP` and `BOT`
+    - `[]`: does not exclude any atomic concepts
+- `exclude_top_classes`:
+    - `True`: top-level classes such as Person are excluded from the extraction
+    - `False`: top-level classes such as Person are included in the extraction, which can result in trivial solutions
+
+Example Selection
+- `samples`: specifies the number of randomly selected positive and negative examples, with |P| = |N| (Does only work with example_mode `"definition"`)
+- `example_mode`: specifies how the examples are selected
+    - `"definition"`: (default) |P| = |N| 
+    - `"nec_crit"`: uses the necessary criterion
+    - `"suf_crit"`: uses the sufficient criterion
+- `only_focus`
+    - `False`: (default) negative examples are sampled from the entire domain
+    - `True`: negative examples are sampled only from concepts related to the domains signature
 
 # Description for ALCSAT:
 This repository contains our implementation of bounded fitting for the description logic ALC (ALSAT). As this is a Fork of <https://github.com/spell-system/SPELL>, it also contains SPELL, a tool to learn concepts in the description logic EL.
