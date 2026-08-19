@@ -1,7 +1,7 @@
 # Definition Extraction
 This repository contains an implementation of Definition Extraction for the description logic ALCI. 
 
-This is a fork of the ALC-SAT tool <https://github.com/SAT-based-Concept-Learning/ALCSAT.git>.
+This is a fork of the [ALC-SAT](https://github.com/SAT-based-Concept-Learning/ALCSAT.git) tool.
  
 It uses it to find definitions for concept names of the Knowledge Base YAGO. The ALC-SAT tool does find fitting concepts for a given set of positive and negative examples.
 
@@ -41,6 +41,10 @@ result.nt
 The extracted fragment can be converted into a single OWL file using [ROBOT](https://github.com/ontodev/robot).
 ```
 robot merge --input custom-schema.owl --input result.nt --output fragment.owl
+```
+or for the pattern based fragment:
+```
+robot merge --input custom-schema.owl --input result_auto.nt --output fragment_auto.owl
 ```
 
 ## Definition Extraction
