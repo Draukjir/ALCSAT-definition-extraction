@@ -18,24 +18,24 @@ def clean_name(uri):
 
 import json
 
-# with open("extracted_signature.json", "r", encoding="utf-8") as f:
-#     loaded_sig = json.load(f)
+with open("extracted_signature.json", "r", encoding="utf-8") as f:
+    loaded_sig = json.load(f)
 
-# sig = signature.Signature(
-#     concept_names=loaded_sig["concept_names"], role_names=loaded_sig["role_names"]
-# )
+sig = signature.Signature(
+    concept_names=loaded_sig["concept_names"], role_names=loaded_sig["role_names"]
+)
 
-sig = signature.Signature()
+# sig = signature.Signature()
 
 # SETTINGS - CHANGE HERE
-target_concept = "<http://schema.org/Movie>"
+target_concept = "<http://yago-knowledge.org/resource/Science_Award_Q11448906>"
 samples = 250
 example_mode = "definition"
-fragment_file = "fragment-sample-22-07.owl"
+fragment_file = "fragment-auto-07-08.owl"
 only_focus = False
 language = "alc_pos_no_all"
 inverse = True
-size = 5
+size = 4
 mode = "full_approx"
 exclude_atomic = []
 timeout = 180
