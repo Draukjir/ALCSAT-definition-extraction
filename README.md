@@ -55,14 +55,11 @@ Before running an extraction, make sure that the configuration parameters in the
 For pattern-based fragments, the signature is generated automatically and stored in `extracted_signature.json`. In this case, the corresponding signature can be instantiated using this file. An example of this is provided in the respective scripts.
 
 ### Available Scripts:
-relevant for the bachelor thesis:
 * `testSingleExtraction`: performs one definition extraction for a single concept
 * `testDefinitionExtraction`: performs definition extraction for all target concepts
 * `testMultipleRuns`: performs multiple extractions for one concept to evaluate variation between runs
 * `testApproximation`: performs approximation-based definition extraction
 * `individual_definition_extraction`: performs definition extraction for individual concepts
-
-others:
 * `testNecCritExtraction`: performs necessary-condition extraction
 * `testSuffCritExtraction`: performs sufficient-criterion extraction
 * `testRecursiveApprox`: performs recursive approximation
